@@ -17,6 +17,8 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
+import uk.co.myzen.a_z.json.V1AgileFlex;
+import uk.co.myzen.a_z.json.V1ElectricityConsumption;
 import uk.co.myzen.a_z.json.V1GasConsumption;
 
 /**
@@ -103,9 +105,19 @@ public class Octopussy {
 
 			System.out.println(json);
 
-			System.out.println(instance.getV1ElectricityConsumption());
+			V1ElectricityConsumption v1ElectricityConsumption = instance.getV1ElectricityConsumption();
 
-			System.out.println(instance.getV1AgileRates());
+			json = instance.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(v1ElectricityConsumption);
+
+			System.out.println(json);
+
+			V1AgileFlex v1AgileFlex = instance.getV1AgileFlex();
+
+//			ArrayList<Agile> agileResults = v1AgileFlex.getAgileResults();
+
+			json = instance.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(v1AgileFlex);
+
+			System.out.println(json);
 
 		} catch (IOException e) {
 
@@ -129,14 +141,16 @@ public class Octopussy {
 
 	}
 
-	private String getV1ElectricityConsumption() throws MalformedURLException, IOException {
+	private V1ElectricityConsumption getV1ElectricityConsumption() throws MalformedURLException, IOException {
 
 		String mprn = properties.getProperty("electricity.mprn").trim();
 
 		String sn = properties.getProperty("electricity.sn").trim();
 
-		String result = instance.getRequest(new URL(
+		String json = instance.getRequest(new URL(
 				"https://api.octopus.energy/v1/electricity-meter-points/" + mprn + "/meters/" + sn + "/consumption/"));
+
+		V1ElectricityConsumption result = mapper.readValue(json, V1ElectricityConsumption.class);
 
 		return result;
 	}
@@ -155,11 +169,13 @@ public class Octopussy {
 		return result;
 	}
 
-	private String getV1AgileRates() throws MalformedURLException, IOException {
+	private V1AgileFlex getV1AgileFlex() throws MalformedURLException, IOException {
 
 		String spec = properties.getProperty("agile").trim();
 
-		String result = instance.getRequest(new URL(spec), false);
+		String json = instance.getRequest(new URL(spec), false);
+
+		V1AgileFlex result = mapper.readValue(json, V1AgileFlex.class);
 
 		return result;
 	}
