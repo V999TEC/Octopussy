@@ -96,16 +96,16 @@ public class Octopussy {
 			V1GasConsumption v1GasConsumption = instance.getV1GasConsumption();
 
 			// print
-			System.out.println(instance.mapper.writeValueAsString(v1GasConsumption));
+			// System.out.println(instance.mapper.writeValueAsString(v1GasConsumption));
 
 			// pretty print
 			String json = instance.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(v1GasConsumption);
 
 			System.out.println(json);
 
-			System.out.println(instance.getV1AgileRates());
-
 			System.out.println(instance.getV1ElectricityConsumption());
+
+			System.out.println(instance.getV1AgileRates());
 
 		} catch (IOException e) {
 
