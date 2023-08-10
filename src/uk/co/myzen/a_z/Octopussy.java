@@ -10,8 +10,6 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -35,15 +33,6 @@ public class Octopussy {
 
 	private final static String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36";
 	private final static String contentType = "application/json";
-
-	private final static DateTimeFormatter formatterIn = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ssZZZZZ");
-	private final static DateTimeFormatter formatterOut = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
-
-	private final static DateTimeFormatter ISO_FORMATTER = DateTimeFormatter.ISO_DATE_TIME;
-
-	private final static DateTimeFormatter ISO_OFFSET_FORMATTER = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
-
-	private final static ZoneId zoneIdDefault = ZoneId.systemDefault();
 
 	private final ObjectMapper mapper;
 
@@ -129,22 +118,6 @@ public class Octopussy {
 
 				String intervalStart = v1PeriodConsumption.getIntervalStart();
 
-//				String interalEnd = v1PeriodConsumption.getIntervalEnd();
-////
-////				LocalDateTime ldtStart = LocalDateTime.parse(interalStart, formatterIn);
-////				LocalDateTime ldtEnd = LocalDateTime.parse(interalEnd, formatterIn);
-//
-//				// ISO_OFFSET_FORMATTER
-//
-//				LocalDateTime ldtStart = LocalDateTime.parse(interalStart, ISO_OFFSET_FORMATTER);
-//				LocalDateTime ldtEnd = LocalDateTime.parse(interalEnd, ISO_OFFSET_FORMATTER);
-//
-//				ZoneOffset zoneOffsetStart = zoneIdDefault.getRules().getOffset(ldtStart);
-//				ZoneOffset zoneOffsetEnd = zoneIdDefault.getRules().getOffset(ldtEnd);
-//
-//				long startEpochMilli = ldtStart.toInstant(zoneOffsetStart).toEpochMilli();
-//				long endEpochMilli = ldtEnd.toInstant(zoneOffsetEnd).toEpochMilli();
-
 				String key = intervalStart.substring(0, 10);
 
 				DayValues dayValues = null;
@@ -155,28 +128,11 @@ public class Octopussy {
 
 					dayValues.setDailyConsumption(consumption + dayValues.getDailyConsumption());
 
-//					long valueStart = dayValues.getStartEpochMilli();
-//
-//					if (startEpochMilli < valueStart) {
-//
-//						dayValues.setStartEpochMilli(startEpochMilli);
-//					}
-//
-//					long valueEnd = dayValues.getEndEpochMilli();
-//
-//					if (endEpochMilli > valueEnd) {
-//
-//						dayValues.setEndEpochMilli(endEpochMilli);
-//					}
-
 				} else {
 
 					dayValues = new DayValues();
 
 					dayValues.setDailyConsumption(consumption);
-//
-//					dayValues.setStartEpochMilli(startEpochMilli);
-//					dayValues.setEndEpochMilli(endEpochMilli);
 				}
 
 				elecMapDaily.put(key, dayValues);
@@ -188,17 +144,7 @@ public class Octopussy {
 
 				float consumption = dayValues.getDailyConsumption();
 
-//				LocalDateTime ldtS = Instant.ofEpochMilli(dayValues.getStartEpochMilli()).atZone(zoneIdDefault)
-//						.toLocalDateTime();
-//
-//				LocalDateTime ldtE = Instant.ofEpochMilli(dayValues.getEndEpochMilli()).atZone(zoneIdDefault)
-//						.toLocalDateTime();
-//
-//				String sTimestamp = ldtS.format(DateTimeFormatter.ISO_DATE_TIME);
-//				String eTimestamp = ldtE.format(DateTimeFormatter.ISO_DATE_TIME);
-
 				System.out.println(key + "\t" + consumption);
-
 			}
 
 			json = instance.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(v1ElectricityConsumption);
