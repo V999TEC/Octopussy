@@ -8,6 +8,8 @@ public class DayValues {
 
 	private long endEpochMilli;
 
+	private float dailyPrice;
+
 	public float getDailyConsumption() {
 		return dailyConsumption;
 	}
@@ -30,5 +32,13 @@ public class DayValues {
 
 	public void setEndEpochMilli(long endEpochMilli) {
 		this.endEpochMilli = endEpochMilli;
+	}
+
+	public float getDailyPrice() {
+		return dailyPrice;
+	}
+
+	public void setDailyPrice(float dailyPrice) {
+		this.dailyPrice = dailyPrice;
 	}
 }

@@ -10,6 +10,9 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -19,6 +22,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
+import uk.co.myzen.a_z.json.Agile;
 import uk.co.myzen.a_z.json.V1AgileFlex;
 import uk.co.myzen.a_z.json.V1ElectricityConsumption;
 import uk.co.myzen.a_z.json.V1GasConsumption;
@@ -96,6 +100,28 @@ public class Octopussy {
 
 			instance = getInstance();
 
+			V1AgileFlex v1AgileFlex = instance.getV1AgileFlex();
+
+			ArrayList<Agile> agileResults = v1AgileFlex.getAgileResults();
+
+			Map<LocalDateTime, Float> vatIncPriceMap = new HashMap<LocalDateTime, Float>();
+
+			int tally = 0;
+
+			for (Agile agile : agileResults) {
+
+				String validFrom = agile.getValidFrom().substring(0, 19);
+
+				LocalDateTime ldt = LocalDateTime.parse(validFrom, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+
+				System.out.println(tally + "\t" + ldt.toString());
+
+				tally++;
+				float valueIncVat = agile.getValueIncVat();
+
+				vatIncPriceMap.put(ldt, Float.valueOf(valueIncVat));
+			}
+
 			// expect {"count":0,"next":null,"previous":null,"results":[]}
 
 			V1GasConsumption v1GasConsumption = instance.getV1GasConsumption();
@@ -116,7 +142,13 @@ public class Octopussy {
 
 				Float consumption = v1PeriodConsumption.getConsumption();
 
-				String intervalStart = v1PeriodConsumption.getIntervalStart();
+				String intervalStart = v1PeriodConsumption.getIntervalStart().substring(0, 16);
+
+				LocalDateTime ldt = LocalDateTime.parse(intervalStart);
+
+				System.out.println("\t\t" + intervalStart + "\t" + ldt.toString());
+
+				Float halfHourPrice = consumption * vatIncPriceMap.get(ldt);
 
 				String key = intervalStart.substring(0, 10);
 
@@ -128,11 +160,15 @@ public class Octopussy {
 
 					dayValues.setDailyConsumption(consumption + dayValues.getDailyConsumption());
 
+					dayValues.setDailyPrice(halfHourPrice.floatValue() + dayValues.getDailyPrice());
+
 				} else {
 
 					dayValues = new DayValues();
 
 					dayValues.setDailyConsumption(consumption);
+
+					dayValues.setDailyPrice(Float.valueOf(halfHourPrice.floatValue()));
 				}
 
 				elecMapDaily.put(key, dayValues);
@@ -144,16 +180,14 @@ public class Octopussy {
 
 				float consumption = dayValues.getDailyConsumption();
 
-				System.out.println(key + "\t" + consumption);
+				float flexPrice = dayValues.getDailyPrice();
+
+				System.out.println(key + "\t" + consumption + "\t" + flexPrice);
 			}
 
 			json = instance.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(v1ElectricityConsumption);
 
 			System.out.println(json);
-
-			V1AgileFlex v1AgileFlex = instance.getV1AgileFlex();
-
-//			ArrayList<Agile> agileResults = v1AgileFlex.getAgileResults();
 
 			json = instance.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(v1AgileFlex);
 
