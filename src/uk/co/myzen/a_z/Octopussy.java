@@ -11,6 +11,7 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -100,7 +101,7 @@ public class Octopussy {
 
 			instance = getInstance();
 
-			V1AgileFlex v1AgileFlex = instance.getV1AgileFlex();
+			V1AgileFlex v1AgileFlex = instance.getV1AgileFlex("2023-08-09T00:00Z", "2023-08-11T00:00Z");
 
 			ArrayList<Agile> agileResults = v1AgileFlex.getAgileResults();
 
@@ -108,33 +109,60 @@ public class Octopussy {
 
 			int tally = 0;
 
+			String earliestAvailable = null;
+			String latestAvailable = null;
+
+			long epochEarliest = 0;
+			long epochLatest = 0;
+
 			for (Agile agile : agileResults) {
 
 				String validFrom = agile.getValidFrom().substring(0, 19);
 
 				LocalDateTime ldt = LocalDateTime.parse(validFrom, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
 
-				System.out.println(tally + "\t" + ldt.toString());
+				long epochSecond = ldt.toEpochSecond(ZoneOffset.UTC);
+
+				// LocalDateTime localDateTime = LocalDateTime.ofEpochSecond(timeInSeconds, 0,
+				// ZoneOffset.UTC);
+
+				if (null == earliestAvailable || epochSecond < epochEarliest) {
+
+					earliestAvailable = validFrom;
+					epochEarliest = epochSecond;
+				}
+
+				if (null == latestAvailable || epochSecond > epochLatest) {
+
+					latestAvailable = validFrom;
+					epochLatest = epochSecond;
+				}
+
+//				System.out.println(tally + "\t" + ldt.toString());
 
 				tally++;
 				float valueIncVat = agile.getValueIncVat();
 
 				vatIncPriceMap.put(ldt, Float.valueOf(valueIncVat));
 			}
+			System.out.println("Periods: " + tally);
+			System.out.println("earliest:" + earliestAvailable);
+			System.out.println("latest:  " + latestAvailable);
 
-			// expect {"count":0,"next":null,"previous":null,"results":[]}
+			String json;
 
-			V1GasConsumption v1GasConsumption = instance.getV1GasConsumption();
+//			V1GasConsumption v1GasConsumption = instance.getV1GasConsumption("2023-08-09T00:00Z", "2023-08-10T23:30Z");
+//
+//			// print
+//			// System.out.println(instance.mapper.writeValueAsString(v1GasConsumption));
+//
+//			// pretty print
+//			String json = instance.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(v1GasConsumption);
+//
+//			System.out.println(json);
 
-			// print
-			// System.out.println(instance.mapper.writeValueAsString(v1GasConsumption));
-
-			// pretty print
-			String json = instance.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(v1GasConsumption);
-
-			System.out.println(json);
-
-			V1ElectricityConsumption v1ElectricityConsumption = instance.getV1ElectricityConsumption();
+			V1ElectricityConsumption v1ElectricityConsumption = instance
+					.getV1ElectricityConsumption("2023-08-08T23:00Z", "2023-08-10T22:30Z");
 
 			Map<String, DayValues> elecMapDaily = new HashMap<String, DayValues>();
 
@@ -213,39 +241,69 @@ public class Octopussy {
 
 		properties.load(is);
 
+		// expand properties substituting $key$ values
+
+		for (String key : properties.stringPropertyNames()) {
+
+			String value = properties.getProperty(key);
+
+			while (value.contains("$")) {
+
+				int p = value.indexOf('$');
+
+				int q = value.indexOf('$', 1 + p);
+
+				String propertyKey = value.substring(1 + p, q);
+
+				value = value.substring(0, p) + properties.getProperty(propertyKey) + value.substring(1 + q);
+
+				System.err.println(key + "\t" + propertyKey + "\t" + value);
+
+				properties.setProperty(key, value);
+			}
+
+		}
+
 	}
 
-	private V1ElectricityConsumption getV1ElectricityConsumption() throws MalformedURLException, IOException {
+	private V1ElectricityConsumption getV1ElectricityConsumption(String periodFrom, String periodTo)
+			throws MalformedURLException, IOException {
 
 		String mprn = properties.getProperty("electricity.mprn").trim();
 
 		String sn = properties.getProperty("electricity.sn").trim();
 
 		String json = instance.getRequest(new URL(
-				"https://api.octopus.energy/v1/electricity-meter-points/" + mprn + "/meters/" + sn + "/consumption/"));
+				"https://api.octopus.energy/v1/electricity-meter-points/" + mprn + "/meters/" + sn + "/consumption/" +
+
+						"?page_size=100&period_from=" + periodFrom + "&period_to=" + periodTo + "&order_by=period"));
 
 		V1ElectricityConsumption result = mapper.readValue(json, V1ElectricityConsumption.class);
 
 		return result;
 	}
 
-	private V1GasConsumption getV1GasConsumption() throws MalformedURLException, IOException {
+	private V1GasConsumption getV1GasConsumption(String periodFrom, String periodTo)
+			throws MalformedURLException, IOException {
 
 		String mprn = properties.getProperty("gas.mprn").trim();
 
 		String sn = properties.getProperty("gas.sn").trim();
 
 		String json = instance.getRequest(
-				new URL("https://api.octopus.energy/v1/gas-meter-points/" + mprn + "/meters/" + sn + "/consumption/"));
+				new URL("https://api.octopus.energy/v1/gas-meter-points/" + mprn + "/meters/" + sn + "/consumption/" +
+
+						"?page_size=100&period_from=" + periodFrom + "&period_to=" + periodTo + "&order_by=period"));
 
 		V1GasConsumption result = mapper.readValue(json, V1GasConsumption.class);
 
 		return result;
 	}
 
-	private V1AgileFlex getV1AgileFlex() throws MalformedURLException, IOException {
+	private V1AgileFlex getV1AgileFlex(String periodFrom, String periodTo) throws MalformedURLException, IOException {
 
-		String spec = properties.getProperty("agile").trim();
+		String spec = properties.getProperty("tariff.url").trim() + "/standard-unit-rates/"
+				+ "?page_size=100&period_from=" + periodFrom + "&period_to=" + periodTo + "&order_by=period";
 
 		String json = instance.getRequest(new URL(spec), false);
 
