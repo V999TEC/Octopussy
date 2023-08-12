@@ -110,19 +110,18 @@ public class Octopussy {
 			LocalDateTime startOfTomorrow = now.withDayOfYear(dayOfYear + 1).withHour(00).withMinute(0).withSecond(0)
 					.withNano(0);
 
-			LocalDateTime startOfYesterday = now.withDayOfYear(dayOfYear - 1).withHour(0).withMinute(0).withSecond(0)
-					.withNano(0);
+			int howManyDaysHistory = 7;
 
-			LocalDateTime endOfYesterday = now.withDayOfYear(dayOfYear - 1).withHour(23).withMinute(30).withSecond(0)
-					.withNano(0);
+			LocalDateTime startOfPreviousDays = now.withDayOfYear(dayOfYear - howManyDaysHistory).withHour(0)
+					.withMinute(0).withSecond(0).withNano(0);
 
-			V1AgileFlex v1AgileFlex = instance.getV1AgileFlex(300, startOfYesterday.toString(), null);
+			V1AgileFlex v1AgileFlex = instance.getV1AgileFlex(300, startOfPreviousDays.toString(), null);
+
+			System.out.println("\nPeriods of unit price data obtained: " + v1AgileFlex.getCount());
 
 			ArrayList<Agile> agileResults = v1AgileFlex.getAgileResults();
 
 			Map<LocalDateTime, Float> vatIncPriceMap = new HashMap<LocalDateTime, Float>();
-
-			int tally = 0;
 
 			String earliestAvailable = null;
 			String latestAvailable = null;
@@ -131,6 +130,8 @@ public class Octopussy {
 			long epochLatest = 0;
 
 			long epochNow = now.toEpochSecond(ZoneOffset.UTC);
+
+			System.out.println("\nHalf-hour unit prices from now:");
 
 			for (Agile agile : agileResults) {
 
@@ -158,19 +159,18 @@ public class Octopussy {
 
 //				System.out.println(tally + "\t" + ldt.toString());
 
-				tally++;
 				float valueIncVat = agile.getValueIncVat();
 
 				vatIncPriceMap.put(ldt, Float.valueOf(valueIncVat));
 
 				if (epochSecond > epochNow) {
 
-					System.out.println(validFrom + "\t" + valueIncVat + "p");
+					System.out.println("\t" + validFrom + "\t" + valueIncVat + "p");
 				}
 			}
 //			System.out.println("Periods: " + tally + " available");
-			System.out.println("earliest:" + earliestAvailable);
-			System.out.println("latest:  " + latestAvailable);
+//			System.out.println("earliest:" + earliestAvailable);
+//			System.out.println("latest:  " + latestAvailable);
 
 			// display the known future half-hour prices between now and latest
 
@@ -186,9 +186,19 @@ public class Octopussy {
 //
 //			System.out.println(json);
 
-			V1ElectricityConsumption v1ElectricityConsumption = instance.getV1ElectricityConsumption(null, null,
-					startOfYesterday.toString(), startOfTomorrow.toString()); // 48 half hour time slots per
-																				// day
+			V1ElectricityConsumption v1ElectricityConsumption = instance.getV1ElectricityConsumption(null,
+					48 * howManyDaysHistory, startOfPreviousDays.toString(), startOfTomorrow.toString()); // 48
+																											// half
+																											// hour
+																											// time
+																											// slots
+																											// per
+																											// day
+
+			System.out.println("\nPeriods of previous consumption data obtained: " + v1ElectricityConsumption.getCount()
+					+ "\tExpected at least: " + 48 * howManyDaysHistory + " ( = " + howManyDaysHistory + " day(s) )");
+
+//			System.out.println("next:" + v1ElectricityConsumption.getNext());
 
 			Map<String, DayValues> elecMapDaily = new HashMap<String, DayValues>();
 
@@ -212,7 +222,7 @@ public class Octopussy {
 
 				Float halfHourCharge = consumption * halfHourPrice;
 
-				System.out.println("\t\t" + intervalStart + "\t" + halfHourPrice + "\t* " + consumption + "\t="
+				System.out.println("\t" + intervalStart + "\t" + halfHourPrice + "\t* " + consumption + "\t="
 						+ halfHourCharge + " p");
 
 				String key = intervalStart.substring(0, 10);
@@ -239,7 +249,15 @@ public class Octopussy {
 				elecMapDaily.put(key, dayValues);
 			}
 
+			System.out.println("\nDaily result(s):");
+
+			int countDays = 0;
+
+			float accumulateDifference = 0;
+
 			for (String key : elecMapDaily.keySet()) {
+
+				countDays++;
 
 				DayValues dayValues = elecMapDaily.get(key);
 
@@ -255,10 +273,17 @@ public class Octopussy {
 
 				float difference = (standardPrice + standardCharge) - (agilePrice + agileCharge);
 
-				System.out.println(key + "\t" + consumption + " kWhr Agile:\t" + agilePrice + "p\t+" + agileCharge
-						+ "p\t(Standard: " + standardPrice + "p\t+" + standardCharge + "p)\tdifference: " + difference
-						+ "p");
+				System.out.println("\t" + key + "\t" + consumption + " kWhr Agile:\t" + agilePrice + "p\t+"
+						+ agileCharge + "p\t(Standard: " + standardPrice + "p\t+" + standardCharge + "p)\tdifference: "
+						+ difference + "p");
+
+				accumulateDifference += difference;
 			}
+
+			System.out.println("\nOver the last " + countDays + " days, Octopus Agile tariff has saved £"
+					+ (accumulateDifference / 100)
+					+ " compared to the default flat rate tariff. Average saving per day: £"
+					+ (accumulateDifference / 100 / countDays));
 
 //			json = instance.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(v1ElectricityConsumption);
 //
@@ -316,7 +341,7 @@ public class Octopussy {
 	private V1ElectricityConsumption getV1ElectricityConsumption(Integer page, Integer pageSize, String periodFrom,
 			String periodTo) throws MalformedURLException, IOException {
 
-		System.out.println("from " + periodFrom + " to " + periodTo);
+//		System.out.println("from " + periodFrom + " to " + periodTo);
 
 		String mprn = properties.getProperty("electricity.mprn").trim();
 
@@ -357,7 +382,7 @@ public class Octopussy {
 
 		String spec = properties.getProperty("tariff.url").trim() + "/standard-unit-rates/" + "?page_size=" + pageSize
 				+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
-				+ (null == periodTo ? "" : "&period_to=" + periodTo) + "&order_by=period";
+				+ (null == periodTo ? "" : "&period_to=" + periodTo);
 
 		String json = instance.getRequest(new URL(spec), false);
 
