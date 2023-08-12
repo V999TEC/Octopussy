@@ -131,7 +131,7 @@ public class Octopussy {
 
 			long epochNow = now.toEpochSecond(ZoneOffset.UTC);
 
-			System.out.println("\nHalf-hour unit prices from now:");
+			System.out.println("\nHalf-hour unit prices from now until tomorrow evening:");
 
 			for (Agile agile : agileResults) {
 
@@ -154,7 +154,6 @@ public class Octopussy {
 
 					latestAvailable = validFrom;
 					epochLatest = epochSecond;
-
 				}
 
 //				System.out.println(tally + "\t" + ldt.toString());
@@ -165,7 +164,15 @@ public class Octopussy {
 
 				if (epochSecond > epochNow) {
 
-					System.out.println("\t" + validFrom + "\t" + valueIncVat + "p");
+					StringBuffer sb = new StringBuffer();
+
+					for (int n = 0; n < valueIncVat; n++) {
+
+						sb.append('*');
+					}
+
+					System.out.println(
+							"\t" + validFrom + "\t" + String.format("%7.4f", valueIncVat) + "p\t" + sb.toString());
 				}
 			}
 //			System.out.println("Periods: " + tally + " available");
@@ -223,7 +230,7 @@ public class Octopussy {
 				Float halfHourCharge = consumption * halfHourPrice;
 
 				System.out.println("\t" + intervalStart + "\t" + halfHourPrice + "\t* " + consumption + "\t="
-						+ halfHourCharge + " p");
+						+ String.format("%10.6f", halfHourCharge) + " p");
 
 				String key = intervalStart.substring(0, 10);
 
@@ -254,6 +261,7 @@ public class Octopussy {
 			int countDays = 0;
 
 			float accumulateDifference = 0;
+			float accumulatePower = 0;
 
 			for (String key : elecMapDaily.keySet()) {
 
@@ -273,17 +281,23 @@ public class Octopussy {
 
 				float difference = (standardPrice + standardCharge) - (agilePrice + agileCharge);
 
-				System.out.println("\t" + key + "\t" + consumption + " kWhr Agile:\t" + agilePrice + "p\t+"
-						+ agileCharge + "p\t(Standard: " + standardPrice + "p\t+" + standardCharge + "p)\tdifference: "
-						+ difference + "p");
+				System.out.println("\t" + key + "\t" + String.format("%8.4f", consumption) + " kWhr\tAgile: "
+						+ String.format("%8.4f", agilePrice) + "p +" + agileCharge + "p\t(Standard: "
+						+ String.format("%8.4f", standardPrice) + "p +" + standardCharge + "p)\tdifference: "
+						+ String.format("%8.4f", difference) + "p");
 
 				accumulateDifference += difference;
+
+				accumulatePower += consumption;
 			}
 
-			System.out.println("\nOver the last " + countDays + " days, Octopus Agile tariff has saved £"
-					+ (accumulateDifference / 100)
-					+ " compared to the default flat rate tariff. Average saving per day: £"
-					+ (accumulateDifference / 100 / countDays));
+			String pounds2DP = String.format("%.2f", accumulateDifference / 100);
+
+			String averagePounds2DP = String.format("%.2f", accumulateDifference / 100 / countDays);
+
+			System.out.println("\nOver the last " + countDays + " days, for " + accumulatePower
+					+ " kWhr, Octopus Agile tariff has saved £" + pounds2DP
+					+ " compared to the standard flat rate tariff. Average saving per day: £" + averagePounds2DP);
 
 //			json = instance.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(v1ElectricityConsumption);
 //
