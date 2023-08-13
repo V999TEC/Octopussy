@@ -29,7 +29,9 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import uk.co.myzen.a_z.json.Agile;
 import uk.co.myzen.a_z.json.V1AgileFlex;
 import uk.co.myzen.a_z.json.V1ElectricityConsumption;
+import uk.co.myzen.a_z.json.V1GSP;
 import uk.co.myzen.a_z.json.V1GasConsumption;
+import uk.co.myzen.a_z.json.V1GridSupplyPoints;
 import uk.co.myzen.a_z.json.V1PeriodConsumption;
 
 /**
@@ -42,9 +44,9 @@ public class Octopussy {
 	private final static String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36";
 	private final static String contentType = "application/json";
 
-	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("HH:mm");
+	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd  HH:mm");
 
-	private final ObjectMapper mapper;
+	private static ObjectMapper mapper;
 
 	private static boolean hide = false; // overriden by hide=value in properties
 
@@ -62,13 +64,15 @@ public class Octopussy {
 		return instance;
 	}
 
-	private Octopussy() {
-
+	static {
 		mapper = new ObjectMapper();
 
 		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 //		mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
 		mapper.enable(SerializationFeature.INDENT_OUTPUT);
+	}
+
+	private Octopussy() {
 	}
 
 	/**
@@ -104,9 +108,9 @@ public class Octopussy {
 				}
 			}
 
-			properties.setProperty("basic", "Basic " + Base64.getEncoder().encodeToString(keyValue.getBytes()));
-
 			instance = getInstance();
+
+			properties.setProperty("basic", "Basic " + Base64.getEncoder().encodeToString(keyValue.getBytes()));
 
 			// calculate date for for 00:00 'yesterday'
 
@@ -360,6 +364,24 @@ public class Octopussy {
 
 		properties.load(is);
 
+		// if postcode=value specified, such as postcode=SN5
+		// the region=value will be overriden by the associated code (such as H)
+
+		String postcode = properties.getProperty("postcode", null);
+
+		if (null != postcode) {
+
+			V1GridSupplyPoints points = getV1GridSupplyPoints(postcode);
+
+			ArrayList<V1GSP> pointList = points.getPointResults();
+
+			V1GSP point = pointList.get(0);
+
+			String groupId = point.getGroupId();
+
+			properties.setProperty("region", groupId.substring(1));
+		}
+
 		// expand properties substituting $key$ values
 
 		boolean hide = Boolean.valueOf(properties.getProperty("hide", "2").trim());
@@ -445,12 +467,26 @@ public class Octopussy {
 		return result;
 	}
 
+	// /v1/industry/grid-supply-points/
+
+	private static V1GridSupplyPoints getV1GridSupplyPoints(String postcode) throws MalformedURLException, IOException {
+
+		String spec = properties.getProperty("base.url").trim() + "/v1/industry/grid-supply-points/" + "?postcode="
+				+ postcode;
+
+		String json = getRequest(new URL(spec), false);
+
+		V1GridSupplyPoints result = mapper.readValue(json, V1GridSupplyPoints.class);
+
+		return result;
+	}
+
 	private String getRequest(URL url) throws IOException {
 
 		return getRequest(url, true);
 	}
 
-	private String getRequest(URL url, boolean authorisationRequired) throws IOException {
+	private static String getRequest(URL url, boolean authorisationRequired) throws IOException {
 
 		int status;
 

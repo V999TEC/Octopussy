@@ -4,7 +4,7 @@ import java.util.ArrayList;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class V1AgileFlex extends V1Consumption {
+public class V1AgileFlex extends V1Results {
 
 	@JsonProperty("results")
 	protected ArrayList<Agile> agileResults;

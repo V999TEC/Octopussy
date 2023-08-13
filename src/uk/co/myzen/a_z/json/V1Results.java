@@ -4,7 +4,7 @@ import java.util.ArrayList;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class V1Consumption {
+public class V1Results {
 
 	@JsonProperty("count")
 	private Integer count;
