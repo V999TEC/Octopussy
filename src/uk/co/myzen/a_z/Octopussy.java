@@ -42,6 +42,8 @@ public class Octopussy {
 	private final static String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36";
 	private final static String contentType = "application/json";
 
+	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("HH:mm");
+
 	private final ObjectMapper mapper;
 
 	private static boolean hide = false; // overriden by hide=value in properties
@@ -120,12 +122,6 @@ public class Octopussy {
 			LocalDateTime startOfToday = now.withDayOfYear(dayOfYear).withHour(0).withMinute(0).withSecond(0)
 					.withNano(0);
 
-//			LocalDateTime startOfTomorrow = now.withDayOfYear(dayOfYear + 1).withHour(00).withMinute(0).withSecond(0)
-//					.withNano(0);
-
-//			LocalDateTime startOfDayAfter = now.withDayOfYear(dayOfYear + 2).withHour(00).withMinute(0).withSecond(0)
-//					.withNano(0);
-
 			V1AgileFlex v1AgileFlex = instance.getV1AgileFlex(300, startOfPreviousDays.toString(), null);
 
 			System.out.println("\nPeriods of unit price data obtained: " + v1AgileFlex.getCount());
@@ -147,7 +143,9 @@ public class Octopussy {
 			String today = LocalDateTime.ofInstant(Instant.ofEpochSecond(epochNow), ourZoneId).toString().substring(0,
 					10);
 
-			System.out.println("\nFuture half-hour unit prices:");
+			System.out.println("\nCurrent & future half-hour unit prices:");
+
+			long halfHourAgo = epochNow - 1800;
 
 			for (Agile agile : agileResults) {
 
@@ -180,17 +178,24 @@ public class Octopussy {
 
 				vatIncPriceMap.put(actual, Float.valueOf(valueIncVat));
 
-				if (epochSecond >= epochNow) {
+				if (epochSecond >= halfHourAgo) {
 
 					StringBuffer sb = new StringBuffer();
 
-					for (int n = 0; n < valueIncVat; n++) {
+					if (valueIncVat < 0) {
 
-						sb.append('*');
+						sb.append(" <--- PLUNGE BELOW ZERO !!! - use as much energy as you can!");
+
+					} else {
+
+						for (int n = 0; n < 2 * valueIncVat; n++) {
+
+							sb.append('*');
+						}
 					}
 
-					System.out.println("\t" + actual + "\t(" + String.format("%7.4f", valueExcVat) + "p) "
-							+ String.format("%7.4f", valueIncVat) + "p\t" + sb.toString());
+					System.out.println("\t" + actual.format(simpleTime) + "\t(" + String.format("%7.4f", valueExcVat)
+							+ "p) " + String.format("%7.4f", valueIncVat) + "p\t" + sb.toString());
 				}
 			}
 //			System.out.println("Periods: " + tally + " available");
