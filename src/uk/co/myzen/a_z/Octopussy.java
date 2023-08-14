@@ -48,7 +48,7 @@ public class Octopussy {
 
 	private static ObjectMapper mapper;
 
-	private static boolean hide = false; // overriden by hide=value in properties
+	private static boolean extra = false; // overriden by extra=true|false in properties
 
 	private static Properties properties;
 
@@ -87,7 +87,7 @@ public class Octopussy {
 
 			try {
 
-				hide = loadProperties("octopussy.properties");
+				extra = loadProperties("octopussy.properties");
 
 				keyValue = properties.getProperty("apiKey", "").trim();
 
@@ -128,7 +128,10 @@ public class Octopussy {
 
 			V1AgileFlex v1AgileFlex = instance.getV1AgileFlex(300, startOfPreviousDays.toString(), null);
 
-			System.out.println("\nPeriods of unit price data obtained: " + v1AgileFlex.getCount());
+			if (extra) {
+
+				System.out.println("\nPeriods of unit price data obtained: " + v1AgileFlex.getCount());
+			}
 
 			ArrayList<Agile> agileResults = v1AgileFlex.getAgileResults();
 
@@ -148,6 +151,9 @@ public class Octopussy {
 					10);
 
 			System.out.println("\nCurrent & future half-hour unit prices:");
+
+			int plunge = Integer.valueOf(properties.getProperty("plunge", "0").trim()).intValue();
+			int target = Integer.valueOf(properties.getProperty("target", "30").trim()).intValue();
 
 			long halfHourAgo = epochNow - 1800;
 
@@ -186,20 +192,21 @@ public class Octopussy {
 
 					StringBuffer sb = new StringBuffer();
 
-					if (valueIncVat < 0) {
+					if (valueIncVat < plunge) {
 
-						sb.append(" <--- PLUNGE BELOW ZERO !!! - use as much energy as you can!");
+						sb.append(" <--- PLUNGE BELOW " + plunge + "p !!! - use as much energy as you want!");
 
 					} else {
 
-						for (int n = 0; n < 2 * valueIncVat; n++) {
+						for (int n = 0; n < valueIncVat; n++) {
 
-							sb.append('*');
+							sb.append(target == n ? 'X' : '*');
 						}
 					}
 
-					System.out.println("\t" + actual.format(simpleTime) + "\t(" + String.format("%7.4f", valueExcVat)
-							+ "p) " + String.format("%7.4f", valueIncVat) + "p\t" + sb.toString());
+					System.out.println("\t" + actual.format(simpleTime)
+							+ (extra ? "\t(" + String.format("%7.4f", valueExcVat) + "p) " : " ")
+							+ String.format("%7.4f", valueIncVat) + "p\t" + sb.toString());
 				}
 			}
 //			System.out.println("Periods: " + tally + " available");
@@ -229,8 +236,14 @@ public class Octopussy {
 																										// per
 																										// day
 
-			System.out.println("\nPeriods of previous consumption data obtained: " + v1ElectricityConsumption.getCount()
-					+ "\tExpected at least: " + 48 * howManyDaysHistory + " ( = " + howManyDaysHistory + " day(s) )");
+			if (extra) {
+
+				System.out.println(
+						"\nPeriods of previous consumption data obtained: " + v1ElectricityConsumption.getCount()
+
+								+ "\tExpected at least: " + 48 * howManyDaysHistory + " ( = " + howManyDaysHistory
+								+ " day(s) )");
+			}
 
 //			System.out.println("next:" + v1ElectricityConsumption.getNext());
 
@@ -256,7 +269,7 @@ public class Octopussy {
 
 				Float halfHourCharge = consumption * halfHourPrice;
 
-				if (!hide) {
+				if (extra) {
 
 					System.out.println("\t" + intervalStart + "\t" + halfHourPrice + "\t* " + consumption + "\t="
 							+ String.format("%10.6f", halfHourCharge) + " p");
@@ -292,6 +305,7 @@ public class Octopussy {
 
 			float accumulateDifference = 0;
 			float accumulatePower = 0;
+			float accumulateCost = 0;
 
 			for (String key : elecMapDaily.keySet()) {
 
@@ -319,22 +333,30 @@ public class Octopussy {
 				float difference = (standardPrice + standardCharge) - (agilePrice + agileCharge);
 
 				System.out.println("\t" + key + "\t" + String.format("%8.4f", consumption) + " kWhr\tAgile: "
-						+ String.format("%8.4f", agilePrice) + "p +" + agileCharge + "p\t(Standard: "
-						+ String.format("%8.4f", standardPrice) + "p +" + standardCharge + "p)\tdifference: "
+						+ String.format("%8.4f", agilePrice) + "p +" + agileCharge + "p (Standard: "
+						+ String.format("%8.4f", standardPrice) + "p +" + standardCharge + "p)  difference: "
 						+ String.format("%8.4f", difference) + "p");
 
 				accumulateDifference += difference;
 
 				accumulatePower += consumption;
+
+				accumulateCost += agilePrice;
 			}
 
 			String pounds2DP = String.format("%.2f", accumulateDifference / 100);
 
 			String averagePounds2DP = String.format("%.2f", accumulateDifference / 100 / countDays);
 
+			String averageCostPerUnit = String.format("%.2f", accumulateCost / accumulatePower);
+
+			String averagePower = String.format("%.2f", accumulatePower / countDays);
+
 			System.out.println("\nOver the last " + countDays + " days, using " + accumulatePower
 					+ " kWhr, Octopus Agile tariff has saved £" + pounds2DP
-					+ " compared to the standard flat rate tariff. Average saving per day: £" + averagePounds2DP);
+					+ " compared to the standard flat rate tariff.");
+			System.out.println("Average saving per day: £" + averagePounds2DP + " and average cost per unit: "
+					+ averageCostPerUnit + "p\tThe average daily electricity usage is: " + averagePower + " kWhr");
 
 //			json = instance.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(v1ElectricityConsumption);
 //
@@ -382,9 +404,9 @@ public class Octopussy {
 			properties.setProperty("region", groupId.substring(1));
 		}
 
-		// expand properties substituting $key$ values
+		boolean extra = Boolean.valueOf(properties.getProperty("extra", "false").trim());
 
-		boolean hide = Boolean.valueOf(properties.getProperty("hide", "2").trim());
+		// expand properties substituting $key$ values
 
 		for (String key : properties.stringPropertyNames()) {
 
@@ -400,7 +422,7 @@ public class Octopussy {
 
 				value = value.substring(0, p) + properties.getProperty(propertyKey) + value.substring(1 + q);
 
-				if (!hide) {
+				if (extra) {
 
 					System.err.println(key + "\t" + propertyKey + "\t" + value);
 				}
@@ -410,7 +432,7 @@ public class Octopussy {
 
 		}
 
-		return hide;
+		return extra;
 
 	}
 
