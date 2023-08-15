@@ -255,16 +255,32 @@ public class Octopussy {
 
 				String intervalStart = v1PeriodConsumption.getIntervalStart().substring(0, 16);
 
+				String key = intervalStart.substring(0, 10);
+
+				if (elecMapDaily.containsKey(key)) {
+
+					// it's possible that this day has already been marked incomplete
+					// if so then iterate rather than processing the consumption declared for the
+					// time slot
+
+					if (null == elecMapDaily.get(key)) {
+
+						continue;
+					}
+				}
+
 				LocalDateTime ldt = LocalDateTime.parse(intervalStart);
 
 				Float halfHourPrice = vatIncPriceMap.get(ldt);
 
 				if (null == halfHourPrice) {
 
-					System.err.println("Unknown unit price for half hour starting at " + intervalStart);
+					System.err.println("Unknown unit price for half hour starting at " + intervalStart
+							+ " Flaging day incomplete.");
 
-					System.exit(-1);
+					elecMapDaily.put(key, null); // flag this day as incomplete - ignore all time slots on this day
 
+					continue;
 				}
 
 				Float halfHourCharge = consumption * halfHourPrice;
@@ -274,8 +290,6 @@ public class Octopussy {
 					System.out.println("\t" + intervalStart + "\t" + halfHourPrice + "\t* " + consumption + "\t="
 							+ String.format("%10.6f", halfHourCharge) + " p");
 				}
-
-				String key = intervalStart.substring(0, 10);
 
 				DayValues dayValues = null;
 
@@ -316,9 +330,16 @@ public class Octopussy {
 					continue;
 				}
 
-				countDays++;
-
 				DayValues dayValues = elecMapDaily.get(key);
+
+				// ignore other incomplete days
+
+				if (null == dayValues) {
+
+					continue;
+				}
+
+				countDays++;
 
 				float consumption = dayValues.getDailyConsumption();
 
