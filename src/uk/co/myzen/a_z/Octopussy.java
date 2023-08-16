@@ -150,6 +150,8 @@ public class Octopussy {
 			int plunge = Integer.valueOf(properties.getProperty("plunge", "0").trim()).intValue();
 			int target = Integer.valueOf(properties.getProperty("target", "30").trim()).intValue();
 
+			LocalDateTime lowestPriceAt = null;
+
 			for (Agile agile : agileResults) {
 
 				String validFrom = agile.getValidFrom().substring(0, 19);
@@ -165,6 +167,14 @@ public class Octopussy {
 				float valueIncVat = agile.getValueIncVat();
 
 				vatIncPriceMap.put(actual, Float.valueOf(valueIncVat));
+
+				long epochSecond = actual.atZone(ourZoneId).toEpochSecond();
+
+				if (null == lowestPriceAt
+						|| (epochSecond > halfHourAgo && valueIncVat < vatIncPriceMap.get(lowestPriceAt))) {
+
+					lowestPriceAt = actual;
+				}
 			}
 
 			V1ElectricityConsumption v1ElectricityConsumption = instance.getV1ElectricityConsumption(null,
@@ -258,6 +268,8 @@ public class Octopussy {
 			float accumulatePower = 0;
 			float accumulateCost = 0;
 
+			float flatRate = Float.valueOf(properties.getProperty("flexible.electricity.unit"));
+
 			for (String key : elecMapDaily.keySet()) {
 
 				// ignore today because consumption data will not yet be fully complete
@@ -284,7 +296,7 @@ public class Octopussy {
 
 				float agileCharge = Float.valueOf(properties.getProperty("agile.electricity.standing"));
 
-				float standardPrice = consumption * Float.valueOf(properties.getProperty("flexible.electricity.unit"));
+				float standardPrice = consumption * flatRate;
 
 				float standardCharge = Float.valueOf(properties.getProperty("flexible.electricity.standing"));
 
@@ -315,8 +327,8 @@ public class Octopussy {
 			String averagePower = String.format("%.2f", accumulatePower / countDays);
 
 			System.out.println("\nOver the last " + countDays + " days, using " + accumulatePower
-					+ " kWhr, Octopus Agile tariff has saved £" + pounds2DP
-					+ " compared to the standard flat rate tariff.");
+					+ " kWhr, Octopus Agile tariff has saved £" + pounds2DP + " compared to the " + flatRate
+					+ "p (X) flat rate tariff");
 			System.out.println("Average saving per day: £" + averagePounds2DP + " and average cost per unit (A): "
 					+ averageCostPerUnit + "p  The average daily electricity usage is: " + averagePower + " kWhr\n");
 
@@ -348,9 +360,9 @@ public class Octopussy {
 						}
 					}
 
-					System.out.println(
-							"\t" + slot.format(simpleTime) + "   " + (valueIncVat < averageUnitCost ? "!" : " ") + "\t"
-									+ String.format("%7.4f", valueIncVat) + "p\t" + sb.toString());
+					System.out.println("\t" + slot.format(simpleTime) + "  " + (lowestPriceAt == slot ? "!" : " ")
+							+ (valueIncVat < averageUnitCost ? "!" : " ") + "\t" + String.format("%7.4f", valueIncVat)
+							+ "p\t" + sb.toString());
 				}
 			}
 
