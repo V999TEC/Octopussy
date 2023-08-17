@@ -113,6 +113,8 @@ public class Octopussy {
 
 			properties.setProperty("basic", "Basic " + Base64.getEncoder().encodeToString(keyValue.getBytes()));
 
+			boolean export = Boolean.valueOf(properties.getProperty("export", "false").trim());
+
 			// calculate date for for 00:00 'yesterday'
 
 			LocalDateTime now = LocalDateTime.now();
@@ -124,19 +126,38 @@ public class Octopussy {
 			LocalDateTime startOfPreviousDays = now.withDayOfYear(dayOfYear - howManyDaysHistory).withHour(0)
 					.withMinute(0).withSecond(0).withNano(0);
 
-			LocalDateTime startOfToday = now.withDayOfYear(dayOfYear).withHour(0).withMinute(0).withSecond(0)
-					.withNano(0);
+//			LocalDateTime startOfToday = now.withDayOfYear(dayOfYear).withHour(0).withMinute(0).withSecond(0)
+//					.withNano(0);
 
-			V1AgileFlex v1AgileFlex = instance.getV1AgileFlex(300, startOfPreviousDays.toString(), null);
+			V1AgileFlex v1AgileFlex = instance.getV1AgileFlexImport(48 * howManyDaysHistory,
+					startOfPreviousDays.toString(), null);
+
+			ArrayList<Agile> agileResultsImport = v1AgileFlex.getAgileResults();
 
 			if (extra) {
 
-				System.out.println("\nPeriods of unit price data obtained: " + v1AgileFlex.getCount());
+				System.out.println("\nPeriods of unit price import data obtained: " + v1AgileFlex.getCount() + "\t"
+						+ agileResultsImport.get(agileResultsImport.size() - 1).getValidFrom() + "\t"
+						+ agileResultsImport.get(0).getValidTo());
 			}
 
-			ArrayList<Agile> agileResults = v1AgileFlex.getAgileResults();
+			ArrayList<Agile> agileResultsExport = null; // only populated if export=true in octopussy.properties
 
-			Map<LocalDateTime, Float> vatIncPriceMap = new HashMap<LocalDateTime, Float>();
+			if (export) {
+
+				v1AgileFlex = instance.getV1AgileFlexExport(48 * howManyDaysHistory, startOfPreviousDays.toString(),
+						null);
+
+				agileResultsExport = v1AgileFlex.getAgileResults();
+
+				if (extra) {
+					System.out.println("\nPeriods of unit price export data obtained: " + v1AgileFlex.getCount() + "\t"
+							+ agileResultsExport.get(agileResultsExport.size() - 1).getValidFrom() + "\t"
+							+ agileResultsExport.get(0).getValidTo());
+				}
+			}
+
+			Map<LocalDateTime, ImportExportData> vatIncPriceMap = new HashMap<LocalDateTime, ImportExportData>();
 
 			ZoneId ourZoneId = ZoneId.of("Europe/London");
 
@@ -152,7 +173,7 @@ public class Octopussy {
 
 			LocalDateTime lowestPriceAt = null;
 
-			for (Agile agile : agileResults) {
+			for (Agile agile : agileResultsImport) {
 
 				String validFrom = agile.getValidFrom().substring(0, 19);
 
@@ -166,33 +187,68 @@ public class Octopussy {
 
 				float valueIncVat = agile.getValueIncVat();
 
-				vatIncPriceMap.put(actual, Float.valueOf(valueIncVat));
+				ImportExportData importExportPricesIncVat = new ImportExportData();
+
+				importExportPricesIncVat.setImportPrice(Float.valueOf(valueIncVat));
+
+				vatIncPriceMap.put(actual, importExportPricesIncVat);
 
 				long epochSecond = actual.atZone(ourZoneId).toEpochSecond();
 
-				if (null == lowestPriceAt
-						|| (epochSecond > halfHourAgo && valueIncVat < vatIncPriceMap.get(lowestPriceAt))) {
+				if (null == lowestPriceAt || (epochSecond > halfHourAgo
+						&& valueIncVat < vatIncPriceMap.get(lowestPriceAt).getImportPrice())) {
 
 					lowestPriceAt = actual;
 				}
 			}
 
+			if (export) {
+
+				for (Agile agile : agileResultsExport) {
+
+					String validFrom = agile.getValidFrom().substring(0, 19);
+
+					LocalDateTime ldt = LocalDateTime.parse(validFrom, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+
+					// assume time obtained is zulu/UTC - need to convert to our local time (such as
+					// BST)
+
+					ZonedDateTime instant = ZonedDateTime.of(ldt, ZoneId.of("UTC"));
+					LocalDateTime actual = instant.withZoneSameInstant(ourZoneId).toLocalDateTime();
+
+					float valueIncVat = agile.getValueIncVat();
+
+					ImportExportData importExportPricesIncVat = vatIncPriceMap.get(actual);
+
+					importExportPricesIncVat.setExportPrice(Float.valueOf(valueIncVat));
+
+					vatIncPriceMap.put(actual, importExportPricesIncVat);
+
+//				long epochSecond = actual.atZone(ourZoneId).toEpochSecond();
+//
+//				if (null == lowestPriceAt || (epochSecond > halfHourAgo
+//						&& valueIncVat < vatIncPriceMap.get(lowestPriceAt).getImportPrice())) {
+//
+//					lowestPriceAt = actual;
+//				}
+				}
+			}
+
 			V1ElectricityConsumption v1ElectricityConsumption = instance.getV1ElectricityConsumption(null,
-					48 * howManyDaysHistory, startOfPreviousDays.toString(), startOfToday.toString()); // 48
-																										// half
-																										// hour
-																										// time
-																										// slots
-																										// per
-																										// day
+					48 * howManyDaysHistory, startOfPreviousDays.toString(), null); // 48
+			// half
+			// hour
+			// time
+			// slots
+			// per
+			// day
 
 			if (extra) {
 
-				System.out.println(
-						"\nPeriods of previous consumption data obtained: " + v1ElectricityConsumption.getCount()
+				System.out.println("\nLatest available consumption data obtained: "
+						+ v1ElectricityConsumption.getCount()
 
-								+ "\tExpected at least: " + 48 * howManyDaysHistory + " ( = " + howManyDaysHistory
-								+ " day(s) )");
+						+ "\tRequired: " + 48 * howManyDaysHistory + " ( = " + howManyDaysHistory + " day(s) )");
 			}
 
 //			System.out.println("next:" + v1ElectricityConsumption.getNext());
@@ -221,14 +277,16 @@ public class Octopussy {
 
 				LocalDateTime ldt = LocalDateTime.parse(intervalStart);
 
-				Float halfHourPrice = vatIncPriceMap.get(ldt);
+				ImportExportData importExportData = vatIncPriceMap.get(ldt);
 
-				if (null == halfHourPrice) {
+				if (null == importExportData) {
 
 					elecMapDaily.put(key, null); // flag this day as incomplete - ignore all time slots on this day
 
 					continue;
 				}
+
+				Float halfHourPrice = vatIncPriceMap.get(ldt).getImportPrice();
 
 				Float halfHourCharge = consumption * halfHourPrice;
 
@@ -244,6 +302,8 @@ public class Octopussy {
 
 					dayValues = elecMapDaily.get(key);
 
+					dayValues.setSlotCount(1 + dayValues.getSlotCount());
+
 					dayValues.setDailyConsumption(consumption + dayValues.getDailyConsumption());
 
 					dayValues.setDailyPrice(halfHourCharge.floatValue() + dayValues.getDailyPrice());
@@ -251,6 +311,8 @@ public class Octopussy {
 				} else {
 
 					dayValues = new DayValues();
+
+					dayValues.setSlotCount(1);
 
 					dayValues.setDailyConsumption(consumption);
 
@@ -288,6 +350,11 @@ public class Octopussy {
 					continue;
 				}
 
+				if (48 != dayValues.getSlotCount()) {
+
+					continue;
+				}
+
 				countDays++;
 
 				float consumption = dayValues.getDailyConsumption();
@@ -302,10 +369,12 @@ public class Octopussy {
 
 				float difference = (standardPrice + standardCharge) - (agilePrice + agileCharge);
 
-				System.out.println("\t" + key + "\t" + String.format("%8.4f", consumption) + " kWhr\tAgile: "
-						+ String.format("%8.4f", agilePrice) + "p +" + agileCharge + "p (Standard: "
-						+ String.format("%8.4f", standardPrice) + "p +" + standardCharge + "p)  difference: "
-						+ String.format("%8.4f", difference) + "p");
+				int slotCount = dayValues.getSlotCount();
+
+				System.out.println("\t" + key + (48 == slotCount ? "\t" : " (" + String.format("%2d", slotCount) + ") ")
+						+ String.format("%8.4f", consumption) + " kWhr\tAgile: " + String.format("%8.4f", agilePrice)
+						+ "p +" + agileCharge + "p (Standard: " + String.format("%8.4f", standardPrice) + "p +"
+						+ standardCharge + "p)  difference: " + String.format("%8.4f", difference) + "p");
 
 				accumulateDifference += difference;
 
@@ -326,7 +395,7 @@ public class Octopussy {
 
 			String averagePower = String.format("%.2f", accumulatePower / countDays);
 
-			System.out.println("\nOver the last " + countDays + " days, using " + accumulatePower
+			System.out.println("\nOver " + countDays + " days, using " + accumulatePower
 					+ " kWhr, Octopus Agile tariff has saved £" + pounds2DP + " compared to the " + flatRate
 					+ "p (X) flat rate tariff");
 			System.out.println("Average saving per day: £" + averagePounds2DP + " and average cost per unit (A): "
@@ -342,27 +411,32 @@ public class Octopussy {
 
 				long epochSecond = slot.atZone(ourZoneId).toEpochSecond();
 
-				float valueIncVat = vatIncPriceMap.get(slot);
+				ImportExportData importExportData = vatIncPriceMap.get(slot);
+
+				float importValueIncVat = importExportData.getImportPrice();
+
+				Float exportValueIncVat = importExportData.getExportPrice(); // can be null if export=false
 
 				if (epochSecond >= halfHourAgo) {
 
 					StringBuffer sb = new StringBuffer();
 
-					if (valueIncVat < plunge) {
+					if (importValueIncVat < plunge) {
 
 						sb.append(" <--- PLUNGE BELOW " + plunge + "p !!! - use as much energy as you want!");
 
 					} else {
 
-						for (int n = 0; n < valueIncVat; n++) {
+						for (int n = 0; n < importValueIncVat; n++) {
 
 							sb.append(target == n ? 'X' : (averageUnitCost == n ? 'A' : '*'));
 						}
 					}
 
-					System.out.println("\t" + slot.format(simpleTime) + "  " + (lowestPriceAt == slot ? "!" : " ")
-							+ (valueIncVat < averageUnitCost ? "!" : " ") + "\t" + String.format("%7.4f", valueIncVat)
-							+ "p\t" + sb.toString());
+					System.out.println((export ? String.format("%6.2f", exportValueIncVat) + "   " : "\t")
+							+ slot.format(simpleTime) + "  " + (lowestPriceAt == slot ? "!" : " ")
+							+ (importValueIncVat < averageUnitCost ? "!" : " ") + "\t"
+							+ String.format("%7.4f", importValueIncVat) + "p\t" + sb.toString());
 				}
 			}
 
@@ -483,11 +557,25 @@ public class Octopussy {
 		return result;
 	}
 
-	private V1AgileFlex getV1AgileFlex(Integer pageSize, String periodFrom, String periodTo)
+	private V1AgileFlex getV1AgileFlexImport(Integer pageSize, String periodFrom, String periodTo)
 			throws MalformedURLException, IOException {
 
 		String spec = properties.getProperty("tariff.url").trim() + "/standard-unit-rates/" + "?page_size=" + pageSize
 				+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
+				+ (null == periodTo ? "" : "&period_to=" + periodTo);
+
+		String json = getRequest(new URL(spec), false);
+
+		V1AgileFlex result = mapper.readValue(json, V1AgileFlex.class);
+
+		return result;
+	}
+
+	private V1AgileFlex getV1AgileFlexExport(Integer pageSize, String periodFrom, String periodTo)
+			throws MalformedURLException, IOException {
+
+		String spec = properties.getProperty("export.tariff.url").trim() + "/standard-unit-rates/" + "?page_size="
+				+ pageSize + (null == periodFrom ? "" : "&period_from=" + periodFrom)
 				+ (null == periodTo ? "" : "&period_to=" + periodTo);
 
 		String json = getRequest(new URL(spec), false);
