@@ -332,7 +332,11 @@ public class Octopussy {
 
 			float flatRate = Float.valueOf(properties.getProperty("flexible.electricity.unit"));
 
-			for (String key : elecMapDaily.keySet()) {
+			SortedSet<String> setOfDays = new TreeSet<String>();
+
+			setOfDays.addAll(elecMapDaily.keySet());
+
+			for (String key : setOfDays) {
 
 				// ignore today because consumption data will not yet be fully complete
 
@@ -373,7 +377,7 @@ public class Octopussy {
 
 				System.out.println("\t" + key + (48 == slotCount ? "\t" : " (" + String.format("%2d", slotCount) + ") ")
 						+ String.format("%8.4f", consumption) + " kWhr\tAgile: " + String.format("%8.4f", agilePrice)
-						+ "p +" + agileCharge + "p (Standard: " + String.format("%8.4f", standardPrice) + "p +"
+						+ "p +" + agileCharge + "p (Flat Rate: " + String.format("%8.4f", standardPrice) + "p +"
 						+ standardCharge + "p)  difference: " + String.format("%8.4f", difference) + "p");
 
 				accumulateDifference += difference;
@@ -423,7 +427,7 @@ public class Octopussy {
 
 					if (importValueIncVat < plunge) {
 
-						sb.append(" <--- PLUNGE BELOW " + plunge + "p !!! - use as much energy as you want!");
+						sb.append(" <--- PLUNGE BELOW " + plunge + "p !!!");
 
 					} else {
 
