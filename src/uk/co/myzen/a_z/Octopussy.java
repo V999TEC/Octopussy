@@ -4,6 +4,9 @@
 package uk.co.myzen.a_z;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -12,7 +15,9 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
@@ -20,7 +25,9 @@ import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Scanner;
 import java.util.SortedSet;
+import java.util.TreeMap;
 import java.util.TreeSet;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -45,7 +52,11 @@ public class Octopussy {
 	private final static String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36";
 	private final static String contentType = "application/json";
 
+	private final static ZoneId ourZoneId = ZoneId.of("Europe/London");
+
 	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd  HH:mm");
+
+	private final static DateTimeFormatter defaultDateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
 	private static ObjectMapper mapper;
 
@@ -83,7 +94,90 @@ public class Octopussy {
 	 */
 	public static void main(String[] args) {
 
+		File importData = new File(".\\octopus.import.csv");
+
+		Scanner myReader = null;
+
+		Map<Long, ConsumptionHistory> history = new TreeMap<Long, ConsumptionHistory>();
+
 		try {
+
+			long epochFrom = 0;
+
+			if (!importData.createNewFile()) {
+
+				myReader = new Scanner(importData);
+
+				while (myReader.hasNextLine()) {
+
+					String data = myReader.nextLine();
+
+					if (0 == data.trim().length()) {
+
+						continue;
+					}
+
+					if (data.startsWith("Consumption")) {
+
+						continue;
+					}
+
+					String[] fields = data.split(",");
+
+					if (fields.length < 3) {
+
+						continue;
+					}
+
+					ConsumptionHistory ch = new ConsumptionHistory();
+
+					String c = fields[0].trim();
+
+					if ("null".equals(c)) {
+
+						ch.setConsumption(null);
+
+					} else {
+
+						ch.setConsumption(Float.valueOf(c));
+
+					}
+
+					OffsetDateTime from = OffsetDateTime.parse(fields[1].trim(), defaultDateTimeFormatter);
+					OffsetDateTime to = OffsetDateTime.parse(fields[2].trim(), defaultDateTimeFormatter);
+
+					if (4 == fields.length) { // assume price in data
+
+						ch.setPrice(Float.valueOf(fields[3].trim()));
+
+					} else {
+
+						ch.setPrice(null);
+					}
+
+					ch.setFrom(from);
+					ch.setTo(to);
+
+					epochFrom = from.toEpochSecond();
+
+					history.put(Long.valueOf(epochFrom), ch);
+				}
+			}
+
+			// epochFrom holds the latest timestamp from the data read from file
+			// zero indicates no file/data
+
+			if (null != myReader) {
+
+				myReader.close();
+			}
+
+			myReader = null;
+
+//			FileWriter fw = new FileWriter(importData, true);
+//
+//			BufferedWriter bw = new BufferedWriter(fw);
+
 			String keyValue = null;
 
 			try {
@@ -159,8 +253,6 @@ public class Octopussy {
 
 			Map<LocalDateTime, ImportExportData> vatIncPriceMap = new HashMap<LocalDateTime, ImportExportData>();
 
-			ZoneId ourZoneId = ZoneId.of("Europe/London");
-
 			long epochNow = now.atZone(ourZoneId).toEpochSecond();
 
 			long halfHourAgo = epochNow - 1800;
@@ -175,9 +267,9 @@ public class Octopussy {
 
 			for (Agile agile : agileResultsImport) {
 
-				String validFrom = agile.getValidFrom().substring(0, 19);
+				String validFrom = agile.getValidFrom();
 
-				LocalDateTime ldt = LocalDateTime.parse(validFrom, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+				LocalDateTime ldt = LocalDateTime.parse(validFrom, DateTimeFormatter.ISO_ZONED_DATE_TIME);
 
 				// assume time obtained is zulu/UTC - need to convert to our local time (such as
 				// BST)
@@ -185,7 +277,25 @@ public class Octopussy {
 				ZonedDateTime instant = ZonedDateTime.of(ldt, ZoneId.of("UTC"));
 				LocalDateTime actual = instant.withZoneSameInstant(ourZoneId).toLocalDateTime();
 
+				OffsetDateTime offsetDateTime = actual.atOffset(ZoneOffset.of("+01:00"));
+
+				long epochActual = offsetDateTime.toEpochSecond();
+
 				float valueIncVat = agile.getValueIncVat();
+
+				ConsumptionHistory consumptionLatest = new ConsumptionHistory();
+
+				consumptionLatest.setFrom(offsetDateTime);
+
+				LocalDateTime actualTo = instant.withZoneSameInstant(ourZoneId).toLocalDateTime();
+
+				OffsetDateTime offsetDateTimeTo = actualTo.atOffset(ZoneOffset.of("+01:00"));
+
+				consumptionLatest.setTo(offsetDateTimeTo);
+
+				consumptionLatest.setPrice(Float.valueOf(valueIncVat));
+
+				history.put(epochActual, consumptionLatest);
 
 				ImportExportData importExportPricesIncVat = new ImportExportData();
 
@@ -223,14 +333,6 @@ public class Octopussy {
 					importExportPricesIncVat.setExportPrice(Float.valueOf(valueIncVat));
 
 					vatIncPriceMap.put(actual, importExportPricesIncVat);
-
-//				long epochSecond = actual.atZone(ourZoneId).toEpochSecond();
-//
-//				if (null == lowestPriceAt || (epochSecond > halfHourAgo
-//						&& valueIncVat < vatIncPriceMap.get(lowestPriceAt).getImportPrice())) {
-//
-//					lowestPriceAt = actual;
-//				}
 				}
 			}
 
@@ -259,6 +361,9 @@ public class Octopussy {
 
 				Float consumption = v1PeriodConsumption.getConsumption();
 
+				OffsetDateTime from = OffsetDateTime.parse(v1PeriodConsumption.getIntervalStart(),
+						defaultDateTimeFormatter);
+
 				String intervalStart = v1PeriodConsumption.getIntervalStart().substring(0, 16);
 
 				String key = intervalStart.substring(0, 10);
@@ -286,7 +391,23 @@ public class Octopussy {
 					continue;
 				}
 
-				Float halfHourPrice = vatIncPriceMap.get(ldt).getImportPrice();
+				Float halfHourPrice = importExportData.getImportPrice();
+
+				Long epochKey = from.toEpochSecond();
+
+				ConsumptionHistory latestConsumption = history.get(epochKey);
+
+				if (null == latestConsumption) {
+
+					System.err.println("error at " + v1PeriodConsumption.getIntervalStart());
+
+				} else {
+
+					latestConsumption.setConsumption(consumption);
+					latestConsumption.setPrice(halfHourPrice);
+
+					history.put(epochKey, latestConsumption);
+				}
 
 				Float halfHourCharge = consumption * halfHourPrice;
 
@@ -321,6 +442,38 @@ public class Octopussy {
 
 				elecMapDaily.put(key, dayValues);
 			}
+
+			// now append to history file
+
+			FileWriter fw = new FileWriter(importData, true);
+
+			BufferedWriter bw = new BufferedWriter(fw);
+
+			for (Long key : history.keySet()) { // implicitly in ascending key based on epochSecond
+
+				if (key > epochFrom) {
+
+					// data to append to history
+
+					if (0 == epochFrom) {
+
+						bw.write("Consumption (kWh), Start, End, Price");
+						epochFrom = key;
+					}
+
+					ConsumptionHistory ch = history.get(key);
+
+					String entry = ch.getConsumption() + ", " + ch.getFrom().toString() + ", " + ch.getTo() + ", "
+							+ ch.getPrice();
+
+					bw.newLine();
+					bw.write(entry);
+				}
+			}
+
+			bw.close();
+
+			fw.close();
 
 			System.out.println("\nDaily result(s):");
 
@@ -457,6 +610,13 @@ public class Octopussy {
 			e.printStackTrace();
 
 			System.exit(-1);
+
+		} finally {
+
+			if (null != myReader) {
+
+				myReader.close();
+			}
 		}
 
 		System.exit(0);
