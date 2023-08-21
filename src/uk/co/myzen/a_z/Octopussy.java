@@ -23,6 +23,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Scanner;
@@ -319,6 +320,10 @@ public class Octopussy {
 					lowestPriceAt = actual;
 				}
 			}
+
+			List<LocalDateTime> cheapestNSlots = new ArrayList<LocalDateTime>();
+
+			cheapestNSlots.add(lowestPriceAt);
 
 			if (export) {
 
@@ -625,6 +630,8 @@ public class Octopussy {
 
 			setOfLocalDateTime.addAll(vatIncPriceMap.keySet());
 
+			List<SlotCost> pricesPerSlot = new ArrayList<SlotCost>();
+
 			for (LocalDateTime slot : setOfLocalDateTime) {
 
 				long epochSecond = slot.atZone(ourZoneId).toEpochSecond();
@@ -636,6 +643,16 @@ public class Octopussy {
 				Float exportValueIncVat = importExportData.getExportPrice(); // can be null if export=false
 
 				if (epochSecond >= halfHourAgo) {
+
+					// this is recent: we are interested
+
+					SlotCost price = new SlotCost();
+
+					price.setSimpleTimeStamp(slot.format(simpleTime));
+
+					price.setPrice(importValueIncVat);
+
+					pricesPerSlot.add(price);
 
 					StringBuffer sb = new StringBuffer();
 
@@ -656,6 +673,40 @@ public class Octopussy {
 							+ (importValueIncVat < averageUnitCost ? "!" : " ") + "\t"
 							+ String.format("%7.4f", importValueIncVat) + "p\t" + sb.toString());
 				}
+			}
+
+			System.out.println("\nSummary:");
+
+			for (int slots = 1; slots < 9; slots++) { // each slot represents 30 minutes
+
+				float lowestAcc = -1;
+
+				int indexOfLowest = 0;
+
+				int limit = pricesPerSlot.size() - slots;
+
+				for (int index = 0; index < limit; index++) {
+
+					float accumulate = 0;
+
+					for (int i = index; i < index + slots; i++) {
+
+						accumulate += pricesPerSlot.get(i).getPrice();
+					}
+
+					if (-1 == lowestAcc || accumulate < lowestAcc) {
+
+						lowestAcc = accumulate;
+						indexOfLowest = index;
+					}
+				}
+
+				SlotCost price = pricesPerSlot.get(indexOfLowest);
+
+				float average = lowestAcc / slots;
+
+				System.out.println(String.format("%3d", (slots * 30)) + " minute period from "
+						+ price.getSimpleTimeStamp() + "  has average price: " + average + "p");
 			}
 
 //			json = instance.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(v1ElectricityConsumption);
