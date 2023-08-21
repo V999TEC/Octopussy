@@ -52,11 +52,11 @@ public class Octopussy {
 	private final static String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36";
 	private final static String contentType = "application/json";
 
-	private final static ZoneId ourZoneId = ZoneId.of("Europe/London");
-
 	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd  HH:mm");
 
 	private final static DateTimeFormatter defaultDateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+
+	private static ZoneId ourZoneId;
 
 	private static ObjectMapper mapper;
 
@@ -94,13 +94,41 @@ public class Octopussy {
 	 */
 	public static void main(String[] args) {
 
-		File importData = new File(".\\octopus.import.csv");
+		File importData = null;
 
 		Scanner myReader = null;
 
-		Map<Long, ConsumptionHistory> history = new TreeMap<Long, ConsumptionHistory>();
+		FileWriter fw = null;
+
+		BufferedWriter bw = null;
 
 		try {
+
+			String keyValue = null;
+
+			try {
+
+				extra = loadProperties("octopussy.properties");
+
+				keyValue = properties.getProperty("apiKey", "").trim();
+
+				ourZoneId = ZoneId.of(properties.getProperty("zone.id", "Europe/London").trim());
+
+				if (null == ourZoneId) {
+
+					throw new Exception("zone.id");
+				}
+
+				importData = new File(properties.getProperty("history", ".\\octopus.import.csv").trim());
+
+			} catch (Exception e) {
+
+				e.printStackTrace();
+
+				System.exit(-1);
+			}
+
+			Map<Long, ConsumptionHistory> history = new TreeMap<Long, ConsumptionHistory>();
 
 			long epochFrom = 0;
 
@@ -174,23 +202,6 @@ public class Octopussy {
 
 			myReader = null;
 
-//			FileWriter fw = new FileWriter(importData, true);
-//
-//			BufferedWriter bw = new BufferedWriter(fw);
-
-			String keyValue = null;
-
-			try {
-
-				extra = loadProperties("octopussy.properties");
-
-				keyValue = properties.getProperty("apiKey", "").trim();
-
-			} catch (IOException e) {
-
-				e.printStackTrace();
-			}
-
 			if (null == keyValue || 0 == keyValue.length()) {
 
 				if (0 == args.length) {
@@ -219,9 +230,6 @@ public class Octopussy {
 
 			LocalDateTime startOfPreviousDays = now.withDayOfYear(dayOfYear - howManyDaysHistory).withHour(0)
 					.withMinute(0).withSecond(0).withNano(0);
-
-//			LocalDateTime startOfToday = now.withDayOfYear(dayOfYear).withHour(0).withMinute(0).withSecond(0)
-//					.withNano(0);
 
 			V1AgileFlex v1AgileFlex = instance.getV1AgileFlexImport(48 * howManyDaysHistory,
 					startOfPreviousDays.toString(), null);
@@ -336,28 +344,77 @@ public class Octopussy {
 				}
 			}
 
+			String someDaysAgo = startOfPreviousDays.toString();
+
 			V1ElectricityConsumption v1ElectricityConsumption = instance.getV1ElectricityConsumption(null,
-					48 * howManyDaysHistory, startOfPreviousDays.toString(), null); // 48
-			// half
-			// hour
-			// time
-			// slots
-			// per
-			// day
+					48 * howManyDaysHistory, someDaysAgo, null);
+
+			ArrayList<V1PeriodConsumption> periodResults = v1ElectricityConsumption.getPeriodResults();
+
+			// Add history data for any non-null consumptions in
+
+			int tallyHistory = 0;
+
+			for (Long key : history.keySet()) {
+
+				ConsumptionHistory value = history.get(key);
+
+				String timestamp = value.getFrom().toString();
+
+				if (timestamp.equals(someDaysAgo)) {
+
+					break;
+				}
+
+				if (null == value.getConsumption()) {
+
+					continue;
+				}
+
+				Float halfHourPrice = value.getPrice();
+
+				if (null == halfHourPrice) {
+
+					continue;
+				}
+
+				tallyHistory++;
+
+				// assume history up to someDaysAgo has consumption & price available
+
+				V1PeriodConsumption entry = new V1PeriodConsumption();
+
+				Float consumption = value.getConsumption();
+
+				entry.setConsumption(consumption);
+				entry.setIntervalStart(timestamp);
+				entry.setIntervalEnd(value.getTo().toString());
+
+				periodResults.add(entry);
+
+				if (extra) {
+
+					Float halfHourCharge = consumption * halfHourPrice;
+
+					String intervalStart = timestamp;
+
+					System.out.println("\t" + intervalStart + "\t" + halfHourPrice + "\t* " + consumption + "\t="
+							+ String.format("%10.6f", halfHourCharge) + " p");
+				}
+
+			}
 
 			if (extra) {
 
 				System.out.println("\nLatest available consumption data obtained: "
-						+ v1ElectricityConsumption.getCount()
+						+ v1ElectricityConsumption.getCount() + " plus added from history: " + tallyHistory
 
 						+ "\tRequired: " + 48 * howManyDaysHistory + " ( = " + howManyDaysHistory + " day(s) )");
 			}
 
-//			System.out.println("next:" + v1ElectricityConsumption.getNext());
-
 			Map<String, DayValues> elecMapDaily = new HashMap<String, DayValues>();
 
-			for (V1PeriodConsumption v1PeriodConsumption : v1ElectricityConsumption.getPeriodResults()) {
+			for (V1PeriodConsumption v1PeriodConsumption : periodResults) {
 
 				Float consumption = v1PeriodConsumption.getConsumption();
 
@@ -445,9 +502,9 @@ public class Octopussy {
 
 			// now append to history file
 
-			FileWriter fw = new FileWriter(importData, true);
+			fw = new FileWriter(importData, true);
 
-			BufferedWriter bw = new BufferedWriter(fw);
+			bw = new BufferedWriter(fw);
 
 			for (Long key : history.keySet()) { // implicitly in ascending key based on epochSecond
 
@@ -473,7 +530,11 @@ public class Octopussy {
 
 			bw.close();
 
+			bw = null;
+
 			fw.close();
+
+			fw = null;
 
 			System.out.println("\nDaily result(s):");
 
@@ -605,21 +666,41 @@ public class Octopussy {
 //
 //			System.out.println(json);
 
+			System.exit(0);
+
 		} catch (IOException e) {
 
 			e.printStackTrace();
-
 			System.exit(-1);
 
 		} finally {
 
-			if (null != myReader) {
+			try {
 
-				myReader.close();
+				if (null != myReader) {
+
+					myReader.close();
+				}
+
+				if (null != bw) {
+
+					bw.close();
+					bw = null;
+				}
+
+				if (null != fw) {
+
+					fw.close();
+					fw = null;
+				}
+
+			} catch (Exception e) {
+
+				e.printStackTrace();
+				System.exit(-2);
 			}
 		}
 
-		System.exit(0);
 	}
 
 	private static boolean loadProperties(String name) throws IOException {
@@ -684,8 +765,6 @@ public class Octopussy {
 
 	private V1ElectricityConsumption getV1ElectricityConsumption(Integer page, Integer pageSize, String periodFrom,
 			String periodTo) throws MalformedURLException, IOException {
-
-//		System.out.println("from " + periodFrom + " to " + periodTo);
 
 		String mprn = properties.getProperty("electricity.mprn").trim();
 
