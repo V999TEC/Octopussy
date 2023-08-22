@@ -4,7 +4,9 @@ public class SlotCost {
 
 	private String simpleTimeStamp;
 
-	private Float price;
+	private Float importPrice;
+
+	private Float exportPrice;
 
 	public String getSimpleTimeStamp() {
 		return simpleTimeStamp;
@@ -14,12 +16,20 @@ public class SlotCost {
 		this.simpleTimeStamp = simpleTimeStamp;
 	}
 
-	public Float getPrice() {
-		return price;
+	public Float getImportPrice() {
+		return importPrice;
 	}
 
-	public void setPrice(Float price) {
-		this.price = price;
+	public void setImportPrice(Float importPrice) {
+		this.importPrice = importPrice;
+	}
+
+	public Float getExportPrice() {
+		return exportPrice;
+	}
+
+	public void setExportPrice(Float exportPrice) {
+		this.exportPrice = exportPrice;
 	}
 
 }

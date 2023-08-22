@@ -53,7 +53,7 @@ public class Octopussy {
 	private final static String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36";
 	private final static String contentType = "application/json";
 
-	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd  HH:mm");
+	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd pph:mm a");
 
 	private final static DateTimeFormatter defaultDateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
@@ -111,7 +111,12 @@ public class Octopussy {
 
 				extra = loadProperties("octopussy.properties");
 
-				keyValue = properties.getProperty("apiKey", "").trim();
+				keyValue = properties.getProperty("apiKey").trim();
+
+				if (null == keyValue) {
+
+					throw new Exception("apiKey");
+				}
 
 				ourZoneId = ZoneId.of(properties.getProperty("zone.id", "Europe/London").trim());
 
@@ -128,6 +133,10 @@ public class Octopussy {
 
 				System.exit(-1);
 			}
+
+			//
+			// read historical consumption data from octopus.import.csv
+			//
 
 			Map<Long, ConsumptionHistory> history = new TreeMap<Long, ConsumptionHistory>();
 
@@ -193,8 +202,10 @@ public class Octopussy {
 				}
 			}
 
+			//
 			// epochFrom holds the latest timestamp from the data read from file
 			// zero indicates no file/data
+			//
 
 			if (null != myReader) {
 
@@ -203,17 +214,7 @@ public class Octopussy {
 
 			myReader = null;
 
-			if (null == keyValue || 0 == keyValue.length()) {
-
-				if (0 == args.length) {
-
-					System.err.println(
-							"Require apiKey=value in octopussy.properties or supply value as last parameter to octopussy.jar");
-				} else {
-
-					keyValue = args[args.length - 1].trim();
-				}
-			}
+			// here the octopus.import.csv or similar will exist even if empty
 
 			instance = getInstance();
 
@@ -272,8 +273,6 @@ public class Octopussy {
 			int plunge = Integer.valueOf(properties.getProperty("plunge", "0").trim()).intValue();
 			int target = Integer.valueOf(properties.getProperty("target", "30").trim()).intValue();
 
-			LocalDateTime lowestPriceAt = null;
-
 			for (Agile agile : agileResultsImport) {
 
 				String validFrom = agile.getValidFrom();
@@ -312,18 +311,7 @@ public class Octopussy {
 
 				vatIncPriceMap.put(actual, importExportPricesIncVat);
 
-				long epochSecond = actual.atZone(ourZoneId).toEpochSecond();
-
-				if (null == lowestPriceAt || (epochSecond > halfHourAgo
-						&& valueIncVat < vatIncPriceMap.get(lowestPriceAt).getImportPrice())) {
-
-					lowestPriceAt = actual;
-				}
 			}
-
-			List<LocalDateTime> cheapestNSlots = new ArrayList<LocalDateTime>();
-
-			cheapestNSlots.add(lowestPriceAt);
 
 			if (export) {
 
@@ -485,6 +473,11 @@ public class Octopussy {
 
 					dayValues = elecMapDaily.get(key);
 
+					if (halfHourPrice < dayValues.getLowestPrice()) {
+
+						dayValues.setLowestPrice(Float.valueOf(halfHourPrice));
+					}
+
 					dayValues.setSlotCount(1 + dayValues.getSlotCount());
 
 					dayValues.setDailyConsumption(consumption + dayValues.getDailyConsumption());
@@ -494,6 +487,10 @@ public class Octopussy {
 				} else {
 
 					dayValues = new DayValues();
+
+					dayValues.setLowestPrice(Float.valueOf(100));
+
+					dayValues.setDayOfWeek(ldt.format(DateTimeFormatter.ofPattern("E")));
 
 					dayValues.setSlotCount(1);
 
@@ -505,7 +502,9 @@ public class Octopussy {
 				elecMapDaily.put(key, dayValues);
 			}
 
-			// now append to history file
+			//
+			// now append recent data to history file (which conceivably could be empty)
+			//
 
 			fw = new FileWriter(importData, true);
 
@@ -540,6 +539,10 @@ public class Octopussy {
 			fw.close();
 
 			fw = null;
+
+			//
+			//
+			//
 
 			System.out.println("\nDaily result(s):");
 
@@ -592,9 +595,10 @@ public class Octopussy {
 
 				float difference = (standardPrice + standardCharge) - (agilePrice + agileCharge);
 
-				int slotCount = dayValues.getSlotCount();
+				float lowestPrice = dayValues.getLowestPrice();
 
-				System.out.println("\t" + key + (48 == slotCount ? "\t" : " (" + String.format("%2d", slotCount) + ") ")
+				System.out.println(dayValues.getDayOfWeek() + (lowestPrice < plunge ? " * " : "   ") + key
+						+ (lowestPrice < plunge ? String.format("%6.2f", lowestPrice) + "p " : "        ")
 						+ String.format("%8.4f", consumption) + " kWhr\tAgile: " + String.format("%8.4f", agilePrice)
 						+ "p +" + agileCharge + "p (Flat Rate: " + String.format("%8.4f", standardPrice) + "p +"
 						+ standardCharge + "p)  difference: " + String.format("%8.4f", difference) + "p");
@@ -622,9 +626,7 @@ public class Octopussy {
 					+ " kWhr, Octopus Agile tariff has saved £" + pounds2DP + " compared to the " + flatRate
 					+ "p (X) flat rate tariff");
 			System.out.println("Average saving per day: £" + averagePounds2DP + " and average cost per unit (A): "
-					+ averageCostPerUnit + "p  The average daily electricity usage is: " + averagePower + " kWhr\n");
-
-			System.out.println("Current & future half-hour unit prices:");
+					+ averageCostPerUnit + "p  The average daily electricity usage is: " + averagePower + " kWhr");
 
 			SortedSet<LocalDateTime> setOfLocalDateTime = new TreeSet<LocalDateTime>();
 
@@ -636,48 +638,83 @@ public class Octopussy {
 
 				long epochSecond = slot.atZone(ourZoneId).toEpochSecond();
 
-				ImportExportData importExportData = vatIncPriceMap.get(slot);
-
-				float importValueIncVat = importExportData.getImportPrice();
-
-				Float exportValueIncVat = importExportData.getExportPrice(); // can be null if export=false
-
 				if (epochSecond >= halfHourAgo) {
 
 					// this is recent: we are interested
+
+					ImportExportData importExportData = vatIncPriceMap.get(slot);
+
+					float importValueIncVat = importExportData.getImportPrice();
+
+					Float exportValueIncVat = importExportData.getExportPrice(); // can be null if export=false
 
 					SlotCost price = new SlotCost();
 
 					price.setSimpleTimeStamp(slot.format(simpleTime));
 
-					price.setPrice(importValueIncVat);
+					price.setImportPrice(importValueIncVat);
+
+					price.setExportPrice(exportValueIncVat);
 
 					pricesPerSlot.add(price);
-
-					StringBuffer sb = new StringBuffer();
-
-					if (importValueIncVat < plunge) {
-
-						sb.append(" <--- PLUNGE BELOW " + plunge + "p !!!");
-
-					} else {
-
-						for (int n = 0; n < importValueIncVat; n++) {
-
-							sb.append(target == n ? 'X' : (averageUnitCost == n ? 'A' : '*'));
-						}
-					}
-
-					System.out.println((export ? String.format("%6.2f", exportValueIncVat) + "   " : "\t")
-							+ slot.format(simpleTime) + "  " + (lowestPriceAt == slot ? "!" : " ")
-							+ (importValueIncVat < averageUnitCost ? "!" : " ") + "\t"
-							+ String.format("%7.4f", importValueIncVat) + "p\t" + sb.toString());
 				}
 			}
 
-			System.out.println("\nSummary:");
+			//
+			//
+			//
 
-			for (int slots = 1; slots < 9; slots++) { // each slot represents 30 minutes
+			if (export) {
+
+				System.out.println("Upcoming best export price periods:");
+
+				for (int slots = 1; slots < 10; slots++) { // each slot represents 30 minutes
+
+					float highestAcc = -1;
+
+					int indexOfHighest = 0;
+
+					int limit = pricesPerSlot.size() - slots;
+
+					for (int index = 0; index < limit; index++) {
+
+						float accumulate = 0;
+
+						for (int i = index; i < index + slots; i++) {
+
+							accumulate += pricesPerSlot.get(i).getExportPrice();
+						}
+
+						if (-1 == highestAcc || accumulate > highestAcc) {
+
+							highestAcc = accumulate;
+							indexOfHighest = index;
+						}
+					}
+
+					SlotCost price = pricesPerSlot.get(indexOfHighest);
+
+					float average = highestAcc / slots;
+
+					int hours = slots * 30 / 60;
+
+					int minutes = slots * 30 % 60;
+
+					System.out.println((0 == hours ? "      " : String.format("%2d", hours) + " hr ")
+							+ (0 == minutes ? "      " : String.format("%2d", minutes) + " min") + " period from "
+							+ price.getSimpleTimeStamp() + "  has average price: " + average + "p");
+				}
+			}
+
+			//
+			//
+			//
+
+			System.out.println("\nUpcoming best import price periods:");
+
+			SlotCost cheapestSlot = null;
+
+			for (int slots = 1; slots < 10; slots++) { // each slot represents 30 minutes
 
 				float lowestAcc = -1;
 
@@ -691,7 +728,7 @@ public class Octopussy {
 
 					for (int i = index; i < index + slots; i++) {
 
-						accumulate += pricesPerSlot.get(i).getPrice();
+						accumulate += pricesPerSlot.get(i).getImportPrice();
 					}
 
 					if (-1 == lowestAcc || accumulate < lowestAcc) {
@@ -703,19 +740,49 @@ public class Octopussy {
 
 				SlotCost price = pricesPerSlot.get(indexOfLowest);
 
+				if (1 == slots) {
+
+					cheapestSlot = price;
+				}
+
 				float average = lowestAcc / slots;
 
-				System.out.println(String.format("%3d", (slots * 30)) + " minute period from "
+				int hours = slots * 30 / 60;
+
+				int minutes = slots * 30 % 60;
+
+				System.out.println((0 == hours ? "      " : String.format("%2d", hours) + " hr ")
+						+ (0 == minutes ? "      " : String.format("%2d", minutes) + " min") + " period from "
 						+ price.getSimpleTimeStamp() + "  has average price: " + average + "p");
 			}
 
-//			json = instance.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(v1ElectricityConsumption);
-//
-//			System.out.println(json);
-//
-//			json = instance.mapper.writerWithDefaultPrettyPrinter().writeValueAsString(v1AgileFlex);
-//
-//			System.out.println(json);
+			System.out.println("\nCurrent & future half-hour unit prices:");
+
+			for (SlotCost slotCost : pricesPerSlot) {
+
+				float importValueIncVat = slotCost.getImportPrice();
+
+				Float exportValueIncVat = slotCost.getExportPrice(); // can be null;
+
+				StringBuffer sb = new StringBuffer();
+
+				if (importValueIncVat < plunge) {
+
+					sb.append(" <--- PLUNGE BELOW " + plunge + "p !!!");
+
+				} else {
+
+					for (int n = 0; n < importValueIncVat; n++) {
+
+						sb.append(target == n ? 'X' : (averageUnitCost == n ? 'A' : '*'));
+					}
+				}
+
+				System.out.println((export ? String.format("%6.2f", exportValueIncVat) + "   " : "\t")
+						+ slotCost.getSimpleTimeStamp() + "  " + (slotCost.equals(cheapestSlot) ? "!" : " ")
+						+ (importValueIncVat < averageUnitCost ? "!" : " ") + "\t"
+						+ String.format("%7.4f", importValueIncVat) + "p\t" + sb.toString());
+			}
 
 			System.exit(0);
 
