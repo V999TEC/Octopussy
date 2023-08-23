@@ -61,7 +61,7 @@ public class Octopussy {
 
 	private static ObjectMapper mapper;
 
-	private static boolean extra = false; // overriden by extra=true|false in properties
+	private static boolean extra = false; // overridden by extra=true|false in properties
 
 	private static Properties properties;
 
@@ -599,9 +599,9 @@ public class Octopussy {
 
 				System.out.println(dayValues.getDayOfWeek() + (lowestPrice < plunge ? " * " : "   ") + key
 						+ (lowestPrice < plunge ? String.format("%6.2f", lowestPrice) + "p " : "        ")
-						+ String.format("%8.4f", consumption) + " kWhr\tAgile: " + String.format("%8.4f", agilePrice)
-						+ "p +" + agileCharge + "p (Flat Rate: " + String.format("%8.4f", standardPrice) + "p +"
-						+ standardCharge + "p)  difference: " + String.format("%8.4f", difference) + "p");
+						+ String.format("%7.3f", consumption) + " kWhr  Agile: " + String.format("%8.4f", agilePrice)
+						+ "p +" + agileCharge + "p (X: " + String.format("%8.4f", standardPrice) + "p +"
+						+ standardCharge + "p)  saving: £" + String.format("%5.2f", (difference / 100)));
 
 				accumulateDifference += difference;
 
@@ -652,6 +652,8 @@ public class Octopussy {
 
 					price.setSimpleTimeStamp(slot.format(simpleTime));
 
+					price.setEpochSecond(slot.atZone(ourZoneId).toEpochSecond());
+
 					price.setImportPrice(importValueIncVat);
 
 					price.setExportPrice(exportValueIncVat);
@@ -666,7 +668,7 @@ public class Octopussy {
 
 			if (export) {
 
-				System.out.println("Upcoming best export price periods:");
+				System.out.println("\nUpcoming best export price periods:");
 
 				for (int slots = 1; slots < 10; slots++) { // each slot represents 30 minutes
 
@@ -694,15 +696,65 @@ public class Octopussy {
 
 					SlotCost price = pricesPerSlot.get(indexOfHighest);
 
+					String simpleTimeStamp = price.getSimpleTimeStamp();
+
+					Long epochSecond = price.getEpochSecond(); // the start of the period
+
+					long epochSecondAtEndOfPeriod = epochSecond + 1800 * slots;
+
+					boolean adjustAverage = false;
+
 					float average = highestAcc / slots;
 
-					int hours = slots * 30 / 60;
+					// Have we gone past the start of this slot period (perhaps by up to 30 minutes)
+					// ?
 
-					int minutes = slots * 30 % 60;
+					if (epochNow > epochSecond) {
+
+						// we will need to adjust the time that the period starts to match the current
+						// time now
+
+						simpleTimeStamp = now.format(simpleTime);
+
+						epochSecond = epochNow;
+
+						if (slots > 1) {
+
+							// flag that the average needs to be recalculated
+							adjustAverage = true;
+						}
+					}
+
+					int secondsInSlot = (int) (epochSecondAtEndOfPeriod - epochSecond);
+
+					int hours = (int) (secondsInSlot / 3600);
+
+					int minutes = (secondsInSlot % 3600) / 60;
+
+					if (adjustAverage) {
+
+						// the average calculation would have been slightly adrift because the current
+						// time
+
+						// is reducing the number of minutes available at the current ExportPrice
+						// so recalculate the average but do it in minutes rather than 30 minute slots
+
+						// remove the shortened slot period from the highestAcc
+
+						highestAcc -= price.getExportPrice();
+
+						// switch to minute granularity
+
+						highestAcc = 30 * (slots - 1) * highestAcc;
+
+						highestAcc += (minutes * price.getExportPrice());
+
+						average = highestAcc / (30 * (slots - 1) + minutes);
+					}
 
 					System.out.println((0 == hours ? "      " : String.format("%2d", hours) + " hr ")
 							+ (0 == minutes ? "      " : String.format("%2d", minutes) + " min") + " period from "
-							+ price.getSimpleTimeStamp() + "  has average price: " + average + "p");
+							+ simpleTimeStamp + "  has average price: " + String.format("%5.2f", average) + "p");
 				}
 			}
 
@@ -714,7 +766,7 @@ public class Octopussy {
 
 			SlotCost cheapestSlot = null;
 
-			for (int slots = 1; slots < 10; slots++) { // each slot represents 30 minutes
+			for (int slots = 1; slots < 11; slots++) { // each slot represents 30 minutes
 
 				float lowestAcc = -1;
 
@@ -740,21 +792,75 @@ public class Octopussy {
 
 				SlotCost price = pricesPerSlot.get(indexOfLowest);
 
+				String simpleTimeStamp = price.getSimpleTimeStamp();
+
 				if (1 == slots) {
 
 					cheapestSlot = price;
 				}
 
+				Long epochSecond = price.getEpochSecond(); // the start of the period
+
+				long epochSecondAtEndOfPeriod = epochSecond + 1800 * slots;
+
+				boolean adjustAverage = false;
+
 				float average = lowestAcc / slots;
 
-				int hours = slots * 30 / 60;
+				// Have we gone past the start of this slot period (perhaps by up to 30 minutes)
+				// ?
 
-				int minutes = slots * 30 % 60;
+				if (epochNow > epochSecond) {
+
+					// we will need to adjust the time that the period starts to match the current
+					// time now
+
+					simpleTimeStamp = now.format(simpleTime);
+
+					epochSecond = epochNow;
+
+					if (slots > 1) {
+
+						// flag that the average needs to be recalculated
+						adjustAverage = true;
+					}
+				}
+
+				int secondsInSlot = (int) (epochSecondAtEndOfPeriod - epochSecond);
+
+				int hours = (int) (secondsInSlot / 3600);
+
+				int minutes = (secondsInSlot % 3600) / 60;
+
+				if (adjustAverage) {
+
+					// the average calculation would have been slightly adrift because the current
+					// time
+
+					// is reducing the number of minutes available at the current ExportPrice
+					// so recalculate the average but do it in minutes rather than 30 minute slots
+
+					// remove the shortened slot period from the highestAcc
+
+					lowestAcc -= price.getExportPrice();
+
+					// switch to minute granularity
+
+					lowestAcc = 30 * (slots - 1) * lowestAcc;
+
+					lowestAcc += (minutes * price.getExportPrice());
+
+					average = lowestAcc / (30 * (slots - 1) + minutes);
+				}
 
 				System.out.println((0 == hours ? "      " : String.format("%2d", hours) + " hr ")
 						+ (0 == minutes ? "      " : String.format("%2d", minutes) + " min") + " period from "
-						+ price.getSimpleTimeStamp() + "  has average price: " + average + "p");
+						+ simpleTimeStamp + "  has average price: " + String.format("%5.2f", average) + "p");
 			}
+
+			//
+			//
+			//
 
 			System.out.println("\nCurrent & future half-hour unit prices:");
 
@@ -786,7 +892,9 @@ public class Octopussy {
 
 			System.exit(0);
 
-		} catch (IOException e) {
+		} catch (
+
+		IOException e) {
 
 			e.printStackTrace();
 			System.exit(-1);

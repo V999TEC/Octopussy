@@ -4,6 +4,8 @@ public class SlotCost {
 
 	private String simpleTimeStamp;
 
+	private Long epochSecond;
+
 	private Float importPrice;
 
 	private Float exportPrice;
@@ -30,6 +32,14 @@ public class SlotCost {
 
 	public void setExportPrice(Float exportPrice) {
 		this.exportPrice = exportPrice;
+	}
+
+	public Long getEpochSecond() {
+		return epochSecond;
+	}
+
+	public void setEpochSecond(Long epochSecond) {
+		this.epochSecond = epochSecond;
 	}
 
 }
