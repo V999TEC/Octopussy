@@ -63,6 +63,8 @@ public class Octopussy {
 
 	private static ObjectMapper mapper;
 
+	private static int width;
+
 	private static boolean extra = false; // overridden by extra=true|false in properties
 
 	private static Properties properties;
@@ -131,6 +133,8 @@ public class Octopussy {
 
 					throw new Exception("apiKey");
 				}
+
+				width = Integer.valueOf(properties.getProperty("width", "62").trim());
 
 				ourZoneId = ZoneId.of(properties.getProperty("zone.id", "Europe/London").trim());
 
@@ -804,9 +808,9 @@ public class Octopussy {
 				}
 			}
 
-			if (maxWidth > 62) {
+			if (maxWidth > width) {
 
-				maxWidth = 62;
+				maxWidth = width;
 			}
 
 			{
