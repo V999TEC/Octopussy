@@ -105,7 +105,19 @@ public class Octopussy {
 
 		BufferedWriter bw = null;
 
+		int extended = 0;
+
 		try {
+
+			if (args.length > 0) {
+
+				extended = Integer.parseInt(args[0].trim());
+
+				if (extended > 9) {
+
+					extended = 9;
+				}
+			}
 
 			String keyValue = null;
 
@@ -624,11 +636,10 @@ public class Octopussy {
 
 			String averagePower = String.format("%.2f", accumulatePower / countDays);
 
-			System.out.println("\nOver " + countDays + " days, using " + accumulatePower
-					+ " kWhr, Octopus Agile tariff has saved £" + pounds2DP + " compared to the " + flatRate
-					+ "p (X) flat rate tariff");
-			System.out.println("Average saving per day: £" + averagePounds2DP + " and average cost per unit (A): "
-					+ averageCostPerUnit + "p  The average daily electricity usage is: " + averagePower + " kWhr");
+			System.out.println("\nOver " + countDays + " days, using " + accumulatePower + " kWhr, Agile has saved £"
+					+ pounds2DP + " compared to the " + flatRate + "p (X) flat rate tariff");
+			System.out.println("Average daily saving: £" + averagePounds2DP + " Average cost per unit (A): "
+					+ averageCostPerUnit + "p  Average daily power usage: " + averagePower + " kWhr");
 
 			SortedSet<LocalDateTime> setOfLocalDateTime = new TreeSet<LocalDateTime>();
 
@@ -793,19 +804,38 @@ public class Octopussy {
 				}
 			}
 
+			if (maxWidth > 62) {
+
+				maxWidth = 62;
+			}
+
 			{
 				StringBuffer sb = new StringBuffer();
 
 				sb.append("\nCurrent & future import unit prices:");
 
-				for (int n = (export ? -15 : -7); n < maxWidth; n++) {
+				for (int n = (export ? -13 : -5); n < maxWidth; n++) {
 
 					sb.append(' ');
 				}
 
 				sb.append('|');
 
-				sb.append(" 1hr | 1.5 | 2hr | 2.5 | 3hr | 3.5 | 4hr | 4.5 | 5hr |HH:MM");
+				if (extended > 1) {
+
+					String heads[] = { " 1hr |", " 1.5 |", " 2hr |", " 2.5 |", " 3hr |", " 3.5 |", " 4hr |", " 4.5 |",
+							" 5hr |" };
+
+					for (int e = 0; e < extended - 1; e++) {
+
+						sb.append(heads[e]);
+					}
+				}
+
+				if (extended > 0) {
+
+					sb.append("HH:MM");
+				}
 
 				System.out.println(sb.toString());
 			}
@@ -830,7 +860,19 @@ public class Octopussy {
 
 					for (int n = 0; n < importValueIncVat; n++) {
 
-						sb.append(target == n ? 'X' : (averageUnitCost == n ? 'A' : '*'));
+						if (n > maxWidth) {
+
+							break;
+						}
+
+						if (maxWidth == n) {
+
+							sb.append('M');
+
+						} else {
+
+							sb.append(target == n ? 'X' : (averageUnitCost == n ? 'A' : '*'));
+						}
 					}
 
 					for (int n = importValueIncVat.intValue(); n < maxWidth; n++) {
@@ -846,47 +888,53 @@ public class Octopussy {
 
 				sb.append('|');
 
-				// calculate the average for 1hr/1.5hr/2hr... etc
+				if (extended > 1) {
 
-				for (int i = 1; i < 10; i++) {
+					// calculate the average for 1hr/1.5hr/2hr... etc
 
-					float acc = 0;
+					for (int i = 1; i < extended; i++) {
 
-					int count = 0;
+						float acc = 0;
 
-					if (index + i < pricesPerSlot.size()) {
+						int count = 0;
 
-						for (int j = index; j < index + i + 1; j++) {
+						if (index + i < pricesPerSlot.size()) {
 
-							acc += pricesPerSlot.get(j).getImportPrice();
-							count++;
+							for (int j = index; j < index + i + 1; j++) {
+
+								acc += pricesPerSlot.get(j).getImportPrice();
+								count++;
+							}
 						}
+
+						if (count < (1 + i)) {
+
+							sb.append("     ");
+
+						} else {
+
+							sb.append(String.format("%5.2f", acc / count));
+						}
+
+						sb.append('|');
 					}
-
-					if (count < (1 + i)) {
-
-						sb.append("     ");
-
-					} else {
-
-						sb.append(String.format("%5.2f", acc / count));
-					}
-
-					sb.append('|');
 				}
 
-				Long epochSecond = slotCost.getEpochSecond();
+				if (extended > 0) {
 
-				Instant instant = Instant.ofEpochSecond(epochSecond);
+					Long epochSecond = slotCost.getEpochSecond();
 
-				LocalDateTime ldt = LocalDateTime.ofInstant(instant, ourZoneId);
+					Instant instant = Instant.ofEpochSecond(epochSecond);
 
-				sb.append(ldt.format(formatter24HourClock));
+					LocalDateTime ldt = LocalDateTime.ofInstant(instant, ourZoneId);
+
+					sb.append(ldt.format(formatter24HourClock));
+				}
 
 				System.out.println((export ? String.format("%6.2f", exportValueIncVat) + "   " : "\t")
 						+ slotCost.getSimpleTimeStamp() + "  " + (slotCost.equals(cheapestSlot) ? "!" : " ")
 						+ (importValueIncVat < averageUnitCost ? "!" : " ") + "\t"
-						+ String.format("%7.4f", importValueIncVat) + "p  " + sb.toString());
+						+ String.format("%5.2f", importValueIncVat) + "p  " + sb.toString());
 			}
 
 			System.exit(0);
