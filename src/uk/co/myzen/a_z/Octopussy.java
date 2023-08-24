@@ -55,6 +55,8 @@ public class Octopussy {
 
 	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd pph:mm a");
 
+	private final static DateTimeFormatter formatter24HourClock = DateTimeFormatter.ofPattern("HH:mm");
+
 	private final static DateTimeFormatter defaultDateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
 	private static ZoneId ourZoneId;
@@ -125,7 +127,7 @@ public class Octopussy {
 					throw new Exception("zone.id");
 				}
 
-				importData = new File(properties.getProperty("history", ".\\octopus.import.csv").trim());
+				importData = new File(properties.getProperty("history", "octopus.import.csv").trim());
 
 			} catch (Exception e) {
 
@@ -670,7 +672,7 @@ public class Octopussy {
 
 				System.out.println("\nUpcoming best export price periods:");
 
-				for (int slots = 1; slots < 10; slots++) { // each slot represents 30 minutes
+				for (int slots = 1; slots < 11; slots++) { // each slot represents 30 minutes
 
 					float highestAcc = -1;
 
@@ -702,55 +704,13 @@ public class Octopussy {
 
 					long epochSecondAtEndOfPeriod = epochSecond + 1800 * slots;
 
-					boolean adjustAverage = false;
-
 					float average = highestAcc / slots;
-
-					// Have we gone past the start of this slot period (perhaps by up to 30 minutes)
-					// ?
-
-					if (epochNow > epochSecond) {
-
-						// we will need to adjust the time that the period starts to match the current
-						// time now
-
-						simpleTimeStamp = now.format(simpleTime);
-
-						epochSecond = epochNow;
-
-						if (slots > 1) {
-
-							// flag that the average needs to be recalculated
-							adjustAverage = true;
-						}
-					}
 
 					int secondsInSlot = (int) (epochSecondAtEndOfPeriod - epochSecond);
 
 					int hours = (int) (secondsInSlot / 3600);
 
 					int minutes = (secondsInSlot % 3600) / 60;
-
-					if (adjustAverage) {
-
-						// the average calculation would have been slightly adrift because the current
-						// time
-
-						// is reducing the number of minutes available at the current ExportPrice
-						// so recalculate the average but do it in minutes rather than 30 minute slots
-
-						// remove the shortened slot period from the highestAcc
-
-						highestAcc -= price.getExportPrice();
-
-						// switch to minute granularity
-
-						highestAcc = 30 * (slots - 1) * highestAcc;
-
-						highestAcc += (minutes * price.getExportPrice());
-
-						average = highestAcc / (30 * (slots - 1) + minutes);
-					}
 
 					System.out.println((0 == hours ? "      " : String.format("%2d", hours) + " hr ")
 							+ (0 == minutes ? "      " : String.format("%2d", minutes) + " min") + " period from "
@@ -803,55 +763,13 @@ public class Octopussy {
 
 				long epochSecondAtEndOfPeriod = epochSecond + 1800 * slots;
 
-				boolean adjustAverage = false;
-
 				float average = lowestAcc / slots;
-
-				// Have we gone past the start of this slot period (perhaps by up to 30 minutes)
-				// ?
-
-				if (epochNow > epochSecond) {
-
-					// we will need to adjust the time that the period starts to match the current
-					// time now
-
-					simpleTimeStamp = now.format(simpleTime);
-
-					epochSecond = epochNow;
-
-					if (slots > 1) {
-
-						// flag that the average needs to be recalculated
-						adjustAverage = true;
-					}
-				}
 
 				int secondsInSlot = (int) (epochSecondAtEndOfPeriod - epochSecond);
 
 				int hours = (int) (secondsInSlot / 3600);
 
 				int minutes = (secondsInSlot % 3600) / 60;
-
-				if (adjustAverage) {
-
-					// the average calculation would have been slightly adrift because the current
-					// time
-
-					// is reducing the number of minutes available at the current ExportPrice
-					// so recalculate the average but do it in minutes rather than 30 minute slots
-
-					// remove the shortened slot period from the highestAcc
-
-					lowestAcc -= price.getExportPrice();
-
-					// switch to minute granularity
-
-					lowestAcc = 30 * (slots - 1) * lowestAcc;
-
-					lowestAcc += (minutes * price.getExportPrice());
-
-					average = lowestAcc / (30 * (slots - 1) + minutes);
-				}
 
 				System.out.println((0 == hours ? "      " : String.format("%2d", hours) + " hr ")
 						+ (0 == minutes ? "      " : String.format("%2d", minutes) + " min") + " period from "
@@ -862,15 +780,47 @@ public class Octopussy {
 			//
 			//
 
-			System.out.println("\nCurrent & future half-hour unit prices:");
+			int maxWidth = 0;
 
 			for (SlotCost slotCost : pricesPerSlot) {
+				// find highest price which determines width of asterisks
 
-				float importValueIncVat = slotCost.getImportPrice();
+				Float importValueIncVat = slotCost.getImportPrice();
+
+				if (importValueIncVat > maxWidth) {
+
+					maxWidth = importValueIncVat.intValue();
+				}
+			}
+
+			{
+				StringBuffer sb = new StringBuffer();
+
+				sb.append("\nCurrent & future import unit prices:");
+
+				for (int n = (export ? -15 : -7); n < maxWidth; n++) {
+
+					sb.append(' ');
+				}
+
+				sb.append('|');
+
+				sb.append(" 1hr | 1.5 | 2hr | 2.5 | 3hr | 3.5 | 4hr | 4.5 | 5hr |HH:MM");
+
+				System.out.println(sb.toString());
+			}
+
+			StringBuffer sb = new StringBuffer();
+
+			for (int index = 0; index < pricesPerSlot.size(); index++) {
+
+				SlotCost slotCost = pricesPerSlot.get(index);
+
+				Float importValueIncVat = slotCost.getImportPrice();
 
 				Float exportValueIncVat = slotCost.getExportPrice(); // can be null;
 
-				StringBuffer sb = new StringBuffer();
+				sb = new StringBuffer();
 
 				if (importValueIncVat < plunge) {
 
@@ -882,12 +832,61 @@ public class Octopussy {
 
 						sb.append(target == n ? 'X' : (averageUnitCost == n ? 'A' : '*'));
 					}
+
+					for (int n = importValueIncVat.intValue(); n < maxWidth; n++) {
+
+						sb.append(' ');
+					}
 				}
+
+				for (int n = sb.length(); n < maxWidth; n++) {
+
+					sb.append(' ');
+				}
+
+				sb.append('|');
+
+				// calculate the average for 1hr/1.5hr/2hr... etc
+
+				for (int i = 1; i < 10; i++) {
+
+					float acc = 0;
+
+					int count = 0;
+
+					if (index + i < pricesPerSlot.size()) {
+
+						for (int j = index; j < index + i + 1; j++) {
+
+							acc += pricesPerSlot.get(j).getImportPrice();
+							count++;
+						}
+					}
+
+					if (count < (1 + i)) {
+
+						sb.append("     ");
+
+					} else {
+
+						sb.append(String.format("%5.2f", acc / count));
+					}
+
+					sb.append('|');
+				}
+
+				Long epochSecond = slotCost.getEpochSecond();
+
+				Instant instant = Instant.ofEpochSecond(epochSecond);
+
+				LocalDateTime ldt = LocalDateTime.ofInstant(instant, ourZoneId);
+
+				sb.append(ldt.format(formatter24HourClock));
 
 				System.out.println((export ? String.format("%6.2f", exportValueIncVat) + "   " : "\t")
 						+ slotCost.getSimpleTimeStamp() + "  " + (slotCost.equals(cheapestSlot) ? "!" : " ")
 						+ (importValueIncVat < averageUnitCost ? "!" : " ") + "\t"
-						+ String.format("%7.4f", importValueIncVat) + "p\t" + sb.toString());
+						+ String.format("%7.4f", importValueIncVat) + "p  " + sb.toString());
 			}
 
 			System.exit(0);
