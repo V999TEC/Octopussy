@@ -50,6 +50,28 @@ import uk.co.myzen.a_z.json.V1PeriodConsumption;
 
 public class Octopussy {
 
+	public static final String ANSI_RESET = "\u001B[0m";
+
+	// foreground ANSI colours
+	public static final String ANSI_BLACK_FOREGROUND = "\u001B[30m";
+	public static final String ANSI_RED_FOREGROUND = "\u001B[31m";
+	public static final String ANSI_GREEN_FOREGROUND = "\u001B[32m";
+	public static final String ANSI_YELLOW_FOREGROUND = "\u001B[33m";
+	public static final String ANSI_BLUE_FOREGROUND = "\u001B[34m";
+	public static final String ANSI_PURPLE_FOREGROUND = "\u001B[35m";
+	public static final String ANSI_CYAN_FOREGROUND = "\u001B[36m";
+	public static final String ANSI_WHITE_FOREGROUND = "\u001B[37m";
+
+	// background ANSI colours
+	public static final String ANSI_BLACK_BACKGROUND = "\u001B[40m";
+	public static final String ANSI_RED_BACKGROUND = "\u001B[41m";
+	public static final String ANSI_GREEN_BACKGROUND = "\u001B[42m";
+	public static final String ANSI_YELLOW_BACKGROUND = "\u001B[43m";
+	public static final String ANSI_BLUE_BACKGROUND = "\u001B[44m";
+	public static final String ANSI_PURPLE_BACKGROUND = "\u001B[45m";
+	public static final String ANSI_CYAN_BACKGROUND = "\u001B[46m";
+	public static final String ANSI_WHITE_BACKGROUND = "\u001B[47m";
+
 	private final static String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36";
 	private final static String contentType = "application/json";
 
@@ -64,6 +86,7 @@ public class Octopussy {
 	private static ObjectMapper mapper;
 
 	private static int width;
+	private static boolean ansi;
 
 	private static boolean extra = false; // overridden by extra=true|false in properties
 
@@ -115,10 +138,15 @@ public class Octopussy {
 
 				extended = Integer.parseInt(args[0].trim());
 
-				if (extended > 9) {
+				if (extended > 19) {
 
-					extended = 9;
+					extended = 19;
+
+				} else if (extended < 0) {
+
+					extended = 0;
 				}
+
 			}
 
 			String keyValue = null;
@@ -135,6 +163,8 @@ public class Octopussy {
 				}
 
 				width = Integer.valueOf(properties.getProperty("width", "62").trim());
+
+				ansi = Boolean.valueOf(properties.getProperty("ansi", "false").trim());
 
 				ourZoneId = ZoneId.of(properties.getProperty("zone.id", "Europe/London").trim());
 
@@ -562,7 +592,7 @@ public class Octopussy {
 			//
 			//
 
-			System.out.println("\nDaily result(s):");
+			System.out.println("\nDaily results:");
 
 			int countDays = 0;
 
@@ -617,7 +647,7 @@ public class Octopussy {
 
 				System.out.println(dayValues.getDayOfWeek() + (lowestPrice < plunge ? " * " : "   ") + key
 						+ (lowestPrice < plunge ? String.format("%6.2f", lowestPrice) + "p " : "        ")
-						+ String.format("%7.3f", consumption) + " kWhr  Agile: " + String.format("%8.4f", agilePrice)
+						+ String.format("%7.2f", consumption) + " kWhr  Agile: " + String.format("%8.4f", agilePrice)
 						+ "p +" + agileCharge + "p (X: " + String.format("%8.4f", standardPrice) + "p +"
 						+ standardCharge + "p)  saving: £" + String.format("%5.2f", (difference / 100)));
 
@@ -737,31 +767,51 @@ public class Octopussy {
 			//
 			//
 
+			ArrayList<Long> bestStartTime = new ArrayList<Long>();
+
 			System.out.println("\nUpcoming best import price periods:");
 
 			SlotCost cheapestSlot = null;
 
-			for (int slots = 1; slots < 11; slots++) { // each slot represents 30 minutes
+			// how many slots < epoch of noPriceDataFrom?
+
+			int widestPeriod = extended;
+
+			for (int period = 0; period < widestPeriod; period++) { // each period represents multiples of 30 minutes
+
+				// for bestStartTime[] [0] will be 30 minutes, [1] 1hr [2] 1.5 hr ... [9] 5hr
 
 				float lowestAcc = -1;
 
 				int indexOfLowest = 0;
 
-				int limit = pricesPerSlot.size() - slots;
+				int limit = pricesPerSlot.size() - 1 - period;
 
-				for (int index = 0; index < limit; index++) {
+//				System.out.println("\t\tFor period " + period + " last time range considered will be from "
+//						+ pricesPerSlot.get(limit - period).getSimpleTimeStamp() + " [" + (limit - period) + "] to "
+//						+ pricesPerSlot.get(limit).getSimpleTimeStamp() + "   [" + limit + "]");
+
+				for (int index = 0; index < limit - period + 1; index++) {
 
 					float accumulate = 0;
 
-					for (int i = index; i < index + slots; i++) {
+					for (int i = index; i < index + period + 1; i++) {
 
-						accumulate += pricesPerSlot.get(i).getImportPrice();
+						Float importPrice = pricesPerSlot.get(i).getImportPrice();
+
+//						System.out.println("For period " + period + " at [" + i + "] "
+//								+ pricesPerSlot.get(i).getSimpleTimeStamp() + " adding " + importPrice);
+
+						accumulate += importPrice;
 					}
 
 					if (-1 == lowestAcc || accumulate < lowestAcc) {
 
 						lowestAcc = accumulate;
 						indexOfLowest = index;
+
+//						System.out.println("\tFor period " + period + " the lowest acc so far is at index " + index
+//								+ " " + pricesPerSlot.get(indexOfLowest).getSimpleTimeStamp());
 					}
 				}
 
@@ -769,18 +819,24 @@ public class Octopussy {
 
 				String simpleTimeStamp = price.getSimpleTimeStamp();
 
-				if (1 == slots) {
+				Long epochSecond = price.getEpochSecond();
+
+				bestStartTime.add(epochSecond);
+
+				Instant instant = Instant.ofEpochSecond(-60 + epochSecond + (period + 1) * 1800);
+
+				LocalDateTime ldt = LocalDateTime.ofInstant(instant, ourZoneId);
+
+				String periodEndTime = ldt.format(formatter24HourClock);
+
+				if (0 == period) {
 
 					cheapestSlot = price;
 				}
 
-				Long epochSecond = price.getEpochSecond(); // the start of the period
+				float average = lowestAcc / (period + 1); // the number of 30 minute periods in the slot
 
-				long epochSecondAtEndOfPeriod = epochSecond + 1800 * slots;
-
-				float average = lowestAcc / slots;
-
-				int secondsInSlot = (int) (epochSecondAtEndOfPeriod - epochSecond);
+				int secondsInSlot = 1800 * (period + 1);
 
 				int hours = (int) (secondsInSlot / 3600);
 
@@ -788,7 +844,8 @@ public class Octopussy {
 
 				System.out.println((0 == hours ? "      " : String.format("%2d", hours) + " hr ")
 						+ (0 == minutes ? "      " : String.format("%2d", minutes) + " min") + " period from "
-						+ simpleTimeStamp + "  has average price: " + String.format("%5.2f", average) + "p");
+						+ simpleTimeStamp + " to " + periodEndTime + "  has average price: "
+						+ String.format("%5.2f", average) + "p");
 			}
 
 			//
@@ -828,7 +885,8 @@ public class Octopussy {
 				if (extended > 1) {
 
 					String heads[] = { " 1hr |", " 1.5 |", " 2hr |", " 2.5 |", " 3hr |", " 3.5 |", " 4hr |", " 4.5 |",
-							" 5hr |" };
+							" 5hr |", " 5.5 |", " 6hr |", " 6.5 |", " 7hr |", " 7.5 |", " 8hr |", " 8.5 |", " 9hr |",
+							" 9.5 |" };
 
 					for (int e = 0; e < extended - 1; e++) {
 
@@ -844,7 +902,7 @@ public class Octopussy {
 				System.out.println(sb.toString());
 			}
 
-			StringBuffer sb = new StringBuffer();
+			StringBuffer sb1 = new StringBuffer();
 
 			for (int index = 0; index < pricesPerSlot.size(); index++) {
 
@@ -854,43 +912,43 @@ public class Octopussy {
 
 				Float exportValueIncVat = slotCost.getExportPrice(); // can be null;
 
-				sb = new StringBuffer();
+				boolean cheapest = slotCost.equals(cheapestSlot);
+				boolean lessThanAverage = importValueIncVat < averageUnitCost;
+
+				sb1 = new StringBuffer();
 
 				if (importValueIncVat < plunge) {
 
-					sb.append(" <--- PLUNGE BELOW " + plunge + "p !!!");
+					sb1.append(" <--- PLUNGE BELOW " + plunge + "p !!!");
 
 				} else {
 
-					for (int n = 0; n < importValueIncVat; n++) {
+					for (int n = 0; n < importValueIncVat && n < maxWidth; n++) {
 
-						if (n > maxWidth) {
-
-							break;
-						}
-
-						if (maxWidth == n) {
-
-							sb.append('M');
-
-						} else {
-
-							sb.append(target == n ? 'X' : (averageUnitCost == n ? 'A' : '*'));
-						}
+						sb1.append(target == n ? 'X' : (averageUnitCost == n ? 'A' : '*'));
 					}
 
-					for (int n = importValueIncVat.intValue(); n < maxWidth; n++) {
+					if (importValueIncVat == maxWidth) {
 
-						sb.append(' ');
+						sb1.append('>');
 					}
+
 				}
 
-				for (int n = sb.length(); n < maxWidth; n++) {
+				String asterisks = sb1.toString();
 
-					sb.append(' ');
+				StringBuffer sb2 = new StringBuffer();
+
+				for (int n = sb1.length(); n < maxWidth + 1; n++) {
+
+					sb2.append(' ');
 				}
 
-				sb.append('|');
+				sb2.append('|');
+
+				String padding = sb2.toString();
+
+				StringBuffer sb3 = new StringBuffer();
 
 				if (extended > 1) {
 
@@ -913,16 +971,43 @@ public class Octopussy {
 
 						if (count < (1 + i)) {
 
-							sb.append("     ");
+							sb3.append("     ");
 
 						} else {
 
-							sb.append(String.format("%5.2f", acc / count));
+							// determine if this average price needs to be green
+
+							if (ansi) {
+
+								// n.b. i==1 represents 1 hr (i=0 unused: represents 30 mins)
+
+								long bestPeriodStartsAt = bestStartTime.get(i); // inclusive
+								long bestPeriodEndBefore = (i + 1) * 1800 + bestPeriodStartsAt; // exclusive
+
+								long slotEpoch = slotCost.getEpochSecond();
+
+								if (slotEpoch >= bestPeriodStartsAt && slotEpoch < bestPeriodEndBefore) {
+
+									sb3.append(ANSI_GREEN_FOREGROUND);
+								}
+							}
+
+							sb3.append(String.format("%5.2f", acc / count));
+
+							if (ansi) {
+
+								sb3.append(ANSI_RESET);
+							}
+
 						}
 
-						sb.append('|');
+						sb3.append('|');
 					}
 				}
+
+				String prices = sb3.toString();
+
+				String clockHHMM = "";
 
 				if (extended > 0) {
 
@@ -932,13 +1017,14 @@ public class Octopussy {
 
 					LocalDateTime ldt = LocalDateTime.ofInstant(instant, ourZoneId);
 
-					sb.append(ldt.format(formatter24HourClock));
+					clockHHMM = ldt.format(formatter24HourClock);
 				}
 
 				System.out.println((export ? String.format("%6.2f", exportValueIncVat) + "   " : "\t")
-						+ slotCost.getSimpleTimeStamp() + "  " + (slotCost.equals(cheapestSlot) ? "!" : " ")
-						+ (importValueIncVat < averageUnitCost ? "!" : " ") + "\t"
-						+ String.format("%5.2f", importValueIncVat) + "p  " + sb.toString());
+						+ slotCost.getSimpleTimeStamp() + "  " + (cheapest ? "!" : " ") + (lessThanAverage ? "!" : " ")
+						+ "\t" + String.format("%5.2f", importValueIncVat) + "p  "
+						+ (ansi & cheapest ? ANSI_GREEN_FOREGROUND : "") + asterisks
+						+ (ansi & cheapest ? ANSI_RESET : "") + padding + prices + clockHHMM);
 			}
 
 			System.exit(0);
