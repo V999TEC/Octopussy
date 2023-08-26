@@ -17,6 +17,12 @@ Then relaunch a cmd.exe
 
 The parameter passed to the jar indicates the number of columns to create on the right hand side of the display.
 
+The example above shows that 10am is the cheapest time to start an activity taking 1hr. The price is 15.88p on average.
+
+Another example is that a longer 3.5 hour activity is best started earlier at 09:30 since the average unit price will be 16.47p during the seven 30-minute slots.
+
+Obviously the task requiring electricity generally won't use it evenly across the period, so the program is just a guide, but it's better then a random choice.
+
 By default, the display will show a vertical bar to the right of the asterisks that indicate the unit cost in each 30 minute period
 A parameter value larger than value 0 will display a 24 hour time stamp HH:MM to assist when viewing the (potentially many) rows
 Values larger than 1 will display increasingly more columns, containing average prices for periods of 1hr, 1.5, 2hr, 2.5 3hr... etc up to 9.5
@@ -27,11 +33,26 @@ This means that sometimes the number of columns is truncated, because it is not 
 Setting my API key
 
 Time to get familiar with editing octopussy.properties which is in the root of the jar
-One receomneded way is to use 7-zip
+One recommended way is simply to use 7-zip
 
 Open the archive, edit the octopussy.properties and save the changes and it will regenerate the jar
-You'll need to change at the very least
+You'll need to change at the very least:
+```
+apiKey=sk_live_BLAH2pPIXOIO72aIO1blah:
+electricity.mprn=2000012600000
+electricity.sn=21L300071
 
+region=?
+```
+
+No doubt you know your region if you have played with the API.
+Stick the value in the properties. 
+Alternatively put in the first part of the postcode and the API will look up your region (but that wasteful to do every time and it will just return the same answer)
+
+The gas key values are experimental for now and don't do anything useful
+
+Example of octopussy.properties
+```
 apiKey=sk_live_BLAH2pPIXOIO72aIO1blah:
 
 electricity.mprn=2000012600000
@@ -77,6 +98,8 @@ width=63
 
 # in Windows console to show ANSI update Registry set REG_DWORD VirtualTerminalLevel=1 for Computer\HKEY_CURRENT_USER\Console
 ansi=true
+```
+
 extra=false
 
 
