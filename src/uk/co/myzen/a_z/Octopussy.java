@@ -750,6 +750,8 @@ public class Octopussy {
 					long epochSecondAtEndOfPeriod = epochSecond + 1800 * slots;
 
 					float average = highestAcc / slots;
+					
+
 
 					int secondsInSlot = (int) (epochSecondAtEndOfPeriod - epochSecond);
 
@@ -815,6 +817,16 @@ public class Octopussy {
 					}
 				}
 
+				if( -1 == lowestAcc ) {
+					
+					// restrict extended so that we only show definitive data
+					
+					extended = period;
+					
+					break;	// this is because cannot prove we have found the lowest time
+					// typically because there is no data after 22:30
+				}
+				
 				SlotCost price = pricesPerSlot.get(indexOfLowest);
 
 				String simpleTimeStamp = price.getSimpleTimeStamp();
@@ -835,7 +847,7 @@ public class Octopussy {
 				}
 
 				float average = lowestAcc / (period + 1); // the number of 30 minute periods in the slot
-
+				
 				int secondsInSlot = 1800 * (period + 1);
 
 				int hours = (int) (secondsInSlot / 3600);
@@ -970,8 +982,12 @@ public class Octopussy {
 						}
 
 						if (count < (1 + i)) {
+							
 
-							sb3.append("     ");
+								
+								sb3.append("     ");
+								
+
 
 						} else {
 
@@ -1072,6 +1088,8 @@ public class Octopussy {
 
 		ClassLoader cl = Thread.currentThread().getContextClassLoader();
 
+		cl = ClassLoader.getSystemClassLoader();
+		
 		InputStream is = cl.getResourceAsStream(name);
 
 		properties.load(is);
