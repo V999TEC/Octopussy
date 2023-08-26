@@ -98,7 +98,6 @@ width=63
 
 # in Windows console to show ANSI update Registry set REG_DWORD VirtualTerminalLevel=1 for Computer\HKEY_CURRENT_USER\Console
 ansi=true
-
 extra=false
 ```
 
