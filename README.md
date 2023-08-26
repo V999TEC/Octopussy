@@ -30,7 +30,7 @@ Values larger than 1 will display increasingly more columns, containing average 
 n.b. Typically daily pricing data does not go beyond 22:30 and will be updated around 4pm by Octopus
 This means that sometimes the number of columns is truncated, because it is not possible to determine with certainty the cheapest time to start an activity when the end of the period goes beyond the range of available pricing.  Try playing with differnt values and you'll soon get the picture ;-)
 
-Setting my API key
+## Setting my API key
 
 Time to get familiar with editing octopussy.properties which is in the root of the jar
 One recommended way is simply to use 7-zip
@@ -98,9 +98,20 @@ width=63
 
 # in Windows console to show ANSI update Registry set REG_DWORD VirtualTerminalLevel=1 for Computer\HKEY_CURRENT_USER\Console
 ansi=true
-```
 
 extra=false
+```
 
+## Bonus feature
 
+When the program starts it will look for octopus.import.csv
+
+If it doesn't exist it will create the file and build up history data each time the program has run
+
+The file is useful if you want to import into a spreadsheet etc.
+
+The columns are 
+```
+Consumption (kWh), Start, End, Price
+```
 
