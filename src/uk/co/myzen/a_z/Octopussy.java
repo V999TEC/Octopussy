@@ -94,6 +94,7 @@ public class Octopussy {
 	private static ObjectMapper mapper;
 
 	private static int width;
+
 	private static boolean ansi;
 
 	private static boolean extra = false; // overridden by extra=true|false in properties
