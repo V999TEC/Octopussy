@@ -3,7 +3,7 @@ Java CLI uses Octopus API to analyse Agile tariff electricity consumption.
 The recent cost saving is shown compared to the flat rate tariff.
 The day ahead unit pricing is shown, together with the best times to start an activity.
 
-The jar has been tested (unchanged) on Raspberry Pi OS and Windows 10.
+The jar has been tested (and works unchanged, such is the beauty of java) on Raspberry Pi OS and Windows 10.
 
 n.b.
 For Windows users running the jar in a console, ANSI colour support should be enabled if not already.
@@ -30,10 +30,21 @@ Values larger than 1 will display increasingly more columns, containing average 
 n.b. Typically daily pricing data does not go beyond 22:30 and will be updated around 4pm by Octopus
 This means that sometimes the number of columns is truncated, because it is not possible to determine with certainty the cheapest time to start an activity when the end of the period goes beyond the range of available pricing.  Try playing with differnt values and you'll soon get the picture ;-)
 
-## Setting my API key
+## Setting my API key and meter point reference number & serial etc
 
-Time to get familiar with editing octopussy.properties which is in the root of the jar
-One recommended way is simply to use 7-zip
+Time to get familiar with editing octopussy.properties, a template of which is in the root of the jar
+
+One way is to create an octopussy.properties in the current directory where the jar lives
+
+Each time you run the jar, pass octopussy.properties (or whatever you have chosen to call it) as the second parameter
+
+For example
+
+```
+java -jar octopussy.jar 4 Icarus.properties
+```
+
+Another way is simply to use 7-zip and build your properties file into the zip, but it must be called octopussy.properties
 
 Open the archive, edit the octopussy.properties and save the changes and it will regenerate the jar
 You'll need to change at the very least:
@@ -101,7 +112,22 @@ ansi=true
 extra=false
 ```
 
-## Bonus feature
+## Bonus feature(1)
+
+You can always redisplay the template verion of the octopussy.properties (which is embedded in the jar) as follows:
+
+delete the octopus.import.csv file if it exists
+
+delete the octopussy.properties if it exists
+
+```
+java -jar octopussy.jar
+```
+This wil cause the program to display the properties so that you can copy paste into your own property file
+
+
+## Bonus feature(2)
+
 
 When the program starts it will look for octopus.import.csv
 
