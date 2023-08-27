@@ -44,7 +44,7 @@ For example
 java -jar octopussy.jar 4 Icarus.properties
 ```
 
-Another way is simply to use 7-zip and build your properties file into the zip, but it must be called octopussy.properties
+Another way is simply to use 7-zip and build your properties file into the zip, but be sure to call it octopussy.properties
 
 Open the archive, edit the octopussy.properties and save the changes and it will regenerate the jar
 You'll need to change at the very least:
@@ -114,7 +114,7 @@ extra=false
 
 ## Bonus feature(1)
 
-You can always redisplay the template verion of the octopussy.properties (which is embedded in the jar) as follows:
+You can always redisplay the template version of the octopussy.properties (which is embedded in the jar) as follows:
 
 delete the octopus.import.csv file if it exists
 
