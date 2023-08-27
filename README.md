@@ -49,7 +49,7 @@ Another way is simply to use 7-zip and build your properties file into the zip, 
 Open the archive, edit the octopussy.properties and save the changes and it will regenerate the jar
 You'll need to change at the very least:
 ```
-apiKey=sk_live_BLAH2pPIXOIO72aIO1blah:
+apiKey=blah_BLAH2pMoreBlahPIXOIO72aIO1blah:
 electricity.mprn=2000012600000
 electricity.sn=21L300071
 
