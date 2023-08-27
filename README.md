@@ -123,7 +123,7 @@ delete the octopussy.properties if it exists
 ```
 java -jar octopussy.jar
 ```
-This wil cause the program to display the properties so that you can copy paste into your own property file
+This will cause the program to display the properties so that you can copy paste into your own property file
 
 
 ## Bonus feature(2)
