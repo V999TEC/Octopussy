@@ -6,6 +6,7 @@ package uk.co.myzen.a_z;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
@@ -90,6 +91,8 @@ public class Octopussy {
 
 	private static boolean extra = false; // overridden by extra=true|false in properties
 
+	private static boolean usingExternalPropertyFile = false;
+	
 	private static Properties properties;
 
 	private static Octopussy instance = null;
@@ -134,6 +137,8 @@ public class Octopussy {
 
 		try {
 
+			String propertyFileName = "./octopussy.properties";	// the default
+			
 			if (args.length > 0) {
 
 				extended = Integer.parseInt(args[0].trim());
@@ -146,14 +151,27 @@ public class Octopussy {
 
 					extended = 0;
 				}
+				
+				if (args.length > 1) {
+					
+					// assume the optional second parameter is the name of a property file
+					// which will be used to override the built-in resource octopussy.properties
+					
+					propertyFileName = args[1].trim();
+				}
 
 			}
 
 			String keyValue = null;
 
 			try {
-
-				extra = loadProperties("octopussy.properties");
+				
+				// Check for existence of octopussy.properties in the current directory
+				// if it exists, use it in preference to the built-in resource compiled into the jar
+				
+				File externalProperties  = new File(propertyFileName);
+				
+				usingExternalPropertyFile = loadProperties(externalProperties);
 
 				keyValue = properties.getProperty("apiKey").trim();
 
@@ -190,7 +208,19 @@ public class Octopussy {
 
 			long epochFrom = 0;
 
-			if (!importData.createNewFile()) {
+			if (importData.createNewFile()) {
+				
+				// we normally expect to see the history file.
+				// Lets assume we are running for the first time or need to reset
+				
+				// display the content of the built-in property file (which can be used as a template)
+				
+				if( !usingExternalPropertyFile) {
+					
+					properties.store(System.err, "");	
+				}
+				
+			} else {
 
 				myReader = new Scanner(importData);
 
@@ -1082,16 +1112,30 @@ public class Octopussy {
 
 	}
 
-	private static boolean loadProperties(String name) throws IOException {
+	private static boolean loadProperties(File externalPropertyFile) throws IOException {
 
-		properties = new Properties();
-
-		ClassLoader cl = Thread.currentThread().getContextClassLoader();
-
-		cl = ClassLoader.getSystemClassLoader();
+		boolean external = false;
 		
-		InputStream is = cl.getResourceAsStream(name);
+		properties = new Properties();
+		
+		InputStream is;
 
+		if( null == externalPropertyFile || !externalPropertyFile.exists()) {
+			
+			ClassLoader cl = Thread.currentThread().getContextClassLoader();
+
+			cl = ClassLoader.getSystemClassLoader();
+			
+			is = cl.getResourceAsStream("octopussy.properties");
+			
+		} else {
+			
+			is = new FileInputStream(externalPropertyFile);
+			
+			external = true;
+			
+		} 
+		
 		properties.load(is);
 
 		// if postcode=value specified, such as postcode=SN5
@@ -1112,7 +1156,7 @@ public class Octopussy {
 			properties.setProperty("region", groupId.substring(1));
 		}
 
-		boolean extra = Boolean.valueOf(properties.getProperty("extra", "false").trim());
+		extra = Boolean.valueOf(properties.getProperty("extra", "false").trim());
 
 		// expand properties substituting $key$ values
 
@@ -1137,11 +1181,9 @@ public class Octopussy {
 
 				properties.setProperty(key, value);
 			}
-
 		}
 
-		return extra;
-
+		return external;
 	}
 
 	private V1ElectricityConsumption getV1ElectricityConsumption(Integer page, Integer pageSize, String periodFrom,
