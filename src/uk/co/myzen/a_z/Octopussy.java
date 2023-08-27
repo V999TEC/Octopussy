@@ -54,27 +54,34 @@ public class Octopussy {
 	public static final String ANSI_RESET = "\u001B[0m";
 
 	// foreground ANSI colours
-	public static final String ANSI_BLACK_FOREGROUND = "\u001B[30m";
-	public static final String ANSI_RED_FOREGROUND = "\u001B[31m";
 	public static final String ANSI_GREEN_FOREGROUND = "\u001B[32m";
-	public static final String ANSI_YELLOW_FOREGROUND = "\u001B[33m";
-	public static final String ANSI_BLUE_FOREGROUND = "\u001B[34m";
-	public static final String ANSI_PURPLE_FOREGROUND = "\u001B[35m";
-	public static final String ANSI_CYAN_FOREGROUND = "\u001B[36m";
-	public static final String ANSI_WHITE_FOREGROUND = "\u001B[37m";
+//	public static final String ANSI_BLACK_FOREGROUND = "\u001B[30m";
+//	public static final String ANSI_RED_FOREGROUND = "\u001B[31m";
+
+//	public static final String ANSI_YELLOW_FOREGROUND = "\u001B[33m";
+//	public static final String ANSI_BLUE_FOREGROUND = "\u001B[34m";
+//	public static final String ANSI_PURPLE_FOREGROUND = "\u001B[35m";
+//	public static final String ANSI_CYAN_FOREGROUND = "\u001B[36m";
+//	public static final String ANSI_WHITE_FOREGROUND = "\u001B[37m";
 
 	// background ANSI colours
-	public static final String ANSI_BLACK_BACKGROUND = "\u001B[40m";
-	public static final String ANSI_RED_BACKGROUND = "\u001B[41m";
-	public static final String ANSI_GREEN_BACKGROUND = "\u001B[42m";
-	public static final String ANSI_YELLOW_BACKGROUND = "\u001B[43m";
-	public static final String ANSI_BLUE_BACKGROUND = "\u001B[44m";
-	public static final String ANSI_PURPLE_BACKGROUND = "\u001B[45m";
-	public static final String ANSI_CYAN_BACKGROUND = "\u001B[46m";
-	public static final String ANSI_WHITE_BACKGROUND = "\u001B[47m";
+//	public static final String ANSI_BLACK_BACKGROUND = "\u001B[40m";
+//	public static final String ANSI_RED_BACKGROUND = "\u001B[41m";
+//	public static final String ANSI_GREEN_BACKGROUND = "\u001B[42m";
+//	public static final String ANSI_YELLOW_BACKGROUND = "\u001B[43m";
+//	public static final String ANSI_BLUE_BACKGROUND = "\u001B[44m";
+//	public static final String ANSI_PURPLE_BACKGROUND = "\u001B[45m";
+//	public static final String ANSI_CYAN_BACKGROUND = "\u001B[46m";
+//	public static final String ANSI_WHITE_BACKGROUND = "\u001B[47m";
 
 	private final static String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36";
 	private final static String contentType = "application/json";
+
+	private final static String[] defaultPropertyKeys = { "apiKey", "electricity.mprn", "electricity.sn", "gas.mprn",
+			"gas.sn", "flexible.gas.unit", "flexible.gas.standing", "flexible.electricity.unit",
+			"flexible.electricity.standing", "agile.electricity.standing", "zone.id", "history", "postcode", "region",
+			"base.url", "import.product.code", "tariff.code", "tariff.url", "export.product.code", "export.tariff.code",
+			"export.tariff.url", "export", "days", "plunge", "target", "width", "ansi", "extra", "referral" };
 
 	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd pph:mm a");
 
@@ -92,7 +99,7 @@ public class Octopussy {
 	private static boolean extra = false; // overridden by extra=true|false in properties
 
 	private static boolean usingExternalPropertyFile = false;
-	
+
 	private static Properties properties;
 
 	private static Octopussy instance = null;
@@ -120,10 +127,11 @@ public class Octopussy {
 
 	/**
 	 * @param args
+	 * @throws Exception
 	 * @throws IOException
 	 * @throws MalformedURLException
 	 */
-	public static void main(String[] args) {
+	public static void main(String[] args) throws Exception {
 
 		File importData = null;
 
@@ -137,8 +145,8 @@ public class Octopussy {
 
 		try {
 
-			String propertyFileName = "./octopussy.properties";	// the default
-			
+			String propertyFileName = "./octopussy.properties"; // the default
+
 			if (args.length > 0) {
 
 				extended = Integer.parseInt(args[0].trim());
@@ -151,12 +159,12 @@ public class Octopussy {
 
 					extended = 0;
 				}
-				
+
 				if (args.length > 1) {
-					
+
 					// assume the optional second parameter is the name of a property file
 					// which will be used to override the built-in resource octopussy.properties
-					
+
 					propertyFileName = args[1].trim();
 				}
 
@@ -165,12 +173,13 @@ public class Octopussy {
 			String keyValue = null;
 
 			try {
-				
+
 				// Check for existence of octopussy.properties in the current directory
-				// if it exists, use it in preference to the built-in resource compiled into the jar
-				
-				File externalProperties  = new File(propertyFileName);
-				
+				// if it exists, use it in preference to the built-in resource compiled into the
+				// jar
+
+				File externalProperties = new File(propertyFileName);
+
 				usingExternalPropertyFile = loadProperties(externalProperties);
 
 				keyValue = properties.getProperty("apiKey").trim();
@@ -209,17 +218,44 @@ public class Octopussy {
 			long epochFrom = 0;
 
 			if (importData.createNewFile()) {
-				
+
 				// we normally expect to see the history file.
 				// Lets assume we are running for the first time or need to reset
-				
-				// display the content of the built-in property file (which can be used as a template)
-				
-				if( !usingExternalPropertyFile) {
-					
-					properties.store(System.err, "");	
+
+				// display the content of the built-in property file (which can be used as a
+				// template)
+
+				if (!usingExternalPropertyFile) {
+
+					for (String propertyKey : defaultPropertyKeys) {
+
+						if ("postcode".equals(propertyKey)) {
+
+							System.out.println("#");
+							System.out.println(
+									"# n.b. Southern England is region H - see https://mysmartenergy.uk/Electricity-Region");
+							System.out.println("#");
+							System.out.println(
+									"# if postcode is uncommented it will override region=H based on Octopus API");
+							System.out.println("#");
+							System.out.println("#postcode=SN5");
+							System.out.println("#");
+
+						} else if ("ansi".equals(propertyKey)) {
+
+							System.out.println("#");
+							System.out.println(
+									"# in Windows console to show ANSI update Registry set REG_DWORD VirtualTerminalLevel=1 for Computer\\HKEY_CURRENT_USER\\Console");
+							System.out.println("#");
+
+						} else {
+
+							System.out.println(propertyKey + "=" + properties.getProperty(propertyKey, "?"));
+						}
+					}
+
 				}
-				
+
 			} else {
 
 				myReader = new Scanner(importData);
@@ -421,6 +457,15 @@ public class Octopussy {
 					48 * howManyDaysHistory, someDaysAgo, null);
 
 			ArrayList<V1PeriodConsumption> periodResults = v1ElectricityConsumption.getPeriodResults();
+
+			if (null == periodResults) {
+
+				throw new Exception(
+						"\r\nDouble check the apiKey, electricity.mprn & electricity.sn values in the octopussy.properties\r\n"
+								+ "An option is to create a new octopussy.properties file in the current directory with the correct values\r\n"
+								+ "A template octopussy.properties file can be redisplayed by deleting the octopus.import.csv and running again\r\n"
+								+ "Alternatively replace the resource octopussy.properties inside the jar file using 7-Zip or similar\r\n");
+			}
 
 			// Add history data for any non-null consumptions in
 
@@ -780,8 +825,6 @@ public class Octopussy {
 					long epochSecondAtEndOfPeriod = epochSecond + 1800 * slots;
 
 					float average = highestAcc / slots;
-					
-
 
 					int secondsInSlot = (int) (epochSecondAtEndOfPeriod - epochSecond);
 
@@ -847,16 +890,16 @@ public class Octopussy {
 					}
 				}
 
-				if( -1 == lowestAcc ) {
-					
+				if (-1 == lowestAcc) {
+
 					// restrict extended so that we only show definitive data
-					
+
 					extended = period;
-					
-					break;	// this is because cannot prove we have found the lowest time
+
+					break; // this is because cannot prove we have found the lowest time
 					// typically because there is no data after 22:30
 				}
-				
+
 				SlotCost price = pricesPerSlot.get(indexOfLowest);
 
 				String simpleTimeStamp = price.getSimpleTimeStamp();
@@ -877,7 +920,7 @@ public class Octopussy {
 				}
 
 				float average = lowestAcc / (period + 1); // the number of 30 minute periods in the slot
-				
+
 				int secondsInSlot = 1800 * (period + 1);
 
 				int hours = (int) (secondsInSlot / 3600);
@@ -1012,12 +1055,8 @@ public class Octopussy {
 						}
 
 						if (count < (1 + i)) {
-							
 
-								
-								sb3.append("     ");
-								
-
+							sb3.append("     ");
 
 						} else {
 
@@ -1075,11 +1114,12 @@ public class Octopussy {
 
 			System.exit(0);
 
-		} catch (
+		} catch (Exception e) {
 
-		IOException e) {
+			System.out.flush();
 
 			e.printStackTrace();
+
 			System.exit(-1);
 
 		} finally {
@@ -1105,7 +1145,7 @@ public class Octopussy {
 
 			} catch (Exception e) {
 
-				e.printStackTrace();
+//				e.printStackTrace();
 				System.exit(-2);
 			}
 		}
@@ -1115,27 +1155,27 @@ public class Octopussy {
 	private static boolean loadProperties(File externalPropertyFile) throws IOException {
 
 		boolean external = false;
-		
+
 		properties = new Properties();
-		
+
 		InputStream is;
 
-		if( null == externalPropertyFile || !externalPropertyFile.exists()) {
-			
+		if (null == externalPropertyFile || !externalPropertyFile.exists()) {
+
 			ClassLoader cl = Thread.currentThread().getContextClassLoader();
 
 			cl = ClassLoader.getSystemClassLoader();
-			
+
 			is = cl.getResourceAsStream("octopussy.properties");
-			
+
 		} else {
-			
+
 			is = new FileInputStream(externalPropertyFile);
-			
+
 			external = true;
-			
-		} 
-		
+
+		}
+
 		properties.load(is);
 
 		// if postcode=value specified, such as postcode=SN5
@@ -1201,7 +1241,18 @@ public class Octopussy {
 						+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
 						+ (null == periodTo ? "" : "&period_to=" + periodTo) + "&order_by=period"));
 
-		V1ElectricityConsumption result = mapper.readValue(json, V1ElectricityConsumption.class);
+		V1ElectricityConsumption result = null;
+
+		if (null == json || 0 == json.trim().length()) {
+
+			System.err.println("Error obtaining consumption data. Check the apiKey!");
+
+			result = new V1ElectricityConsumption(); // empty object
+
+		} else {
+
+			result = mapper.readValue(json, V1ElectricityConsumption.class);
+		}
 
 		return result;
 	}
