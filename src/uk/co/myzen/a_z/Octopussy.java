@@ -53,35 +53,31 @@ public class Octopussy {
 
 	public static final String ANSI_RESET = "\u001B[0m";
 
-	// foreground ANSI colours
-	public static final String ANSI_GREEN_FOREGROUND = "\u001B[32m";
-//	public static final String ANSI_BLACK_FOREGROUND = "\u001B[30m";
-//	public static final String ANSI_RED_FOREGROUND = "\u001B[31m";
+	public static final String coloursANSI[] = { "BLACK", "RED", "GREEN", "YELLOW", "BLUE", "PURPLE", "CYAN", "WHITE" };
 
-//	public static final String ANSI_YELLOW_FOREGROUND = "\u001B[33m";
-//	public static final String ANSI_BLUE_FOREGROUND = "\u001B[34m";
-//	public static final String ANSI_PURPLE_FOREGROUND = "\u001B[35m";
-//	public static final String ANSI_CYAN_FOREGROUND = "\u001B[36m";
-//	public static final String ANSI_WHITE_FOREGROUND = "\u001B[37m";
+	// foreground ANSI colours
+
+	public static final String foregroundANSI[] = { "\u001B[30m", "\u001B[31m", "\u001B[32m", "\u001B[33m",
+			"\u001B[34m", "\u001B[35m", "\u001B[36m", "\u001B[37m" };
+
+	public static Map<String, String> colourMapForeground = new HashMap<String, String>();
 
 	// background ANSI colours
-//	public static final String ANSI_BLACK_BACKGROUND = "\u001B[40m";
-//	public static final String ANSI_RED_BACKGROUND = "\u001B[41m";
-//	public static final String ANSI_GREEN_BACKGROUND = "\u001B[42m";
-//	public static final String ANSI_YELLOW_BACKGROUND = "\u001B[43m";
-//	public static final String ANSI_BLUE_BACKGROUND = "\u001B[44m";
-//	public static final String ANSI_PURPLE_BACKGROUND = "\u001B[45m";
-//	public static final String ANSI_CYAN_BACKGROUND = "\u001B[46m";
-//	public static final String ANSI_WHITE_BACKGROUND = "\u001B[47m";
+
+	public static final String backgroundANSI[] = { "\u001B[40m", "\u001B[41m", "\u001B[42m", "\u001B[43m",
+			"\u001B[44m", "\u001B[45m", "\u001B[46m", "\u001B[47m" };
+
+	public static Map<String, String> colourMapBackground = new HashMap<String, String>();
 
 	private final static String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36";
 	private final static String contentType = "application/json";
 
-	private final static String[] defaultPropertyKeys = { "apiKey", "electricity.mprn", "electricity.sn", "gas.mprn",
-			"gas.sn", "flexible.gas.unit", "flexible.gas.standing", "flexible.electricity.unit",
-			"flexible.electricity.standing", "agile.electricity.standing", "zone.id", "history", "postcode", "region",
-			"base.url", "import.product.code", "tariff.code", "tariff.url", "export.product.code", "export.tariff.code",
-			"export.tariff.url", "export", "days", "plunge", "target", "width", "ansi", "extra", "referral" };
+	private final static String[] defaultPropertyKeys = { "apiKey", "electricity.mprn", "electricity.sn", "#",
+			"gas.mprn", "gas.sn", "flexible.gas.unit", "flexible.gas.standing", "#", "flexible.electricity.unit",
+			"flexible.electricity.standing", "agile.electricity.standing", "#", "zone.id", "history", "postcode",
+			"region", "base.url", "import.product.code", "tariff.code", "tariff.url", "#", "export.product.code",
+			"export.tariff.code", "export.tariff.url", "export", "#", "days", "plunge", "target", "width", "ansi",
+			"colour", "#", "extra", "referral" };
 
 	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd pph:mm a");
 
@@ -105,6 +101,8 @@ public class Octopussy {
 
 	private static Octopussy instance = null;
 
+	private static String ANSI_COLOUR_FOREGROUND;
+
 	private static synchronized Octopussy getInstance() {
 
 		if (null == instance) {
@@ -121,6 +119,14 @@ public class Octopussy {
 		mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 //		mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
 		mapper.enable(SerializationFeature.INDENT_OUTPUT);
+
+		for (int n = 0; n < coloursANSI.length; n++) {
+
+			String colour = coloursANSI[n];
+
+			colourMapForeground.put(colour, foregroundANSI[n]);
+			colourMapBackground.put(colour, backgroundANSI[n]);
+		}
 	}
 
 	private Octopussy() {
@@ -201,6 +207,8 @@ public class Octopussy {
 					throw new Exception("zone.id");
 				}
 
+				ANSI_COLOUR_FOREGROUND = colourMapForeground.get(properties.getProperty("colour", "GREEN").trim());
+
 				importData = new File(properties.getProperty("history", "octopus.import.csv").trim());
 
 			} catch (Exception e) {
@@ -248,13 +256,16 @@ public class Octopussy {
 							System.out.println(
 									"# in Windows console to show ANSI update Registry set REG_DWORD VirtualTerminalLevel=1 for Computer\\HKEY_CURRENT_USER\\Console");
 							System.out.println("#");
+							System.out.println("ansi=true");
 
 						} else {
 
-							System.out.println(propertyKey + "=" + properties.getProperty(propertyKey, "?"));
+							System.out.println(propertyKey
+									+ ("#".equals(propertyKey) ? "" : "=" + properties.getProperty(propertyKey, "?")));
 						}
 					}
 
+					System.exit(0);
 				}
 
 			} else {
@@ -1074,7 +1085,7 @@ public class Octopussy {
 
 								if (slotEpoch >= bestPeriodStartsAt && slotEpoch < bestPeriodEndBefore) {
 
-									sb3.append(ANSI_GREEN_FOREGROUND);
+									sb3.append(ANSI_COLOUR_FOREGROUND);
 								}
 							}
 
@@ -1109,7 +1120,7 @@ public class Octopussy {
 				System.out.println((export ? String.format("%6.2f", exportValueIncVat) + "   " : "\t")
 						+ slotCost.getSimpleTimeStamp() + "  " + (cheapest ? "!" : " ") + (lessThanAverage ? "!" : " ")
 						+ "\t" + String.format("%5.2f", importValueIncVat) + "p  "
-						+ (ansi & cheapest ? ANSI_GREEN_FOREGROUND : "") + asterisks
+						+ (ansi & cheapest ? ANSI_COLOUR_FOREGROUND : "") + asterisks
 						+ (ansi & cheapest ? ANSI_RESET : "") + padding + prices + clockHHMM);
 			}
 
@@ -1258,23 +1269,6 @@ public class Octopussy {
 		return result;
 	}
 
-	private V1GasConsumption getV1GasConsumption(String periodFrom, String periodTo)
-			throws MalformedURLException, IOException {
-
-		String mprn = properties.getProperty("gas.mprn").trim();
-
-		String sn = properties.getProperty("gas.sn").trim();
-
-		String json = instance.getRequest(
-				new URL("https://api.octopus.energy/v1/gas-meter-points/" + mprn + "/meters/" + sn + "/consumption/" +
-
-						"?page_size=100&period_from=" + periodFrom + "&period_to=" + periodTo + "&order_by=period"));
-
-		V1GasConsumption result = mapper.readValue(json, V1GasConsumption.class);
-
-		return result;
-	}
-
 	private V1AgileFlex getV1AgileFlexImport(Integer pageSize, String periodFrom, String periodTo)
 			throws MalformedURLException, IOException {
 
@@ -1378,6 +1372,23 @@ public class Octopussy {
 		}
 
 		return json;
+	}
+
+	private V1GasConsumption getV1GasConsumption(String periodFrom, String periodTo)
+			throws MalformedURLException, IOException {
+
+		String mprn = properties.getProperty("gas.mprn").trim();
+
+		String sn = properties.getProperty("gas.sn").trim();
+
+		String json = instance.getRequest(
+				new URL("https://api.octopus.energy/v1/gas-meter-points/" + mprn + "/meters/" + sn + "/consumption/" +
+
+						"?page_size=100&period_from=" + periodFrom + "&period_to=" + periodTo + "&order_by=period"));
+
+		V1GasConsumption result = mapper.readValue(json, V1GasConsumption.class);
+
+		return result;
 	}
 
 }
