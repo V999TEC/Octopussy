@@ -64,24 +64,20 @@ The gas key values are experimental for now and don't do anything useful
 
 Example of octopussy.properties
 ```
-apiKey=blah_blah_BLAH2pPIXOIO72aIO1blah:
-
+apiKey=blah_BLAH2pMoreBlahPIXOIO72aIO1blah:
 electricity.mprn=2000012600000
 electricity.sn=21L300071
-
+#
 gas.mprn=887000000
 gas.sn=E6S100000061961
-
 flexible.gas.unit=7.61
 flexible.gas.standing=27.47
-
+#
 flexible.electricity.unit=30.03
 flexible.electricity.standing=47.95
-
 agile.electricity.standing=42.77
-
+#
 zone.id=Europe/London
-
 history=./octopus.import.csv
 #
 # n.b. Southern England is region H - see https://mysmartenergy.uk/Electricity-Region
@@ -89,32 +85,35 @@ history=./octopus.import.csv
 # if postcode is uncommented it will override region=H based on Octopus API
 #
 #postcode=SN5
-
+#
 region=H
 base.url=https://api.octopus.energy
-
 import.product.code=AGILE-FLEX-22-11-25
-tariff.code=E-1R-$import.product.code$-$region$
-tariff.url=$base.url$/v1/products/$import.product.code$/electricity-tariffs/$tariff.code$
-
+tariff.code=E-1R-AGILE-FLEX-22-11-25-H
+tariff.url=https://api.octopus.energy/v1/products/AGILE-FLEX-22-11-25/electricity-tariffs/E-1R-AGILE-FLEX-22-11-25-H
+#
 export.product.code=AGILE-OUTGOING-19-05-13
-export.tariff.code=E-1R-$export.product.code$-$region$
-export.tariff.url=$base.url$/v1/products/$export.product.code$/electricity-tariffs/$export.tariff.code$
-
+export.tariff.code=E-1R-AGILE-OUTGOING-19-05-13-H
+export.tariff.url=https://api.octopus.energy/v1/products/AGILE-OUTGOING-19-05-13/electricity-tariffs/E-1R-AGILE-OUTGOING-19-05-13-H
 export=false
+#
 days=14
 plunge=3
 target=30
 width=63
-
+#
 # in Windows console to show ANSI update Registry set REG_DWORD VirtualTerminalLevel=1 for Computer\HKEY_CURRENT_USER\Console
+#
 ansi=true
+colour=GREEN
+#
 extra=false
+referral=https://share.octopus.energy/ice-camel-111
 ```
 
 ## Bonus feature(1)
 
-You can always redisplay the template version of the octopussy.properties (which is embedded in the jar) as follows:
+You can always display the template version of the octopussy.properties (which is embedded in the jar) as follows:
 
 delete the octopus.import.csv file if it exists
 
@@ -125,6 +124,22 @@ java -jar octopussy.jar
 ```
 This will cause the program to display the properties so that you can copy paste into your own property file
 
+Alternatively you could just pipe the output directly to a file name of your choice
+
+```
+java -jar octopussy.jar 1>My.properties
+```
+
+After editing the property file just created to fix the apiKey etc., remember to specify the file name each time as the second parameter, i.e.:
+
+```
+java -jar octopussy.jar 8 My.properties
+```
+When you are happy your property file is how you want it and you are comfortable with using 7-Zip to open the jar file archive, you could copy your property file contents over the octopussy.properties in the root of the jar
+
+The advantage then is that you don't need to  specify My.properties each time you run the jar.
+
+In this way the jar has been personalised, so don't give it to anyone without realising that they will be able to use your apiKey.
 
 ## Bonus feature(2)
 
