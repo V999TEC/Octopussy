@@ -64,7 +64,7 @@ The gas key values are experimental for now and don't do anything useful
 
 Example of octopussy.properties
 ```
-apiKey=sk_live_BLAH2pPIXOIO72aIO1blah:
+apiKey=blah_blah_BLAH2pPIXOIO72aIO1blah:
 
 electricity.mprn=2000012600000
 electricity.sn=21L300071
