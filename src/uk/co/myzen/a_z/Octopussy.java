@@ -77,7 +77,7 @@ public class Octopussy {
 			"flexible.electricity.standing", "agile.electricity.standing", "#", "zone.id", "history", "postcode",
 			"region", "base.url", "import.product.code", "tariff.code", "tariff.url", "#", "export.product.code",
 			"export.tariff.code", "export.tariff.url", "export", "#", "days", "plunge", "target", "width", "ansi",
-			"colour", "#", "extra", "referral" };
+			"colour", "color", "#", "extra", "referral" };
 
 	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd pph:mm a");
 
@@ -102,6 +102,7 @@ public class Octopussy {
 	private static Octopussy instance = null;
 
 	private static String ANSI_COLOUR_FOREGROUND;
+	private static String ANSI_COLOUR_ABOVE_TARGET;
 
 	private static synchronized Octopussy getInstance() {
 
@@ -162,9 +163,9 @@ public class Octopussy {
 
 					extended = 19;
 
-				} else if (extended < 0) {
+				} else if (extended < 1) {
 
-					extended = 0;
+					extended = 1;
 				}
 
 				if (args.length > 1) {
@@ -208,6 +209,7 @@ public class Octopussy {
 				}
 
 				ANSI_COLOUR_FOREGROUND = colourMapForeground.get(properties.getProperty("colour", "GREEN").trim());
+				ANSI_COLOUR_ABOVE_TARGET = colourMapForeground.get(properties.getProperty("color", "RED").trim());
 
 				importData = new File(properties.getProperty("history", "octopus.import.csv").trim());
 
@@ -1014,20 +1016,44 @@ public class Octopussy {
 
 				sb1 = new StringBuffer();
 
-				if (importValueIncVat < plunge) {
+				int n = 0;
+
+				if (importValueIncVat <= plunge) {
 
 					sb1.append(" <--- PLUNGE BELOW " + plunge + "p !!!");
+					n = sb1.length();
 
 				} else {
 
-					for (int n = 0; n < importValueIncVat && n < maxWidth; n++) {
+					boolean aboveTarget = false;
 
-						sb1.append(target == n ? 'X' : (averageUnitCost == n ? 'A' : '*'));
+					for (; n < importValueIncVat && n < maxWidth; n++) {
+
+						if (target == n) {
+
+							aboveTarget = true;
+							sb1.append(ANSI_COLOUR_ABOVE_TARGET);
+							sb1.append('X');
+
+						} else if (averageUnitCost == n) {
+
+							sb1.append('A');
+
+						} else {
+
+							sb1.append('*');
+
+						}
 					}
 
 					if (importValueIncVat == maxWidth) {
 
 						sb1.append('>');
+					}
+
+					if (aboveTarget) {
+
+						sb1.append(ANSI_RESET);
 					}
 
 				}
@@ -1036,7 +1062,7 @@ public class Octopussy {
 
 				StringBuffer sb2 = new StringBuffer();
 
-				for (int n = sb1.length(); n < maxWidth + 1; n++) {
+				for (; n < maxWidth + 1; n++) {
 
 					sb2.append(' ');
 				}
