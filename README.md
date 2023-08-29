@@ -89,12 +89,12 @@ history=./octopus.import.csv
 region=H
 base.url=https://api.octopus.energy
 import.product.code=AGILE-FLEX-22-11-25
-tariff.code=E-1R-AGILE-FLEX-22-11-25-H
-tariff.url=https://api.octopus.energy/v1/products/AGILE-FLEX-22-11-25/electricity-tariffs/E-1R-AGILE-FLEX-22-11-25-H
+tariff.code=E-1R-$import.product.code$-$region$
+tariff.url=$base.url$/v1/products/$import.product.code$/electricity-tariffs/$tariff.code$
 #
 export.product.code=AGILE-OUTGOING-19-05-13
-export.tariff.code=E-1R-AGILE-OUTGOING-19-05-13-H
-export.tariff.url=https://api.octopus.energy/v1/products/AGILE-OUTGOING-19-05-13/electricity-tariffs/E-1R-AGILE-OUTGOING-19-05-13-H
+export.tariff.code=E-1R-$export.product.code$-$region$
+export.tariff.url=$base.url$/v1/products/$export.product.code$/electricity-tariffs/$export.tariff.code$
 export=false
 #
 days=14
@@ -106,6 +106,7 @@ width=63
 #
 ansi=true
 colour=GREEN
+color=RED
 #
 extra=false
 referral=https://share.octopus.energy/ice-camel-111
