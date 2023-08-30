@@ -6,6 +6,8 @@ public class SlotCost {
 
 	private Long epochSecond;
 
+	private Boolean isCheapest;
+
 	private Float importPrice;
 
 	private Float exportPrice;
@@ -40,6 +42,14 @@ public class SlotCost {
 
 	public void setEpochSecond(Long epochSecond) {
 		this.epochSecond = epochSecond;
+	}
+
+	public Boolean getIsCheapest() {
+		return isCheapest;
+	}
+
+	public void setIsCheapest(Boolean isCheapest) {
+		this.isCheapest = isCheapest;
 	}
 
 }
