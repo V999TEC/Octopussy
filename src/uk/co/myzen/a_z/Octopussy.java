@@ -300,22 +300,24 @@ public class Octopussy {
 			//
 			//
 
+			ArrayList<Long> bestExportTime = null;
+
 			if (export) {
 
-				instance.upcomingExport(pricesPerSlot);
+				bestExportTime = instance.upcomingExport(pricesPerSlot);
 			}
 
 			//
 			//
 			//
 
-			ArrayList<Long> bestStartTime = instance.upcomingImport(pricesPerSlot);
+			ArrayList<Long> bestImportTime = instance.upcomingImport(pricesPerSlot);
 
 			//
 			//
 			//
 
-			instance.showAnalysis(pricesPerSlot, averageUnitCost, bestStartTime);
+			instance.showAnalysis(pricesPerSlot, averageUnitCost, bestImportTime, bestExportTime);
 
 			//
 			//
@@ -780,25 +782,33 @@ public class Octopussy {
 
 	}
 
-	private void upcomingExport(List<SlotCost> pricesPerSlot) {
+	private ArrayList<Long> upcomingExport(List<SlotCost> pricesPerSlot) {
 
 		System.out.println("\nUpcoming best export price periods:");
 
-		for (int slots = 1; slots < 11; slots++) { // each slot represents 30 minutes
+		ArrayList<Long> bestStartTime = new ArrayList<Long>();
+
+		int widestPeriod = 1;// +extended; // for export we will just analyse the first slot
+
+		for (int period = 0; period < widestPeriod; period++) { // each period represents multiples of 30 minutes
+
+			// for bestStartTime[] [0] will be 30 minutes, [1] 1hr [2] 1.5 hr ... [9] 5hr
 
 			float highestAcc = -1;
 
 			int indexOfHighest = 0;
 
-			int limit = pricesPerSlot.size() - slots;
+			int limit = pricesPerSlot.size() - 1 - period;
 
-			for (int index = 0; index < limit; index++) {
+			for (int index = 0; index < limit - period + 1; index++) {
 
 				float accumulate = 0;
 
-				for (int i = index; i < index + slots; i++) {
+				for (int i = index; i < index + period + 1; i++) {
 
-					accumulate += pricesPerSlot.get(i).getExportPrice();
+					Float exportPrice = pricesPerSlot.get(i).getExportPrice();
+
+					accumulate += exportPrice;
 				}
 
 				if (-1 == highestAcc || accumulate > highestAcc) {
@@ -808,17 +818,38 @@ public class Octopussy {
 				}
 			}
 
-			SlotCost price = pricesPerSlot.get(indexOfHighest);
+			if (-1 == highestAcc) {
 
-			String simpleTimeStamp = price.getSimpleTimeStamp();
+				// restrict extended so that we only show definitive data
 
-			Long epochSecond = price.getEpochSecond(); // the start of the period
+				extended = period;
 
-			long epochSecondAtEndOfPeriod = epochSecond + 1800 * slots;
+				break; // this is because cannot prove we have found the lowest time
+				// typically because there is no data after 22:30
+			}
 
-			float average = highestAcc / slots;
+			SlotCost slotCost = pricesPerSlot.get(indexOfHighest);
 
-			int secondsInSlot = (int) (epochSecondAtEndOfPeriod - epochSecond);
+			String simpleTimeStamp = slotCost.getSimpleTimeStamp();
+
+			Long epochSecond = slotCost.getEpochSecond();
+
+			bestStartTime.add(epochSecond);
+
+			Instant instant = Instant.ofEpochSecond(-60 + epochSecond + (period + 1) * 1800);
+
+			LocalDateTime ldt = LocalDateTime.ofInstant(instant, ourZoneId);
+
+			String periodEndTime = ldt.format(formatter24HourClock);
+
+			if (0 == period) {
+
+				slotCost.setIsMaximumExportPrice(Boolean.TRUE);
+			}
+
+			float average = highestAcc / (period + 1); // the number of 30 minute periods in the slot
+
+			int secondsInSlot = 1800 * (period + 1);
 
 			int hours = (int) (secondsInSlot / 3600);
 
@@ -826,8 +857,11 @@ public class Octopussy {
 
 			System.out.println((0 == hours ? "      " : String.format("%2d", hours) + " hr ")
 					+ (0 == minutes ? "      " : String.format("%2d", minutes) + " min") + " period from "
-					+ simpleTimeStamp + "  has average price: " + String.format("%5.2f", average) + "p");
+					+ simpleTimeStamp + " to " + periodEndTime + "  has average price: "
+					+ String.format("%5.2f", average) + "p");
 		}
+
+		return bestStartTime;
 	}
 
 	private ArrayList<Long> upcomingImport(List<SlotCost> pricesPerSlot) {
@@ -836,11 +870,7 @@ public class Octopussy {
 
 		ArrayList<Long> bestStartTime = new ArrayList<Long>();
 
-		// SlotCost cheapestSlot = null;
-
-		// how many slots < epoch of noPriceDataFrom?
-
-		int widestPeriod = extended;
+		int widestPeriod = 1 + extended;
 
 		for (int period = 0; period < widestPeriod; period++) { // each period represents multiples of 30 minutes
 
@@ -852,10 +882,6 @@ public class Octopussy {
 
 			int limit = pricesPerSlot.size() - 1 - period;
 
-//			System.out.println("\t\tFor period " + period + " last time range considered will be from "
-//					+ pricesPerSlot.get(limit - period).getSimpleTimeStamp() + " [" + (limit - period) + "] to "
-//					+ pricesPerSlot.get(limit).getSimpleTimeStamp() + "   [" + limit + "]");
-
 			for (int index = 0; index < limit - period + 1; index++) {
 
 				float accumulate = 0;
@@ -864,9 +890,6 @@ public class Octopussy {
 
 					Float importPrice = pricesPerSlot.get(i).getImportPrice();
 
-//					System.out.println("For period " + period + " at [" + i + "] "
-//							+ pricesPerSlot.get(i).getSimpleTimeStamp() + " adding " + importPrice);
-
 					accumulate += importPrice;
 				}
 
@@ -874,9 +897,6 @@ public class Octopussy {
 
 					lowestAcc = accumulate;
 					indexOfLowest = index;
-
-//					System.out.println("\tFor period " + period + " the lowest acc so far is at index " + index
-//							+ " " + pricesPerSlot.get(indexOfLowest).getSimpleTimeStamp());
 				}
 			}
 
@@ -906,7 +926,7 @@ public class Octopussy {
 
 			if (0 == period) {
 
-				slotCost.setIsCheapest(Boolean.TRUE);
+				slotCost.setIsMinimumImportPrice(Boolean.TRUE);
 			}
 
 			float average = lowestAcc / (period + 1); // the number of 30 minute periods in the slot
@@ -1086,7 +1106,8 @@ public class Octopussy {
 		return unitCostAverage.intValue();
 	}
 
-	private void showAnalysis(List<SlotCost> pricesPerSlot, int averageUnitCost, ArrayList<Long> bestStartTime) {
+	private void showAnalysis(List<SlotCost> pricesPerSlot, int averageUnitCost, ArrayList<Long> bestImportTime,
+			ArrayList<Long> bestExportTime) {
 
 		int maxWidth = 0;
 
@@ -1109,9 +1130,16 @@ public class Octopussy {
 		{
 			StringBuffer sb = new StringBuffer();
 
-			sb.append("\nCurrent & future import unit prices:");
+			sb.append('\n');
 
-			for (int n = (export ? -13 : -5); n < maxWidth; n++) {
+			if (export) {
+
+				sb.append("Export & ");
+			}
+
+			sb.append("Import prices current & future:");
+
+			for (int n = (export ? -9 : -10); n < maxWidth; n++) {
 
 				sb.append(' ');
 			}
@@ -1148,7 +1176,9 @@ public class Octopussy {
 
 			Float exportValueIncVat = slotCost.getExportPrice(); // can be null;
 
-			boolean cheapest = Boolean.TRUE.equals(slotCost.getIsCheapest());
+			boolean cheapestImport = Boolean.TRUE.equals(slotCost.getIsMinimumImportPrice());
+
+			boolean bestExport = Boolean.TRUE.equals(slotCost.getIsMaximumExportPrice());
 
 			boolean lessThanAverage = importValueIncVat < averageUnitCost;
 
@@ -1170,7 +1200,11 @@ public class Octopussy {
 					if (target == n) {
 
 						aboveTarget = true;
-						sb1.append(ANSI_COLOUR_ABOVE_TARGET);
+
+						if (ansi) {
+							sb1.append(ANSI_COLOUR_ABOVE_TARGET);
+						}
+
 						sb1.append('X');
 
 					} else if (averageUnitCost == n) {
@@ -1191,7 +1225,9 @@ public class Octopussy {
 
 				if (aboveTarget) {
 
-					sb1.append(ANSI_RESET);
+					if (ansi) {
+						sb1.append(ANSI_RESET);
+					}
 				}
 
 			}
@@ -1242,7 +1278,7 @@ public class Octopussy {
 
 							// n.b. i==1 represents 1 hr (i=0 unused: represents 30 mins)
 
-							long bestPeriodStartsAt = bestStartTime.get(i); // inclusive
+							long bestPeriodStartsAt = bestImportTime.get(i); // inclusive
 							long bestPeriodEndBefore = (i + 1) * 1800 + bestPeriodStartsAt; // exclusive
 
 							long slotEpoch = slotCost.getEpochSecond();
@@ -1281,11 +1317,15 @@ public class Octopussy {
 				clockHHMM = ldt.format(formatter24HourClock);
 			}
 
-			System.out.println((export ? String.format("%6.2f", exportValueIncVat) + "   " : "\t")
-					+ slotCost.getSimpleTimeStamp() + "  " + (cheapest ? "!" : " ") + (lessThanAverage ? "!" : " ")
-					+ "\t" + String.format("%5.2f", importValueIncVat) + "p  "
-					+ (ansi & cheapest ? ANSI_COLOUR_FOREGROUND : "") + asterisks + (ansi & cheapest ? ANSI_RESET : "")
-					+ padding + prices + clockHHMM);
+			String optionalExport = export
+					? (ansi & bestExport ? ANSI_COLOUR_FOREGROUND : "") + String.format("%6.2f", exportValueIncVat)
+							+ "p  " + (ansi & bestExport ? ANSI_RESET : "")
+					: "\t";
+
+			System.out.println(optionalExport + slotCost.getSimpleTimeStamp() + "  " + (cheapestImport ? "!" : " ")
+					+ (lessThanAverage ? "!" : " ") + "\t" + String.format("%5.2f", importValueIncVat) + "p  "
+					+ (ansi & cheapestImport ? ANSI_COLOUR_FOREGROUND : "") + asterisks
+					+ (ansi & cheapestImport ? ANSI_RESET : "") + padding + prices + clockHHMM);
 		}
 
 	}

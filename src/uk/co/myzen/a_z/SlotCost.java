@@ -6,7 +6,9 @@ public class SlotCost {
 
 	private Long epochSecond;
 
-	private Boolean isCheapest;
+	private Boolean isMinimumImportPrice;
+
+	private Boolean isMaximumExportPrice;
 
 	private Float importPrice;
 
@@ -44,12 +46,20 @@ public class SlotCost {
 		this.epochSecond = epochSecond;
 	}
 
-	public Boolean getIsCheapest() {
-		return isCheapest;
+	public Boolean getIsMinimumImportPrice() {
+		return isMinimumImportPrice;
 	}
 
-	public void setIsCheapest(Boolean isCheapest) {
-		this.isCheapest = isCheapest;
+	public void setIsMinimumImportPrice(Boolean isMinimumImportPrice) {
+		this.isMinimumImportPrice = isMinimumImportPrice;
+	}
+
+	public Boolean getIsMaximumExportPrice() {
+		return isMaximumExportPrice;
+	}
+
+	public void setIsMaximumExportPrice(Boolean isMaximumExportPrice) {
+		this.isMaximumExportPrice = isMaximumExportPrice;
 	}
 
 }
