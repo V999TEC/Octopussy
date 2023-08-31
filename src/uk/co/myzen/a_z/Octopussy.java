@@ -788,37 +788,38 @@ public class Octopussy {
 
 		ArrayList<Long> bestStartTime = new ArrayList<Long>();
 
-		int widestPeriod = 1;// +extended; // for export we will just analyse the first slot
+		int widestPeriod = 1;// + extended; // just do best 30 minute period
 
 		for (int period = 0; period < widestPeriod; period++) { // each period represents multiples of 30 minutes
 
 			// for bestStartTime[] [0] will be 30 minutes, [1] 1hr [2] 1.5 hr ... [9] 5hr
 
-			float highestAcc = -1;
+			float optimumAcc = -1;
 
-			int indexOfHighest = 0;
+			int indexOfOptimum = 0;
 
-			int limit = pricesPerSlot.size() - 1 - period;
+			int limit = pricesPerSlot.size() - period;
 
-			for (int index = 0; index < limit - period + 1; index++) {
+			for (int index = 0; index < limit; index++) {
 
 				float accumulate = 0;
 
 				for (int i = index; i < index + period + 1; i++) {
 
-					Float exportPrice = pricesPerSlot.get(i).getExportPrice();
+					Float importPrice = pricesPerSlot.get(i).getExportPrice();
 
-					accumulate += exportPrice;
+					accumulate += importPrice;
+
 				}
 
-				if (-1 == highestAcc || accumulate > highestAcc) {
+				if (-1 == optimumAcc || accumulate > optimumAcc) {
 
-					highestAcc = accumulate;
-					indexOfHighest = index;
+					optimumAcc = accumulate;
+					indexOfOptimum = index;
 				}
 			}
 
-			if (-1 == highestAcc) {
+			if (-1 == optimumAcc) {
 
 				// restrict extended so that we only show definitive data
 
@@ -828,7 +829,12 @@ public class Octopussy {
 				// typically because there is no data after 22:30
 			}
 
-			SlotCost slotCost = pricesPerSlot.get(indexOfHighest);
+			SlotCost slotCost = pricesPerSlot.get(indexOfOptimum);
+
+			if (0 == period) {
+
+				slotCost.setIsMaximumExportPrice(Boolean.TRUE);
+			}
 
 			String simpleTimeStamp = slotCost.getSimpleTimeStamp();
 
@@ -842,12 +848,7 @@ public class Octopussy {
 
 			String periodEndTime = ldt.format(formatter24HourClock);
 
-			if (0 == period) {
-
-				slotCost.setIsMaximumExportPrice(Boolean.TRUE);
-			}
-
-			float average = highestAcc / (period + 1); // the number of 30 minute periods in the slot
+			float average = optimumAcc / (period + 1); // the number of 30 minute periods in the slot
 
 			int secondsInSlot = 1800 * (period + 1);
 
@@ -876,13 +877,13 @@ public class Octopussy {
 
 			// for bestStartTime[] [0] will be 30 minutes, [1] 1hr [2] 1.5 hr ... [9] 5hr
 
-			float lowestAcc = -1;
+			float optimumAcc = -1;
 
-			int indexOfLowest = 0;
+			int indexOfOptimum = 0;
 
-			int limit = pricesPerSlot.size() - 1 - period;
+			int limit = pricesPerSlot.size() - period;
 
-			for (int index = 0; index < limit - period + 1; index++) {
+			for (int index = 0; index < limit; index++) {
 
 				float accumulate = 0;
 
@@ -893,14 +894,14 @@ public class Octopussy {
 					accumulate += importPrice;
 				}
 
-				if (-1 == lowestAcc || accumulate < lowestAcc) {
+				if (-1 == optimumAcc || accumulate < optimumAcc) {
 
-					lowestAcc = accumulate;
-					indexOfLowest = index;
+					optimumAcc = accumulate;
+					indexOfOptimum = index;
 				}
 			}
 
-			if (-1 == lowestAcc) {
+			if (-1 == optimumAcc) {
 
 				// restrict extended so that we only show definitive data
 
@@ -910,7 +911,12 @@ public class Octopussy {
 				// typically because there is no data after 22:30
 			}
 
-			SlotCost slotCost = pricesPerSlot.get(indexOfLowest);
+			SlotCost slotCost = pricesPerSlot.get(indexOfOptimum);
+
+			if (0 == period) {
+
+				slotCost.setIsMinimumImportPrice(Boolean.TRUE);
+			}
 
 			String simpleTimeStamp = slotCost.getSimpleTimeStamp();
 
@@ -924,12 +930,7 @@ public class Octopussy {
 
 			String periodEndTime = ldt.format(formatter24HourClock);
 
-			if (0 == period) {
-
-				slotCost.setIsMinimumImportPrice(Boolean.TRUE);
-			}
-
-			float average = lowestAcc / (period + 1); // the number of 30 minute periods in the slot
+			float average = optimumAcc / (period + 1); // the number of 30 minute periods in the slot
 
 			int secondsInSlot = 1800 * (period + 1);
 
@@ -1152,7 +1153,7 @@ public class Octopussy {
 						" 5hr |", " 5.5 |", " 6hr |", " 6.5 |", " 7hr |", " 7.5 |", " 8hr |", " 8.5 |", " 9hr |",
 						" 9.5 |" };
 
-				for (int e = 0; e < extended - 1; e++) {
+				for (int e = 0; e < extended; e++) {
 
 					sb.append(heads[e]);
 				}
@@ -1251,7 +1252,7 @@ public class Octopussy {
 
 				// calculate the average for 1hr/1.5hr/2hr... etc
 
-				for (int i = 1; i < extended; i++) {
+				for (int i = 1; i < extended + 1; i++) {
 
 					float acc = 0;
 
