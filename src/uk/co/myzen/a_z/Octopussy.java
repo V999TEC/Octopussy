@@ -24,11 +24,14 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Scanner;
+import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
@@ -51,7 +54,7 @@ import uk.co.myzen.a_z.json.V1PeriodConsumption;
 
 public class Octopussy {
 
-	public static LocalDateTime now;
+	public static LocalDateTime now; // Initialised when singleton instance created
 
 	public static final String ANSI_RESET = "\u001B[0m";
 
@@ -79,7 +82,7 @@ public class Octopussy {
 			"flexible.electricity.standing", "agile.electricity.standing", "#", "zone.id", "history", "postcode",
 			"region", "base.url", "import.product.code", "tariff.code", "tariff.url", "#", "export.product.code",
 			"export.tariff.code", "export.tariff.url", "export", "#", "days", "plunge", "target", "width", "ansi",
-			"colour", "color", "#", "extra", "referral" };
+			"colour", "color", "#", "yearly", "monthly", "weekly", "#", "extra", "referral" };
 
 	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd pph:mm a");
 
@@ -199,11 +202,11 @@ public class Octopussy {
 			//
 			//
 
-			int dayOfYear = now.getDayOfYear();
+			int dayOfYearToday = now.getDayOfYear();
 
 			int howManyDaysHistory = Integer.valueOf(properties.getProperty("days", "2").trim());
 
-			LocalDateTime startOfPreviousDays = now.withDayOfYear(dayOfYear - howManyDaysHistory).withHour(0)
+			LocalDateTime startOfPreviousDays = now.withDayOfYear(dayOfYearToday - howManyDaysHistory).withHour(0)
 					.withMinute(0).withSecond(0).withNano(0);
 
 			V1AgileFlex v1AgileFlex = instance.getV1AgileFlexImport(48 * howManyDaysHistory,
@@ -234,8 +237,16 @@ public class Octopussy {
 				}
 			}
 
-			Map<LocalDateTime, ImportExportData> vatIncPriceMap = instance.createPriceMap(agileResultsImport,
+			Map<LocalDateTime, ImportExportData> importExportPriceMap = instance.createPriceMap(agileResultsImport,
 					agileResultsExport);
+
+			SortedSet<LocalDateTime> ascendingKeysForPriceMap = new TreeSet<LocalDateTime>();
+
+			ascendingKeysForPriceMap.addAll(importExportPriceMap.keySet());
+
+			//
+			//
+			//
 
 			String someDaysAgo = startOfPreviousDays.toString();
 
@@ -260,13 +271,52 @@ public class Octopussy {
 			//
 			//
 
-			Map<String, DayValues> elecMapDaily = instance.buildElecMapDaily(periodResults, vatIncPriceMap);
+			instance.appendToHistoryFile(importData, history);
 
 			//
 			//
 			//
 
-			instance.appendToHistory(importData, history);
+			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty("yearly", "false")))) {
+
+				SortedMap<Integer, PeriodicValues> yearly = accumulateCostsByField(Calendar.YEAR);
+
+				System.out.println("\nHistorical yearly results:");
+
+				displayPeriodSummary("Year", yearly);
+			}
+
+			//
+			//
+			//
+
+			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty("monthly", "false")))) {
+
+				SortedMap<Integer, PeriodicValues> monthly = accumulateCostsByField(Calendar.MONTH);
+
+				System.out.println("\nHistorical monthly results:");
+
+				displayPeriodSummary("Month", monthly);
+			}
+
+			//
+			//
+			//
+
+			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty("weekly", "false")))) {
+
+				SortedMap<Integer, PeriodicValues> weekly = accumulateCostsByField(Calendar.WEEK_OF_YEAR);
+
+				System.out.println("\nHistorical weekly results:");
+
+				displayPeriodSummary("Week", weekly);
+			}
+
+			//
+			//
+			//
+
+			Map<String, DayValues> elecMapDaily = instance.buildElecMapDaily(periodResults, importExportPriceMap);
 
 			//
 			//
@@ -274,12 +324,9 @@ public class Octopussy {
 
 			long epochNow = now.atZone(ourZoneId).toEpochSecond();
 
+			// get today as YYYY-MM-DD
 			String today = LocalDateTime.ofInstant(Instant.ofEpochSecond(epochNow), ourZoneId).toString().substring(0,
 					10);
-
-			//
-			//
-			//
 
 			int averageUnitCost = instance.dailyResults(today, elecMapDaily);
 
@@ -287,14 +334,10 @@ public class Octopussy {
 			//
 			//
 
-			SortedSet<LocalDateTime> setOfLocalDateTime = new TreeSet<LocalDateTime>();
-
-			setOfLocalDateTime.addAll(vatIncPriceMap.keySet());
-
 			// filter by half an hour ago
 
-			List<SlotCost> pricesPerSlot = instance.buildListSlotCosts(epochNow - 1800, setOfLocalDateTime,
-					vatIncPriceMap);
+			List<SlotCost> pricesPerSlot = instance.buildListSlotCosts(epochNow - 1800, ascendingKeysForPriceMap,
+					importExportPriceMap);
 
 			//
 			//
@@ -333,6 +376,100 @@ public class Octopussy {
 
 			System.exit(-1);
 		}
+	}
+
+	private static void displayPeriodSummary(String id, SortedMap<Integer, PeriodicValues> periodic) {
+
+		for (Integer number : periodic.keySet()) {
+
+			PeriodicValues periodData = periodic.get(number);
+
+			Integer countHalfHours = periodData.getCountHalfHours();
+
+			Float accCost = periodData.getAccCost();
+
+			Float accConsumption = periodData.getAccConsumption();
+
+			Float equivalentDays = countHalfHours / (float) 48;
+
+			Float equivalentDailyAverageCost = accCost / equivalentDays / 100;
+
+			Float equivalentDailyEnergy = accConsumption / equivalentDays;
+
+			Float averagePricePerUnit = equivalentDailyAverageCost / equivalentDailyEnergy * 100;
+
+			System.out.println(id + ":" + String.format("%2d", number) + " " + String.format("%8.4f", accConsumption)
+					+ " kWhr  " + String.format("%7.2f", accCost) + "p  " + String.format("%4d", countHalfHours)
+					+ " half-hours ~ " + String.format("%5.2f", equivalentDays) + " days\tEquivalant daily cost: £"
+					+ String.format("%4.2f", equivalentDailyAverageCost) + "\t"
+					+ String.format("%4.4f", equivalentDailyEnergy) + " kWhr Average price/unit: "
+					+ String.format("%4.4f", averagePricePerUnit) + "p");
+		}
+	}
+
+	private static SortedMap<Integer, PeriodicValues> accumulateCostsByField(int field) {
+
+		SortedMap<Integer, PeriodicValues> result = new TreeMap<Integer, PeriodicValues>();
+
+		Calendar calendar = Calendar.getInstance(Locale.UK);
+
+		for (Long key : history.keySet()) {
+
+			ConsumptionHistory data = history.get(key);
+
+			Float price = data.getPrice();
+
+			if (null == price) {
+
+				break;
+			}
+
+			Float consumption = data.getConsumption();
+
+			if (null == consumption) {
+
+				break;
+			}
+
+			Float cost = consumption * price;
+
+			LocalDateTime ldt = LocalDateTime.ofInstant(Instant.ofEpochSecond(key), ourZoneId);
+
+			int year = ldt.getYear();
+			int month = ldt.getMonthValue();
+			int day = ldt.getDayOfMonth();
+
+			calendar.set(year, month, day);
+
+			Integer calendarElement = Integer.valueOf(calendar.get(field));
+
+			PeriodicValues values = null;
+
+			Integer countHalfHours = 0;
+
+			if (result.containsKey(calendarElement)) {
+
+				values = result.get(calendarElement);
+
+				consumption += values.getAccConsumption();
+
+				cost += values.getAccCost();
+
+				countHalfHours = values.getCountHalfHours();
+
+			} else {
+
+				values = new PeriodicValues();
+
+				result.put(calendarElement, values);
+			}
+
+			values.setCountHalfHours(1 + countHalfHours);
+			values.setAccConsumption(consumption);
+			values.setAccCost(cost);
+		}
+
+		return result;
 	}
 
 	private static boolean loadProperties(File externalPropertyFile) throws IOException {
@@ -588,8 +725,7 @@ public class Octopussy {
 					if ("postcode".equals(propertyKey)) {
 
 						System.out.println("#");
-						System.out.println(
-								"# n.b. Southern England is region H - see https://mysmartenergy.uk/Electricity-Region");
+						System.out.println("# n.b. Southern England is region H");
 						System.out.println("#");
 						System.out
 								.println("# if postcode is uncommented it will override region=H based on Octopus API");
@@ -690,7 +826,7 @@ public class Octopussy {
 		return history;
 	}
 
-	private void appendToHistory(File importData, Map<Long, ConsumptionHistory> history) throws IOException {
+	private void appendToHistoryFile(File importData, Map<Long, ConsumptionHistory> history) throws IOException {
 		//
 		// now append recent data to history file (which conceivably could be empty)
 		//
@@ -1021,7 +1157,8 @@ public class Octopussy {
 	}
 
 	private int dailyResults(String today, Map<String, DayValues> elecMapDaily) {
-		System.out.println("\nDaily results:");
+
+		System.out.println("\nRecent daily results:");
 
 		int countDays = 0;
 
@@ -1331,6 +1468,21 @@ public class Octopussy {
 
 	}
 
+	/*
+	 * This method ensures the friendly date/time returned has a 3 character month
+	 * and thus us always the same width string in result
+	 * 
+	 */
+	private String getSimpleDateTimestamp(LocalDateTime ldt) {
+
+		String parts[] = ldt.format(simpleTime).split(" ");
+
+		String result = parts[0] + " " + parts[1].substring(0, 3) + " " + parts[2] + " " + parts[3] + " " + parts[4]
+				+ (parts.length > 5 ? " " + parts[5] : "");
+
+		return result;
+	}
+
 	private List<SlotCost> buildListSlotCosts(long halfHourAgo, SortedSet<LocalDateTime> setOfLocalDateTime,
 			Map<LocalDateTime, ImportExportData> vatIncPriceMap) {
 
@@ -1352,7 +1504,10 @@ public class Octopussy {
 
 				SlotCost price = new SlotCost();
 
-				price.setSimpleTimeStamp(slot.format(simpleTime));
+				// n.b the DateTimeFormatter based on "E MMM dd pph:mm a" will return a mixture
+				// of 3 or 4 character month abbreviations, which is pretty nonintuitive
+
+				price.setSimpleTimeStamp(getSimpleDateTimestamp(slot));
 
 				price.setEpochSecond(slot.atZone(ourZoneId).toEpochSecond());
 
