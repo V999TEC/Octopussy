@@ -8,8 +8,6 @@ public class PeriodicValues {
 
 	private Float accCost;
 
-	private Long epoch;
-
 	public Float getAccConsumption() {
 		return accConsumption;
 	}
@@ -32,13 +30,5 @@ public class PeriodicValues {
 
 	public void setCountHalfHours(Integer countHalfHours) {
 		this.countHalfHours = countHalfHours;
-	}
-
-	public Long getEpoch() {
-		return epoch;
-	}
-
-	public void setEpoch(Long epoch) {
-		this.epoch = epoch;
 	}
 }

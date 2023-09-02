@@ -22,15 +22,16 @@ import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Base64;
-import java.util.Calendar;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Scanner;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
@@ -108,7 +109,7 @@ public class Octopussy {
 
 	private static boolean usingExternalPropertyFile = false;
 
-	private static int extended = 0;
+	private static int extended = 2; // overridden by args[]
 
 	private static Properties properties;
 
@@ -204,7 +205,7 @@ public class Octopussy {
 
 			int dayOfYearToday = now.getDayOfYear();
 
-			int howManyDaysHistory = Integer.valueOf(properties.getProperty("days", "2").trim());
+			int howManyDaysHistory = Integer.valueOf(properties.getProperty("days", "12").trim());
 
 			LocalDateTime startOfPreviousDays = now.withDayOfYear(dayOfYearToday - howManyDaysHistory).withHour(0)
 					.withMinute(0).withSecond(0).withNano(0);
@@ -279,7 +280,7 @@ public class Octopussy {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty("yearly", "false")))) {
 
-				SortedMap<Integer, PeriodicValues> yearly = accumulateCostsByField(Calendar.YEAR);
+				SortedMap<Integer, PeriodicValues> yearly = accumulateCostsByField(ChronoField.YEAR);
 
 				System.out.println("\nHistorical yearly results:");
 
@@ -292,7 +293,7 @@ public class Octopussy {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty("monthly", "false")))) {
 
-				SortedMap<Integer, PeriodicValues> monthly = accumulateCostsByField(Calendar.MONTH);
+				SortedMap<Integer, PeriodicValues> monthly = accumulateCostsByField(ChronoField.MONTH_OF_YEAR);
 
 				System.out.println("\nHistorical monthly results:");
 
@@ -305,7 +306,7 @@ public class Octopussy {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty("weekly", "false")))) {
 
-				SortedMap<Integer, PeriodicValues> weekly = accumulateCostsByField(Calendar.WEEK_OF_YEAR);
+				SortedMap<Integer, PeriodicValues> weekly = accumulateCostsByField(ChronoField.ALIGNED_WEEK_OF_YEAR);
 
 				System.out.println("\nHistorical weekly results:");
 
@@ -407,11 +408,9 @@ public class Octopussy {
 		}
 	}
 
-	private static SortedMap<Integer, PeriodicValues> accumulateCostsByField(int field) {
+	private static SortedMap<Integer, PeriodicValues> accumulateCostsByField(ChronoField field) {
 
 		SortedMap<Integer, PeriodicValues> result = new TreeMap<Integer, PeriodicValues>();
-
-		Calendar calendar = Calendar.getInstance(Locale.UK);
 
 		for (Long key : history.keySet()) {
 
@@ -435,13 +434,7 @@ public class Octopussy {
 
 			LocalDateTime ldt = LocalDateTime.ofInstant(Instant.ofEpochSecond(key), ourZoneId);
 
-			int year = ldt.getYear();
-			int month = ldt.getMonthValue();
-			int day = ldt.getDayOfMonth();
-
-			calendar.set(year, month, day);
-
-			Integer calendarElement = Integer.valueOf(calendar.get(field));
+			Integer calendarElement = Long.valueOf(ldt.getLong(field)).intValue();
 
 			PeriodicValues values = null;
 
@@ -1158,7 +1151,40 @@ public class Octopussy {
 
 	private int dailyResults(String today, Map<String, DayValues> elecMapDaily) {
 
-		System.out.println("\nRecent daily results:");
+		// find the range of week numbers contained in the data
+
+		Set<Integer> weekNumbers = new TreeSet<Integer>();
+
+		for (String key : elecMapDaily.keySet()) {
+
+			DayValues value = elecMapDaily.get(key); // can be null
+
+			if (null != value) {
+
+				weekNumbers.add(value.getWeekOfYear());
+			}
+		}
+
+		StringBuffer sb = new StringBuffer();
+
+		sb.append("\nRecent daily results (in week ");
+
+		Iterator<Integer> iterator = weekNumbers.iterator();
+
+		// there will be at least one week in set
+
+		sb.append(iterator.next());
+
+		while (iterator.hasNext()) {
+
+			sb.append(',');
+
+			sb.append(iterator.next());
+		}
+
+		sb.append("):");
+
+		System.out.println(sb.toString());
 
 		int countDays = 0;
 
@@ -1552,6 +1578,8 @@ public class Octopussy {
 
 			LocalDateTime ldt = LocalDateTime.parse(intervalStart);
 
+			Integer weekOfYear = Long.valueOf(ldt.getLong(ChronoField.ALIGNED_WEEK_OF_YEAR)).intValue();
+
 			ImportExportData importExportData = vatIncPriceMap.get(ldt);
 
 			if (null == importExportData) {
@@ -1611,6 +1639,8 @@ public class Octopussy {
 				dayValues.setLowestPrice(Float.valueOf(100));
 
 				dayValues.setDayOfWeek(ldt.format(DateTimeFormatter.ofPattern("E")));
+
+				dayValues.setWeekOfYear(weekOfYear);
 
 				dayValues.setSlotCount(1);
 

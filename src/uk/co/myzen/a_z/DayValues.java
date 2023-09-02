@@ -6,6 +6,8 @@ public class DayValues {
 
 	private String dayOfWeek;
 
+	private Integer weekOfYear;
+
 	private int slotCount;
 
 	private float dailyConsumption;
@@ -50,5 +52,13 @@ public class DayValues {
 
 	public void setLowestPrice(Float lowestPrice) {
 		this.lowestPrice = lowestPrice;
+	}
+
+	public Integer getWeekOfYear() {
+		return weekOfYear;
+	}
+
+	public void setWeekOfYear(Integer weekOfYear) {
+		this.weekOfYear = weekOfYear;
 	}
 }
