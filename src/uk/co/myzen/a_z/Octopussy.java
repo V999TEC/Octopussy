@@ -115,8 +115,8 @@ public class Octopussy {
 
 	private static Octopussy instance = null;
 
-	private static String ANSI_COLOUR_FOREGROUND;
-	private static String ANSI_COLOUR_ABOVE_TARGET;
+	private static String ANSI_COLOUR_LO; // typically GREEN
+	private static String ANSI_COLOR_HI; // typically RED
 
 	private static long epochFrom = 0;
 
@@ -899,8 +899,8 @@ public class Octopussy {
 				throw new Exception("zone.id");
 			}
 
-			ANSI_COLOUR_FOREGROUND = colourMapForeground.get(properties.getProperty("colour", "GREEN").trim());
-			ANSI_COLOUR_ABOVE_TARGET = colourMapForeground.get(properties.getProperty("color", "RED").trim());
+			ANSI_COLOUR_LO = colourMapForeground.get(properties.getProperty("colour", "GREEN").trim());
+			ANSI_COLOR_HI = colourMapForeground.get(properties.getProperty("color", "RED").trim());
 
 		} catch (Exception e) {
 
@@ -917,7 +917,7 @@ public class Octopussy {
 
 		ArrayList<Long> bestStartTime = new ArrayList<Long>();
 
-		int widestPeriod = 1;// + extended; // just do best 30 minute period
+		int widestPeriod = 1 + extended;
 
 		for (int period = 0; period < widestPeriod; period++) { // each period represents multiples of 30 minutes
 
@@ -938,7 +938,6 @@ public class Octopussy {
 					Float importPrice = pricesPerSlot.get(i).getExportPrice();
 
 					accumulate += importPrice;
-
 				}
 
 				if (-1 == optimumAcc || accumulate > optimumAcc) {
@@ -1366,7 +1365,7 @@ public class Octopussy {
 						aboveTarget = true;
 
 						if (ansi) {
-							sb1.append(ANSI_COLOUR_ABOVE_TARGET);
+							sb1.append(ANSI_COLOR_HI);
 						}
 
 						sb1.append('X');
@@ -1417,15 +1416,28 @@ public class Octopussy {
 
 				for (int i = 1; i < extended + 1; i++) {
 
-					float acc = 0;
+					float accImport = 0;
+					float accExport = 0;
 
 					int count = 0;
+
+					if (export) {
+
+						if (index + i < pricesPerSlot.size()) {
+
+							for (int j = index; j < index + i + 1; j++) {
+
+								accExport += pricesPerSlot.get(j).getExportPrice();
+							}
+						}
+					}
 
 					if (index + i < pricesPerSlot.size()) {
 
 						for (int j = index; j < index + i + 1; j++) {
 
-							acc += pricesPerSlot.get(j).getImportPrice();
+							accImport += pricesPerSlot.get(j).getImportPrice();
+
 							count++;
 						}
 					}
@@ -1436,30 +1448,51 @@ public class Octopussy {
 
 					} else {
 
-						// determine if this average price needs to be green
+						// determine if this average price needs to be green/ANSI_COLOUR
+
+						Boolean flagTimeGoodForImportOrExport = null;
+
+						long slotEpoch = 0;
 
 						if (ansi) {
 
-							// n.b. i==1 represents 1 hr (i=0 unused: represents 30 mins)
+							if (export) {
 
-							long bestPeriodStartsAt = bestImportTime.get(i); // inclusive
-							long bestPeriodEndBefore = (i + 1) * 1800 + bestPeriodStartsAt; // exclusive
+								long bestExportPeriodStartsAt = bestExportTime.get(i); // inclusive
+								long bestExportPeriodEndBefore = (i + 1) * 1800 + bestExportPeriodStartsAt; // exclusive
 
-							long slotEpoch = slotCost.getEpochSecond();
+								slotEpoch = slotCost.getEpochSecond();
 
-							if (slotEpoch >= bestPeriodStartsAt && slotEpoch < bestPeriodEndBefore) {
+								if (slotEpoch >= bestExportPeriodStartsAt && slotEpoch < bestExportPeriodEndBefore) {
 
-								sb3.append(ANSI_COLOUR_FOREGROUND);
+									sb3.append(ANSI_COLOR_HI);
+									flagTimeGoodForImportOrExport = Boolean.FALSE;
+								}
+							}
+
+							if (null == flagTimeGoodForImportOrExport) {
+
+								long bestImportPeriodStartsAt = bestImportTime.get(i); // inclusive
+								long bestImportPeriodEndBefore = (i + 1) * 1800 + bestImportPeriodStartsAt; // exclusive
+
+								slotEpoch = slotCost.getEpochSecond();
+
+								if (slotEpoch >= bestImportPeriodStartsAt && slotEpoch < bestImportPeriodEndBefore) {
+
+									sb3.append(ANSI_COLOUR_LO);
+									flagTimeGoodForImportOrExport = Boolean.TRUE;
+								}
 							}
 						}
 
-						sb3.append(String.format("%5.2f", acc / count));
+						sb3.append(String.format("%5.2f",
+								(Boolean.FALSE.equals(flagTimeGoodForImportOrExport) ? accExport / count
+										: accImport / count)));
 
-						if (ansi) {
+						if (null != flagTimeGoodForImportOrExport) { // ansi is implicit
 
 							sb3.append(ANSI_RESET);
 						}
-
 					}
 
 					sb3.append('|');
@@ -1482,13 +1515,13 @@ public class Octopussy {
 			}
 
 			String optionalExport = export
-					? (ansi & bestExport ? ANSI_COLOUR_FOREGROUND : "") + String.format("%6.2f", exportValueIncVat)
-							+ "p  " + (ansi & bestExport ? ANSI_RESET : "")
+					? (ansi & bestExport ? ANSI_COLOR_HI : "") + String.format("%6.2f", exportValueIncVat) + "p  "
+							+ (ansi & bestExport ? ANSI_RESET : "")
 					: "\t";
 
 			System.out.println(optionalExport + slotCost.getSimpleTimeStamp() + "  " + (cheapestImport ? "!" : " ")
 					+ (lessThanAverage ? "!" : " ") + "\t" + String.format("%5.2f", importValueIncVat) + "p  "
-					+ (ansi & cheapestImport ? ANSI_COLOUR_FOREGROUND : "") + asterisks
+					+ (ansi & cheapestImport ? ANSI_COLOUR_LO : "") + asterisks
 					+ (ansi & cheapestImport ? ANSI_RESET : "") + padding + prices + clockHHMM);
 		}
 
