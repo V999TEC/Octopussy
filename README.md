@@ -11,9 +11,11 @@ For Windows users running the jar in a console, ANSI colour support should be en
 One way to do this is to  use the Registry Editor to
 set REG_DWORD VirtualTerminalLevel=1 for Computer\HKEY_CURRENT_USER\Console
 
+![EXAMPLE](/assets/Octopussy4.JPG?raw=true "Picture 4")
+
 Then relaunch a cmd.exe
 
-![EXAMPLE](/assets/Octopussy.JPG?raw=true "Title")
+![EXAMPLE](/assets/Octopussy.JPG?raw=true "Picture 1")
 
 The parameter passed to the jar indicates the number of columns to create on the right hand side of the display.
 
@@ -156,3 +158,34 @@ The columns are
 Consumption (kWh), Start, End, Price
 ```
 
+## Advanced  - show Agile Export prices
+
+![EXAMPLE](/assets/Octopussy2.JPG?raw=true "Picture 2")
+
+The above example use export=true in the [name].properties file
+
+See how color=RED from the properties file will highlight the higher prices providing ansi=true
+
+Not only is the righthand side showing the best import prices (in my Icarus.properties, colour=cyan and color=red) it is showing the best times for export.
+
+For example, the best 30-min slot for export is 6:30 pm at a price of 18.02p
+
+The highlighted prices on the righthand side are showing _average_ prices averaged over the respective period from 1 hr upwards left to right.
+
+Here we can see that the best 2-hour export period starts at 5pm with an average price of 17.01p over those 2 hours.
+
+If we were to delay the 2-hour export to 18:30 then the average price would drop to 13.23p
+
+N.B. By default, *import* average prices are shown. If they are red (or whatever color has been chosen) they are highest average *export* prices.
+If they are green (or whatever colour has been chosen, such as cyan in my case) then they indicate the lowest average *import* prices.
+
+## Bonus feature(3)
+
+In the properties file the key values yearly, monthly, weekly can be set to true or false to produce an analysis over the respective period, for example:
+
+![EXAMPLE](/assets/Octopussy3.JPG?raw=true "Picture 3")
+
+Note the *Recent daily results* are always shown and the days=number in the properties file will guide the number of days to be included in what is considered recent.
+The recent data is used to calculate the running average (A) price which dictates where the 'A' is positioned within the asterisks of the horizontal graph
+
+When the consumption results for a day are incomplete, the day is dropped, so the days=N will not always match the number of days actually shown. 
