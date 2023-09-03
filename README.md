@@ -11,6 +11,8 @@ For Windows users running the jar in a console, ANSI colour support should be en
 One way to do this is to  use the Registry Editor to
 set REG_DWORD VirtualTerminalLevel=1 for Computer\HKEY_CURRENT_USER\Console
 
+![EXAMPLE](/assets/Octopussy4.JPG?raw=true "Picture 4")
+
 Then relaunch a cmd.exe
 
 ![EXAMPLE](/assets/Octopussy.JPG?raw=true "Picture 1")
