@@ -158,26 +158,29 @@ The columns are
 Consumption (kWh), Start, End, Price
 ```
 
-## Advanced  - show Agile Export prices
+## Advanced  - show Agile Export prices too
 
-![EXAMPLE](/assets/Octopussy2.JPG?raw=true "Picture 2")
+![EXAMPLE](/assets/Octopussy5.JPG?raw=true "Picture 5")
 
-The above example use export=true in the [name].properties file
+The above example use export=true in the [name].properties file with color=YELLOW to highlight the export prices with ansi=true
 
-See how color=RED from the properties file will highlight the higher prices providing ansi=true
 
-Not only is the righthand side showing the best import prices (in my Icarus.properties, colour=cyan and color=red) it is showing the best times for export.
+Not only is the righthand side showing the best import prices it is showing the best times for export.
 
-For example, the best 30-min slot for export is 6:30 pm at a price of 18.02p
+For example, the best 30-min slot for export is 6:00 pm at a price of 19.12p and at 3,800 watt export rate one might earn as much as 36p:wink:
 
 The highlighted prices on the righthand side are showing _average_ prices averaged over the respective period from 1 hr upwards left to right.
 
 Here we can see that the best 2-hour export period starts at 5pm with an average price of 17.01p over those 2 hours.
 
-If we were to delay the 2-hour export to 18:30 then the average price would drop to 13.23p
+If we were to delay the 2-hour export to 18:30 then the average price would drop to 13.60p
 
-N.B. By default, *import* average prices are shown. If they are red (or whatever color has been chosen) they are highest average *export* prices.
-If they are green (or whatever colour has been chosen, such as cyan in my case) then they indicate the lowest average *import* prices.
+The rate at which one can export will obviously vary from installation to installation.  
+Let's say one limits to 3kW for 3 hours because we have sufficient battery storage available. 
+On this particular day, the best time to start the export would be 16:00 and the 9 units exported would be worth 9 x 17.88p (£1.61 ~ish) 
+
+N.B. By default, *import* average prices are shown. If they are red (or whatever *color* value has been chosen) they are highest average *export* prices.
+If they are green (or whatever *colour* has been chosen, such as GREEN in the example) then they indicate the lowest average *import* prices.
 
 ## Bonus feature(3)
 
