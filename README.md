@@ -67,31 +67,30 @@ The gas key values are experimental for now and don't do anything useful
 Example of octopussy.properties
 ```
 apiKey=blah_BLAH2pMoreBlahPIXOIO72aIO1blah:
-electricity.mprn=2000012600000
-electricity.sn=21L300071
 #
-gas.mprn=887000000
-gas.sn=E6S100000061961
-flexible.gas.unit=7.61
-flexible.gas.standing=27.47
-#
-flexible.electricity.unit=30.03
-flexible.electricity.standing=47.95
-agile.electricity.standing=42.77
+electricity.mprn=200001010163
+electricity.sn=21L010101
+gas.mprn=8870000400
+gas.sn=E6S10000061961
+flexible.electricity.via.direct.debit=true
+flexible.electricity.product.code=VAR-22-11-01
+flexible.electricity.unit=30.295124
+flexible.electricity.standing=47.9535
+agile.electricity.standing=42.7665
+#postcode=SN5 
+region=H
+import.product.code=AGILE-FLEX-22-11-25
+tariff.code=E-1R-AGILE-FLEX-22-11-25-H
 #
 zone.id=Europe/London
 history=./octopus.import.csv
 #
-# n.b. Southern England is region H - see https://mysmartenergy.uk/Electricity-Region
+# Example: Southern England is region H
 #
-# if postcode is uncommented it will override region=H based on Octopus API
+# if postcode is uncommented it will verify region=H based on Octopus API
 #
-#postcode=SN5
-#
-region=H
 base.url=https://api.octopus.energy
-import.product.code=AGILE-FLEX-22-11-25
-tariff.code=E-1R-$import.product.code$-$region$
+#
 tariff.url=$base.url$/v1/products/$import.product.code$/electricity-tariffs/$tariff.code$
 #
 export.product.code=AGILE-OUTGOING-19-05-13
@@ -99,7 +98,7 @@ export.tariff.code=E-1R-$export.product.code$-$region$
 export.tariff.url=$base.url$/v1/products/$export.product.code$/electricity-tariffs/$export.tariff.code$
 export=false
 #
-days=14
+days=11
 plunge=3
 target=30
 width=63
@@ -109,6 +108,10 @@ width=63
 ansi=true
 colour=GREEN
 color=RED
+#
+yearly=false
+monthly=false
+weekly=true
 #
 extra=false
 referral=https://share.octopus.energy/ice-camel-111
