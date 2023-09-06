@@ -42,7 +42,15 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 
 import uk.co.myzen.a_z.json.Agile;
+import uk.co.myzen.a_z.json.Agreement;
+import uk.co.myzen.a_z.json.Detail;
+import uk.co.myzen.a_z.json.ElectricityMeterPoint;
+import uk.co.myzen.a_z.json.GasMeterPoint;
+import uk.co.myzen.a_z.json.Meter;
+import uk.co.myzen.a_z.json.Prices;
+import uk.co.myzen.a_z.json.V1Account;
 import uk.co.myzen.a_z.json.V1AgileFlex;
+import uk.co.myzen.a_z.json.V1Charges;
 import uk.co.myzen.a_z.json.V1ElectricityConsumption;
 import uk.co.myzen.a_z.json.V1GSP;
 import uk.co.myzen.a_z.json.V1GridSupplyPoints;
@@ -78,10 +86,11 @@ public class Octopussy {
 	private final static String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36";
 	private final static String contentType = "application/json";
 
-	private final static String[] defaultPropertyKeys = { "apiKey", "electricity.mprn", "electricity.sn", "#",
-			"gas.mprn", "gas.sn", "flexible.gas.unit", "flexible.gas.standing", "#", "flexible.electricity.unit",
-			"flexible.electricity.standing", "agile.electricity.standing", "#", "zone.id", "history", "postcode",
-			"region", "base.url", "import.product.code", "tariff.code", "tariff.url", "#", "export.product.code",
+	private final static String[] defaultPropertyKeys = { "apiKey", "#", "electricity.mprn", "electricity.sn",
+			"gas.mprn", "gas.sn", "flexible.gas.product.code", "flexible.gas.unit", "flexible.gas.standing",
+			"flexible.electricity.via.direct.debit", "flexible.electricity.product.code", "flexible.electricity.unit",
+			"flexible.electricity.standing", "agile.electricity.standing", "#postcode", "region", "import.product.code",
+			"tariff.code", "#", "zone.id", "history", "postcode", "base.url", "tariff.url", "#", "export.product.code",
 			"export.tariff.code", "export.tariff.url", "export", "#", "days", "plunge", "target", "width", "ansi",
 			"colour", "color", "#", "yearly", "monthly", "weekly", "#", "extra", "referral" };
 
@@ -168,6 +177,8 @@ public class Octopussy {
 
 		String propertyFileName = "./octopussy.properties"; // the default
 
+		String propertyAccountId = null; // the default
+
 		try {
 			if (args.length > 0) {
 
@@ -188,10 +199,48 @@ public class Octopussy {
 					// which will be used to override the built-in resource octopussy.properties
 
 					propertyFileName = args[1].trim();
+
+					if (args.length > 2) {
+
+						// assume the optional third parameter is the account identifier
+
+						propertyAccountId = args[2].trim();
+					}
 				}
 			}
 
 			instance.dealWithProperties(propertyFileName);
+
+			if (null != propertyAccountId) { // optional verification of Account verses dot.properties
+
+				V1Account details = instance.getV1AccountData(1, propertyAccountId);
+
+				System.out.println("# Verifying these values in the properties file " + propertyFileName + "\n");
+
+				Map<String, String> verify = instance.displayAccountDetails(details);
+
+				for (String key : defaultPropertyKeys) {
+
+					if (verify.containsKey(key)) {
+
+						String value = verify.get(key);
+
+						System.out.println(key + "=" + value);
+					}
+
+				}
+
+				int errors = instance.validateProperties(verify);
+
+				if (0 != errors) {
+
+					System.err.println(
+							errors + " discrepencies in " + propertyFileName + " - Please edit and validate again.");
+					System.exit(-1);
+				}
+
+				System.out.println("\n# " + propertyFileName + " file verified.");
+			}
 
 			importData = new File(properties.getProperty("history", "octopus.import.csv").trim());
 
@@ -379,6 +428,180 @@ public class Octopussy {
 		}
 	}
 
+	private int validateProperties(Map<String, String> verify) {
+
+		// compare what the account has told us verses the current property file
+		// settings
+
+		int tally = 0; // number of observed discrepancies
+
+		for (String key : verify.keySet()) {
+
+			if (!key.startsWith("#")) {
+
+				String value = verify.get(key);
+
+				String configuredValue = properties.getProperty(key);
+
+				if (!value.equals(configuredValue)) {
+
+					System.err.println("Discrepency: expected " + key + "=" + value + "\tbut found " + key + "="
+							+ configuredValue);
+
+					tally++;
+				}
+			}
+		}
+
+		return tally;
+	}
+
+	private Map<String, String> displayAccountDetails(V1Account account) throws Exception {
+
+		Map<String, String> result = new HashMap<String, String>();
+
+		List<Detail> details = account.getProperties();
+
+		Detail detail = details.get(0);
+
+		List<ElectricityMeterPoint> electricityMeterPoints = detail.getElectrictyMeterPoints();
+
+		ElectricityMeterPoint electricityMeterPoint = electricityMeterPoints.get(0);
+
+		result.put("electricity.mprn", electricityMeterPoint.getMpan());
+
+		List<Meter> meters = electricityMeterPoint.getMeters();
+
+		Meter firstElectricityMeter = meters.get(0);
+
+		result.put("electricity.sn", firstElectricityMeter.getSerialNumber());
+
+		// find active electricity agreement
+
+		Agreement activeAgreement = null;
+
+		for (Agreement agreement : electricityMeterPoint.getAgreements()) {
+
+			if (null == agreement.getValidTo()) {
+
+				activeAgreement = agreement;
+				break;
+			}
+		}
+
+		if (null == activeAgreement) {
+
+			throw new Exception("cannot discover active agreement for electricty_meter_point ");
+		}
+
+		String tariffCode = activeAgreement.getTariffCode();
+
+		result.put("tariff.code", tariffCode);
+
+		String postcode = detail.getPostcode().substring(0, 4).trim();
+
+		result.put("#postcode", postcode);
+
+		String region = tariffCode.substring(tariffCode.length() - 1);
+
+		result.put("region", region);
+
+		String prefix = tariffCode.substring(0, 5);
+
+		String importProductCode = tariffCode.substring(5, tariffCode.length() - 2);
+
+		result.put("import.product.code", importProductCode);
+
+		String periodFrom = activeAgreement.getValidFrom().substring(0, 10);
+
+		V1Charges agileElectricityStandingCharges = getV1ElectricityStandingCharges(importProductCode, tariffCode, 100,
+				periodFrom, null);
+
+		result.put("agile.electricity.standing",
+				String.valueOf(agileElectricityStandingCharges.getPriceResults().get(0).getValueIncVAT()));
+
+		boolean directDebitPrices = Boolean
+				.parseBoolean(properties.getProperty("flexible.electricity.via.direct.debit", "true"));
+
+		result.put("flexible.electricity.via.direct.debit", (directDebitPrices ? "true" : "false"));
+
+		String flexibleElectricityProductCode = properties.getProperty("flexible.electricity.product.code",
+				"VAR-22-11-01");
+
+		result.put("flexible.electricity.product.code", flexibleElectricityProductCode);
+
+		String flexibleElectricityTariffCode = prefix + flexibleElectricityProductCode + "-" + region;
+
+		V1Charges flexibleElectricityStandingCharges = getV1ElectricityStandingCharges(flexibleElectricityProductCode,
+				flexibleElectricityTariffCode, 100, periodFrom, null);
+
+		result.put("flexible.electricity.standing",
+				String.valueOf(flexibleElectricityStandingCharges.getPriceResults().get(0).getValueIncVAT()));
+
+		V1Charges flexibleStandardUnitRates = getV1ElectricityStandardUnitRates(flexibleElectricityProductCode,
+				flexibleElectricityTariffCode, 100, periodFrom, null);
+
+		Prices activePrices = null;
+
+		for (Prices prices : flexibleStandardUnitRates.getPriceResults()) {
+
+			if ("DIRECT_DEBIT".equals(prices.getPaymentMethod()) && directDebitPrices) {
+
+				activePrices = prices;
+				break;
+			}
+
+			if ("NON_DIRECT_DEBIT".equals(prices.getPaymentMethod()) && !directDebitPrices) {
+
+				activePrices = prices;
+				break;
+			}
+		}
+
+		if (null == activePrices) {
+
+			throw new Exception(" Cannot get activePrices");
+		}
+
+		result.put("flexible.electricity.unit", String.valueOf(activePrices.getValueIncVAT()));
+
+		//
+		// following not really needed for now
+		//
+
+		List<GasMeterPoint> gasMeterPoints = detail.getGasMeterPoints();
+
+		GasMeterPoint firstGasMeterPoint = gasMeterPoints.get(0);
+
+		result.put("gas.mprn", firstGasMeterPoint.getMprn());
+
+		// find active gas agreement
+
+		activeAgreement = null;
+
+		for (Agreement agreement : firstGasMeterPoint.getAgreements()) {
+
+			if (null == agreement.getValidTo()) {
+
+				activeAgreement = agreement;
+				break;
+			}
+		}
+
+		if (null == activeAgreement) {
+
+			throw new Exception("cannot discover active agreement for gas.mprn=" + firstGasMeterPoint.getMprn());
+		}
+
+		List<Meter> gasMeters = firstGasMeterPoint.getMeters();
+
+		Meter firstGasMeter = gasMeters.get(0);
+
+		result.put("gas.sn", firstGasMeter.getSerialNumber());
+
+		return result;
+	}
+
 	private static void displayPeriodSummary(String id, SortedMap<Integer, PeriodicValues> periodic) {
 
 		for (Integer number : periodic.keySet()) {
@@ -465,7 +688,7 @@ public class Octopussy {
 		return result;
 	}
 
-	private static boolean loadProperties(File externalPropertyFile) throws IOException {
+	private static boolean loadProperties(File externalPropertyFile) throws Exception {
 
 		boolean external = false;
 
@@ -492,7 +715,7 @@ public class Octopussy {
 		properties.load(is);
 
 		// if postcode=value specified, such as postcode=SN5
-		// the region=value will be overriden by the associated code (such as H)
+		// the region=value will be verified for consistency
 
 		String postcode = properties.getProperty("postcode", null);
 
@@ -506,7 +729,13 @@ public class Octopussy {
 
 			String groupId = point.getGroupId();
 
-			properties.setProperty("region", groupId.substring(1));
+			String region = groupId.substring(1);
+
+			if (!properties.getProperty("region", "").equals(region)) {
+
+				throw new Exception("Region and postcode discrepency");
+
+			}
 		}
 
 		extra = Boolean.valueOf(properties.getProperty("extra", "false").trim());
@@ -570,6 +799,17 @@ public class Octopussy {
 		return result;
 	}
 
+	private V1Account getV1AccountData(Integer pageSize, String account) throws MalformedURLException, IOException {
+
+		String spec = properties.getProperty("base.url").trim() + "/v1/accounts/" + account;
+
+		String json = getRequest(new URL(spec), true);
+
+		V1Account result = mapper.readValue(json, V1Account.class);
+
+		return result;
+	}
+
 	private V1AgileFlex getV1AgileFlexImport(Integer pageSize, String periodFrom, String periodTo)
 			throws MalformedURLException, IOException {
 
@@ -580,6 +820,38 @@ public class Octopussy {
 		String json = getRequest(new URL(spec), false);
 
 		V1AgileFlex result = mapper.readValue(json, V1AgileFlex.class);
+
+		return result;
+	}
+
+	private V1Charges getV1ElectricityStandingCharges(String product, String tariff, Integer pageSize,
+			String periodFrom, String periodTo) throws MalformedURLException, IOException {
+
+		String spec = properties.getProperty("base.url").trim() + "/v1/products/" + product + "/electricity-tariffs/"
+				+ tariff + "/standing-charges/?page_size=" + pageSize
+				+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
+				+ (null == periodTo ? "" : "&period_to=" + periodTo);
+
+		String json = getRequest(new URL(spec), false);
+
+		V1Charges result = mapper.readValue(json, V1Charges.class);
+
+		return result;
+	}
+
+	// standard-unit-rates
+
+	private V1Charges getV1ElectricityStandardUnitRates(String product, String tariff, Integer pageSize,
+			String periodFrom, String periodTo) throws MalformedURLException, IOException {
+
+		String spec = properties.getProperty("base.url").trim() + "/v1/products/" + product + "/electricity-tariffs/"
+				+ tariff + "/standard-unit-rates/?page_size=" + pageSize
+				+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
+				+ (null == periodTo ? "" : "&period_to=" + periodTo);
+
+		String json = getRequest(new URL(spec), false);
+
+		V1Charges result = mapper.readValue(json, V1Charges.class);
 
 		return result;
 	}
@@ -1138,6 +1410,10 @@ public class Octopussy {
 				float valueIncVat = agile.getValueIncVat();
 
 				ImportExportData importExportPricesIncVat = vatIncPriceMap.get(actual);
+
+				if (null == importExportPricesIncVat) {
+					importExportPricesIncVat = new ImportExportData();
+				}
 
 				importExportPricesIncVat.setExportPrice(Float.valueOf(valueIncVat));
 
