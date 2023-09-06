@@ -1207,9 +1207,9 @@ public class Octopussy {
 
 				for (int i = index; i < index + period + 1; i++) {
 
-					Float importPrice = pricesPerSlot.get(i).getExportPrice();
+					Float exportPrice = pricesPerSlot.get(i).getExportPrice();
 
-					accumulate += importPrice;
+					accumulate += exportPrice;
 				}
 
 				if (-1 == optimumAcc || accumulate > optimumAcc) {
@@ -1578,7 +1578,7 @@ public class Octopussy {
 
 			sb.append("Import prices current & future:");
 
-			for (int n = (export ? -9 : -10); n < maxWidth; n++) {
+			for (int n = (export ? -3 : -11); n < maxWidth; n++) {
 
 				sb.append(' ');
 			}
@@ -1634,7 +1634,7 @@ public class Octopussy {
 
 				boolean aboveTarget = false;
 
-				for (; n < importValueIncVat && n < maxWidth; n++) {
+				for (; n < importValueIncVat; n++) {
 
 					if (target == n) {
 
@@ -1650,16 +1650,16 @@ public class Octopussy {
 
 						sb1.append('A');
 
+					} else if (maxWidth == n) {
+
+						sb1.append('>');
+						n++;
+						break;
+
 					} else {
 
 						sb1.append('*');
-
 					}
-				}
-
-				if (importValueIncVat == maxWidth) {
-
-					sb1.append('>');
 				}
 
 				if (aboveTarget) {
@@ -1796,7 +1796,7 @@ public class Octopussy {
 					: "\t";
 
 			System.out.println(optionalExport + slotCost.getSimpleTimeStamp() + "  " + (cheapestImport ? "!" : " ")
-					+ (lessThanAverage ? "!" : " ") + "\t" + String.format("%5.2f", importValueIncVat) + "p  "
+					+ (lessThanAverage ? "!" : " ") + "  " + String.format("%5.2f", importValueIncVat) + "p  "
 					+ (ansi & cheapestImport ? ANSI_COLOUR_LO : "") + asterisks
 					+ (ansi & cheapestImport ? ANSI_RESET : "") + padding + prices + clockHHMM);
 		}
@@ -1899,6 +1899,13 @@ public class Octopussy {
 			}
 
 			Float halfHourPrice = importExportData.getImportPrice();
+
+			if (null == halfHourPrice) {
+
+				elecMapDaily.put(key, null); // flag this day as incomplete - ignore all time slots on this day
+
+				continue;
+			}
 
 			Long epochKey = from.toEpochSecond();
 
