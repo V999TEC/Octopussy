@@ -89,8 +89,8 @@ public class Octopussy {
 	private final static String[] defaultPropertyKeys = { "apiKey", "#", "electricity.mprn", "electricity.sn",
 			"gas.mprn", "gas.sn", "flexible.gas.product.code", "flexible.gas.unit", "flexible.gas.standing",
 			"flexible.electricity.via.direct.debit", "flexible.electricity.product.code", "flexible.electricity.unit",
-			"flexible.electricity.standing", "agile.electricity.standing", "#postcode", "region", "import.product.code",
-			"tariff.code", "#", "zone.id", "history", "postcode", "base.url", "tariff.url", "#", "export.product.code",
+			"flexible.electricity.standing", "agile.electricity.standing", "import.product.code", "tariff.code",
+			"region", "#postcode", "zone.id", "history", "base.url", "tariff.url", "#", "export.product.code",
 			"export.tariff.code", "export.tariff.url", "export", "#", "days", "plunge", "target", "width", "ansi",
 			"colour", "color", "#", "yearly", "monthly", "weekly", "#", "extra", "referral" };
 
@@ -252,15 +252,25 @@ public class Octopussy {
 			//
 			//
 
-			int dayOfYearToday = now.getDayOfYear();
-
 			int howManyDaysHistory = Integer.valueOf(properties.getProperty("days", "12").trim());
 
-			LocalDateTime startOfPreviousDays = now.withDayOfYear(dayOfYearToday - howManyDaysHistory).withHour(0)
-					.withMinute(0).withSecond(0).withNano(0);
+			ZonedDateTime ourTimeNow = now.atZone(ourZoneId);
 
-			V1AgileFlex v1AgileFlex = instance.getV1AgileFlexImport(48 * howManyDaysHistory,
-					startOfPreviousDays.toString(), null);
+			int dayOfYearToday = ourTimeNow.getDayOfYear();
+
+			ZonedDateTime timeRecent = ourTimeNow.withDayOfYear(dayOfYearToday - howManyDaysHistory).withHour(00)
+					.withMinute(00).withSecond(00).withNano(0);
+
+			// UTC is one hour behind BST in summer time
+
+			ZonedDateTime zulu = timeRecent.withZoneSameInstant(ZoneId.of("UTC"));
+
+			// In summer time expecting something like 2023-08-27T23:00Z
+
+			String startOfPreviousDays = zulu.toString().substring(0, 17);
+
+			V1AgileFlex v1AgileFlex = instance.getV1AgileFlexImport(48 * (1 + howManyDaysHistory), startOfPreviousDays,
+					null);
 
 			ArrayList<Agile> agileResultsImport = v1AgileFlex.getAgileResults();
 
@@ -275,8 +285,7 @@ public class Octopussy {
 
 			if (export) {
 
-				v1AgileFlex = instance.getV1AgileFlexExport(48 * howManyDaysHistory, startOfPreviousDays.toString(),
-						null);
+				v1AgileFlex = instance.getV1AgileFlexExport(48 * howManyDaysHistory, startOfPreviousDays, null);
 
 				agileResultsExport = v1AgileFlex.getAgileResults();
 
@@ -298,10 +307,10 @@ public class Octopussy {
 			//
 			//
 
-			String someDaysAgo = startOfPreviousDays.toString();
+//			String someDaysAgo = startOfPreviousDays.toString();
 
 			V1ElectricityConsumption v1ElectricityConsumption = instance.getV1ElectricityConsumption(null,
-					48 * howManyDaysHistory, someDaysAgo, null);
+					48 * howManyDaysHistory, startOfPreviousDays, null);
 
 			ArrayList<V1PeriodConsumption> periodResults = v1ElectricityConsumption.getPeriodResults();
 
@@ -314,7 +323,7 @@ public class Octopussy {
 								+ "Alternatively replace the resource octopussy.properties inside the jar file using 7-Zip or similar\r\n");
 			}
 
-			periodResults = instance.updateHistory(someDaysAgo, periodResults, howManyDaysHistory,
+			periodResults = instance.updateHistory(startOfPreviousDays, periodResults, howManyDaysHistory,
 					v1ElectricityConsumption.getCount());
 
 			//
@@ -683,6 +692,9 @@ public class Octopussy {
 			values.setCountHalfHours(1 + countHalfHours);
 			values.setAccConsumption(consumption);
 			values.setAccCost(cost);
+//
+//			System.out.println(
+//					ldt.toString() + "\t" + ldt.getDayOfYear() + "\t" + calendarElement + "\t" + countHalfHours);
 		}
 
 		return result;
@@ -987,15 +999,14 @@ public class Octopussy {
 
 				for (String propertyKey : defaultPropertyKeys) {
 
-					if ("postcode".equals(propertyKey)) {
+					if ("#postcode".equals(propertyKey)) {
 
 						System.out.println("#");
 						System.out.println("# n.b. Southern England is region H");
 						System.out.println("#");
-						System.out
-								.println("# if postcode is uncommented it will override region=H based on Octopus API");
+						System.out.println("# if postcode is uncommented it will verify region=? based on Octopus API");
 						System.out.println("#");
-						System.out.println("#postcode=SN5");
+						System.out.println("#postcode=?");
 						System.out.println("#");
 
 					} else if ("ansi".equals(propertyKey)) {
