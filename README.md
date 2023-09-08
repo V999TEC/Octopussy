@@ -24,7 +24,7 @@ In the picture below you will see a couple of zones with colour. These are contr
 
 ![EXAMPLE](/assets/Octopussy6.JPG?raw=true "Picture 6")
 
-The zones show the lowest and highest calulated average prices for the given time period.
+The zones show the lowest and highest calulated _**average**_ unit prices for the given time period.
 
 For instance, looking at the import average prices (colour=GREEN) while the cheapest 30-min slot appears to be 12:30, as indicated by the green asterisks.  
 If you have an electrical load that needs an hour to run, then it is best to start earlier at 12 noon (where the average price for the two 30-min periods is 16.85p).  
@@ -119,6 +119,7 @@ The columns are
 Consumption (kWh), Start, End, Price
 ```
 
+A corresponding file for export history is on the TODO list.
 
 ## Bonus feature
 
