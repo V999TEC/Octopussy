@@ -86,13 +86,17 @@ public class Octopussy {
 	private final static String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36";
 	private final static String contentType = "application/json";
 
-	private final static String[] defaultPropertyKeys = { "apiKey", "#", "electricity.mprn", "electricity.sn",
-			"gas.mprn", "gas.sn", "flexible.gas.product.code", "flexible.gas.unit", "flexible.gas.standing",
-			"flexible.electricity.via.direct.debit", "flexible.electricity.product.code", "flexible.electricity.unit",
-			"flexible.electricity.standing", "agile.electricity.standing", "import.product.code", "tariff.code",
-			"region", "#postcode", "zone.id", "history", "base.url", "tariff.url", "#", "export.product.code",
-			"export.tariff.code", "export.tariff.url", "export", "#", "days", "plunge", "target", "width", "ansi",
-			"colour", "color", "#", "yearly", "monthly", "weekly", "#", "extra", "referral" };
+	private final static String DEFAULT_BASE_URL = "https://api.octopus.energy";
+
+	private final static String DEFAULT_TARIFF_URL = "";
+
+	private final static String[] defaultPropertyKeys = { "apiKey", "#", "base.url", "#", "electricity.mprn",
+			"electricity.sn", "gas.mprn", "gas.sn", "flexible.gas.product.code", "flexible.gas.unit",
+			"flexible.gas.standing", "flexible.electricity.via.direct.debit", "flexible.electricity.product.code",
+			"flexible.electricity.unit", "flexible.electricity.standing", "agile.electricity.standing",
+			"import.product.code", "tariff.code", "tariff.url", "region", "#postcode", "zone.id", "history", "#",
+			"export.product.code", "export.tariff.code", "export.tariff.url", "export", "#", "days", "plunge", "target",
+			"width", "ansi", "colour", "color", "#", "yearly", "monthly", "weekly", "#", "extra", "referral" };
 
 	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd pph:mm a");
 
@@ -469,6 +473,8 @@ public class Octopussy {
 
 		Map<String, String> result = new HashMap<String, String>();
 
+		result.put("base.url", "https://api.octopus.energy");
+
 		List<Detail> details = account.getProperties();
 
 		Detail detail = details.get(0);
@@ -573,6 +579,12 @@ public class Octopussy {
 		}
 
 		result.put("flexible.electricity.unit", String.valueOf(activePrices.getValueIncVAT()));
+
+		result.put("tariff.url", result.get("base.url") + "/v1/products/" + result.get("import.product.code")
+				+ "/electricity-tariffs/" + result.get("tariff.code"));
+
+//		base.url=https://api.octopus.energy
+//		tariff.url=$base.url$/v1/products/$import.product.code$/electricity-tariffs/$tariff.code$
 
 		//
 		// following not really needed for now
@@ -787,8 +799,10 @@ public class Octopussy {
 
 		String sn = properties.getProperty("electricity.sn").trim();
 
-		String json = instance.getRequest(new URL(
-				"https://api.octopus.energy/v1/electricity-meter-points/" + mprn + "/meters/" + sn + "/consumption/" +
+		String baseUrl = properties.getProperty("base.url", DEFAULT_BASE_URL).trim();
+
+		String json = instance.getRequest(
+				new URL(baseUrl + "/v1/electricity-meter-points/" + mprn + "/meters/" + sn + "/consumption/" +
 
 						"?order_by=period" + (null == page ? "" : "&page=" + page)
 						+ (null == pageSize ? "" : "&page_size=" + pageSize)
@@ -813,7 +827,7 @@ public class Octopussy {
 
 	private V1Account getV1AccountData(Integer pageSize, String account) throws MalformedURLException, IOException {
 
-		String spec = properties.getProperty("base.url").trim() + "/v1/accounts/" + account;
+		String spec = properties.getProperty("base.url", DEFAULT_BASE_URL).trim() + "/v1/accounts/" + account;
 
 		String json = getRequest(new URL(spec), true);
 
@@ -825,8 +839,8 @@ public class Octopussy {
 	private V1AgileFlex getV1AgileFlexImport(Integer pageSize, String periodFrom, String periodTo)
 			throws MalformedURLException, IOException {
 
-		String spec = properties.getProperty("tariff.url").trim() + "/standard-unit-rates/" + "?page_size=" + pageSize
-				+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
+		String spec = properties.getProperty("tariff.url", DEFAULT_TARIFF_URL).trim() + "/standard-unit-rates/"
+				+ "?page_size=" + pageSize + (null == periodFrom ? "" : "&period_from=" + periodFrom)
 				+ (null == periodTo ? "" : "&period_to=" + periodTo);
 
 		String json = getRequest(new URL(spec), false);
@@ -839,8 +853,8 @@ public class Octopussy {
 	private V1Charges getV1ElectricityStandingCharges(String product, String tariff, Integer pageSize,
 			String periodFrom, String periodTo) throws MalformedURLException, IOException {
 
-		String spec = properties.getProperty("base.url").trim() + "/v1/products/" + product + "/electricity-tariffs/"
-				+ tariff + "/standing-charges/?page_size=" + pageSize
+		String spec = properties.getProperty("base.url", DEFAULT_BASE_URL).trim() + "/v1/products/" + product
+				+ "/electricity-tariffs/" + tariff + "/standing-charges/?page_size=" + pageSize
 				+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
 				+ (null == periodTo ? "" : "&period_to=" + periodTo);
 
@@ -856,8 +870,8 @@ public class Octopussy {
 	private V1Charges getV1ElectricityStandardUnitRates(String product, String tariff, Integer pageSize,
 			String periodFrom, String periodTo) throws MalformedURLException, IOException {
 
-		String spec = properties.getProperty("base.url").trim() + "/v1/products/" + product + "/electricity-tariffs/"
-				+ tariff + "/standard-unit-rates/?page_size=" + pageSize
+		String spec = properties.getProperty("base.url", DEFAULT_BASE_URL).trim() + "/v1/products/" + product
+				+ "/electricity-tariffs/" + tariff + "/standard-unit-rates/?page_size=" + pageSize
 				+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
 				+ (null == periodTo ? "" : "&period_to=" + periodTo);
 
@@ -884,8 +898,8 @@ public class Octopussy {
 
 	private static V1GridSupplyPoints getV1GridSupplyPoints(String postcode) throws MalformedURLException, IOException {
 
-		String spec = properties.getProperty("base.url").trim() + "/v1/industry/grid-supply-points/" + "?postcode="
-				+ postcode;
+		String spec = properties.getProperty("base.url", DEFAULT_BASE_URL).trim() + "/v1/industry/grid-supply-points/"
+				+ "?postcode=" + postcode;
 
 		String json = getRequest(new URL(spec), false);
 
