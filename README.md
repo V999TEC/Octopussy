@@ -15,13 +15,43 @@ set REG_DWORD VirtualTerminalLevel=1 for Computer\HKEY_CURRENT_USER\Console
 
 Then relaunch a cmd.exe
 
-![EXAMPLE](/assets/Octopussy.JPG?raw=true "Picture 1")
+![EXAMPLE](/assets/Octopussy6.JPG?raw=true "Picture 6")
 
-The parameter passed to the jar indicates the number of columns to create on the right hand side of the display.
+The first parameter passed to the jar indicates the number of columns to create on the right hand side of the display.
+The second parameter is the name of a property file containing details of the tariffs and other configuration data plus the api.key
+Since the property file needs to hold the api.key do not share this property file.
 
-The example above shows that 10am is the cheapest time to start an activity taking 1hr. The price is 15.88p on average.
+If no property file is specified, a default built into the jar will be used. Obviously this does not have the correct api.key or meter reference numbers etc so an exception will be generated.
+Once you have established your own properties file with the correct details, it is possible to use something like 7-Zip to replace the builtin octopussy.properties in the jar with your preferences.
+The only advantage is that the external properties file is no longer needed and need not be specified each time java -jar octopussy.jar N is called
+As before, do not share anything containing your api.key and that includes the jar that you might have just customised.
 
-Another example is that a longer 3.5 hour activity is best started earlier at 09:30 since the average unit price will be 16.47p during the seven 30-minute slots.
+The recommended approach is to keep the personalised property file external and always pass its name as the second parameter.
+
+The builtin octopussy.properties can be used to generate a template so that you have an idea of all the possible settings that drive the program
+
+To display the template do the following:
+
+delete the octopus.import.csv file if it exists
+
+```
+java -jar octopussy.jar
+```
+This will cause the program to display the properties so that you can copy paste into your own property file (let's say it's called My.properties)
+
+Alternatively you could just pipe the output directly to a file name of your choice
+
+```
+java -jar octopussy.jar 1>My.properties
+```
+
+After editing the property file just created to fix the apiKey etc., remember to specify the file name each time as the second parameter, i.e.:
+
+```
+java -jar octopussy.jar 7 My.properties
+```
+
+
 
 Obviously the task requiring electricity generally won't use it evenly across the period, so the program is just a guide, but it's better then a random choice.
 
@@ -34,40 +64,13 @@ This means that sometimes the number of columns is truncated, because it is not 
 
 ## Setting my API key and meter point reference number & serial etc
 
-Time to get familiar with editing octopussy.properties, a template of which is in the root of the jar
 
-One way is to create an octopussy.properties in the current directory where the jar lives
-
-Each time you run the jar, pass octopussy.properties (or whatever you have chosen to call it) as the second parameter
-
-For example
-
-```
-java -jar octopussy.jar 4 Icarus.properties
-```
-
-Another way is simply to use 7-zip and build your properties file into the zip, but be sure to call it octopussy.properties
-
-Open the archive, edit the octopussy.properties and save the changes and it will regenerate the jar
-You'll need to change at the very least:
-```
-apiKey=blah_BLAH2pMoreBlahPIXOIO72aIO1blah:
-electricity.mprn=2000012600000
-electricity.sn=21L300071
-
-region=?
-```
-
-No doubt you know your region if you have played with the API.
-Stick the value in the properties. 
-Alternatively put in the first part of the postcode and the API will look up your region (but that wasteful to do every time and it will just return the same answer)
-
-The gas key values are experimental for now and don't do anything useful
 
 Example of octopussy.properties
 ```
 apiKey=blah_BLAH2pMoreBlahPIXOIO72aIO1blah:
 #
+base.url=https://api.octopus.energy
 electricity.mprn=200001010163
 electricity.sn=21L010101
 gas.mprn=8870000400
@@ -77,21 +80,18 @@ flexible.electricity.product.code=VAR-22-11-01
 flexible.electricity.unit=30.295124
 flexible.electricity.standing=47.9535
 agile.electricity.standing=42.7665
-#postcode=SN5 
-region=H
 import.product.code=AGILE-FLEX-22-11-25
 tariff.code=E-1R-AGILE-FLEX-22-11-25-H
-#
-zone.id=Europe/London
-history=./octopus.import.csv
+tariff.url=https://api.octopus.energy/v1/products/AGILE-FLEX-22-11-25/electricity-tariffs/E-1R-AGILE-FLEX-22-11-25-H
+region=H
+#postcode=SN5
 #
 # Example: Southern England is region H
 #
 # if postcode is uncommented it will verify region=H based on Octopus API
 #
-base.url=https://api.octopus.energy
-#
-tariff.url=$base.url$/v1/products/$import.product.code$/electricity-tariffs/$tariff.code$
+zone.id=Europe/London
+history=./octopus.import.csv
 #
 export.product.code=AGILE-OUTGOING-19-05-13
 export.tariff.code=E-1R-$export.product.code$-$region$
