@@ -15,8 +15,19 @@ set REG_DWORD VirtualTerminalLevel=1 for Computer\HKEY_CURRENT_USER\Console
 
 Then relaunch a cmd.exe
 
-The following picure shows a fully configured execution of the program with some history analysis plus export prices enabled with ansi colour support
-OOTB the basic configuation can be much simpler.
+The following picure shows a fully configured execution of the program with some history analysis plus export prices enabled with ansi colour support  
+OOTB the basic configuation can be much simple and not show export or history details. All is controlled by the properties file.
+
+Below you will see a couple of zones with colour. These are controlled by colour=GREEN and color=RED to signify optimum import and export respectively.
+
+The zones show the lowest and highest calulated average prices for the given time period.
+
+For instance, looking at the import average prices (colour=GREEN) while the cheapest 30-min slot appears to be 12:30, if you have an electrical load that needs an hour to run, then it is best to start earlier at 12 noon (where the average price for the two 30-min periods is 16.85p).  
+Going down the same column, we note that delaying the start to 12:30 would give an average price of 17.08 and 1:00 pm would be 17.53p. At 5:00 pm the average price is over 40p.
+
+In contrast the export prices (color=RED) show the best times to start export activity.  
+A 1-hour export is optimal at 6:00pm since the average price is 23.02p (thus 2 x 23.02p per unit exported)
+However if you have enough stored energy to export to the grid over 3 hours then it is much better to start at 4:00 pm when the average price will be 19.98p ( 6 x 19.98 per unit exported)
 
 ![EXAMPLE](/assets/Octopussy6.JPG?raw=true "Picture 6")
 
