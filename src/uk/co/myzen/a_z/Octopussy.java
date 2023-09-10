@@ -86,6 +86,8 @@ public class Octopussy {
 	private final static String userAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/96.0.4664.110 Safari/537.36";
 	private final static String contentType = "application/json";
 
+	private final static String DEFAULT_PROPERTY_FILENAME = "./octopussy.properties";
+
 	private final static String DEFAULT_APIKEY_PROPERTY = "blah_BLAH2pMoreBlahPIXOIO72aIO1blah:";
 	private final static String DEFAULT_BASE_URL_PROPERTY = "https://api.octopus.energy";
 	private final static String DEFAULT_HISTORY_PROPERTY = "octopus.import.csv";
@@ -96,10 +98,10 @@ public class Octopussy {
 	private final static String DEFAULT_WEEKLY_PROPERTY = "false";
 	private final static String DEFAULT_FLEXIBLE_ELECTRICITY_VIA_DIRECT_DEBIT_PROPERTY = "true";
 	private final static String DEFAULT_FLEXIBLE_ELECTRICITY_PRODUCT_CODE_PROPERTY = "VAR-22-11-01";
-	private final static String DEFAULT_FLEXIBLE_ELECTRICTY_UNIT_PROPERTY = "30.295124";
-	private final static String DEFAULT_FLEXIBLE_ELECTRICTY_STANDING_PROPERTY = "47.9535";
-	private final static String DEFAULT_AGILE_ELECTRICTY_STANDING_PROPERTY = "42.7665";
-	private final static String DEFAULT_POSTCODE_PROPERTY = "SN5";
+	private final static String DEFAULT_FLEXIBLE_ELECTRICITY_UNIT_PROPERTY = "30.295124";
+	private final static String DEFAULT_FLEXIBLE_ELECTRICITY_STANDING_PROPERTY = "47.9535";
+	private final static String DEFAULT_AGILE_ELECTRICITY_STANDING_PROPERTY = "42.7665";
+	private final static String DEFAULT_POSTCODE_PROPERTY = "?";
 	private final static String DEFAULT_REGION_PROPERTY = "H";
 	private final static String DEFAULT_EXTRA_PROPERTY = "false";
 	private final static String DEFAULT_ELECTRICTY_MPRN_PROPERTY = "200001010163";
@@ -121,13 +123,58 @@ public class Octopussy {
 	private final static String DEFAULT_TARGET_PROPERTY = "30";
 	private final static String DEFAULT_ZONE_ID_PROPERTY = "Europe/London";
 
-	private final static String[] defaultPropertyKeys = { "apiKey", "#", "base.url", "#", "electricity.mprn",
-			"electricity.sn", "gas.mprn", "gas.sn", "flexible.gas.product.code", "flexible.gas.unit",
-			"flexible.gas.standing", "flexible.electricity.via.direct.debit", "flexible.electricity.product.code",
-			"flexible.electricity.unit", "flexible.electricity.standing", "agile.electricity.standing",
-			"import.product.code", "tariff.code", "tariff.url", "region", "#postcode", "zone.id", "history", "#",
-			"export.product.code", "export.tariff.code", "export.tariff.url", "export", "#", "days", "plunge", "target",
-			"width", "ansi", "colour", "color", "#", "yearly", "monthly", "weekly", "#", "extra", "referral" };
+	private final static String KEY_APIKEY = "apiKey";
+	private final static String KEY_BASE_URL = "base.url";
+	private final static String KEY_ELECTRICITY_MPRN = "electricity.mprn";
+	private final static String KEY_ELECTRICITY_SN = "electricity.sn";
+	private final static String KEY_GAS_MPRN = "gas.mprn";
+	private final static String KEY_GAS_SN = "gas.sn";
+	private final static String KEY_FLEXIBLE_GAS_PRODUCT_CODE = "flexible.gas.product.code";
+	private final static String KEY_FLEXIBLE_GAS_UNIT = "flexible.gas.unit";
+	private final static String KEY_FLEXIBLE_GAS_STANDING = "flexible.gas.standing";
+	private final static String KEY_FLEXIBLE_ELECTRICITY_VIA_DIRECT_DEBIT = "flexible.electricity.via.direct.debit";
+	private final static String KEY_FLEXIBLE_ELECTRICITY_PRODUCT_CODE = "flexible.electricity.product.code";
+	private final static String KEY_FLEXIBLE_ELECTRICITY_UNIT = "flexible.electricity.unit";
+	private final static String KEY_FLEXIBLE_ELECTRICITY_STANDING = "flexible.electricity.standing";
+	private final static String KEY_AGILE_ELECTRICITY_STANDING = "agile.electricity.standing";
+	private final static String KEY_IMPORT_PRODUCT_CODE = "import.product.code";
+	private final static String KEY_TARIFF_CODE = "tariff.code";
+	private final static String KEY_TARIFF_URL = "tariff.url";
+	private final static String KEY_REGION = "region";
+	private final static String KEY_POSTCODE = "postcode";
+
+	private final static String KEY_ZONE_ID = "zone.id";
+	private final static String KEY_HISTORY = "history";
+
+	private final static String KEY_EXPORT_PRODUCT_CODE = "export.product.code";
+	private final static String KEY_EXPORT_TARIFF_CODE = "export.tariff.code";
+	private final static String KEY_EXPORT_TARIFF_URL = "export.tariff.url";
+	private final static String KEY_EXPORT = "export";
+
+	private final static String KEY_DAYS = "days";
+	private final static String KEY_PLUNGE = "plunge";
+	private final static String KEY_TARGET = "target";
+	private final static String KEY_WIDTH = "width";
+
+	private final static String KEY_ANSI = "ansi";
+	private final static String KEY_COLOUR = "colour";
+	private final static String KEY_COLOR = "color";
+
+	private final static String KEY_YEARLY = "yearly";
+	private final static String KEY_MONTHLY = "monthly";
+	private final static String KEY_WEEKLY = "weekly";
+
+	private final static String KEY_EXTRA = "extra";
+	private final static String KEY_REFERRAL = "referral";
+
+	private final static String[] defaultPropertyKeys = { KEY_APIKEY, "#", KEY_BASE_URL, "#", KEY_ELECTRICITY_MPRN,
+			KEY_ELECTRICITY_SN, KEY_GAS_MPRN, KEY_GAS_SN, KEY_FLEXIBLE_GAS_PRODUCT_CODE, KEY_FLEXIBLE_GAS_UNIT,
+			KEY_FLEXIBLE_GAS_STANDING, KEY_FLEXIBLE_ELECTRICITY_VIA_DIRECT_DEBIT, KEY_FLEXIBLE_ELECTRICITY_PRODUCT_CODE,
+			KEY_FLEXIBLE_ELECTRICITY_UNIT, KEY_FLEXIBLE_ELECTRICITY_STANDING, KEY_AGILE_ELECTRICITY_STANDING,
+			KEY_IMPORT_PRODUCT_CODE, KEY_TARIFF_CODE, KEY_TARIFF_URL, KEY_REGION, KEY_POSTCODE, KEY_ZONE_ID,
+			KEY_HISTORY, "#", KEY_EXPORT_PRODUCT_CODE, KEY_EXPORT_TARIFF_CODE, KEY_EXPORT_TARIFF_URL, KEY_EXPORT, "#",
+			KEY_DAYS, KEY_PLUNGE, KEY_TARGET, KEY_WIDTH, KEY_ANSI, KEY_COLOUR, KEY_COLOR, "#", KEY_YEARLY, KEY_MONTHLY,
+			KEY_WEEKLY, "#", KEY_EXTRA, KEY_REFERRAL };
 
 	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd pph:mm a");
 
@@ -153,7 +200,7 @@ public class Octopussy {
 
 	private static boolean usingExternalPropertyFile = false;
 
-	private static int extended = 2; // overridden by args[]
+	private static int extended = 0; // overridden by args[]
 
 	private static Properties properties;
 
@@ -210,7 +257,7 @@ public class Octopussy {
 
 		File importData = null;
 
-		String propertyFileName = "./octopussy.properties"; // the default
+		String propertyFileName = DEFAULT_PROPERTY_FILENAME;
 
 		String propertyAccountId = null; // the default
 
@@ -223,9 +270,9 @@ public class Octopussy {
 
 					extended = 19;
 
-				} else if (extended < 1) {
+				} else if (extended < 0) {
 
-					extended = 1;
+					extended = 0;
 				}
 
 				if (args.length > 1) {
@@ -260,9 +307,8 @@ public class Octopussy {
 
 						String value = verify.get(key);
 
-						System.out.println(key + "=" + value);
+						System.out.println((KEY_POSTCODE.equals(key) ? "#" : "") + key + "=" + value);
 					}
-
 				}
 
 				int errors = instance.validateProperties(verify);
@@ -277,7 +323,7 @@ public class Octopussy {
 				System.out.println("\n# " + propertyFileName + " file verified.");
 			}
 
-			importData = new File(properties.getProperty("history", DEFAULT_HISTORY_PROPERTY).trim());
+			importData = new File(properties.getProperty(KEY_HISTORY, DEFAULT_HISTORY_PROPERTY).trim());
 
 			history = instance.readHistory(importData);
 
@@ -287,7 +333,7 @@ public class Octopussy {
 			//
 			//
 
-			int howManyDaysHistory = Integer.valueOf(properties.getProperty("days", DEFAULT_DAYS_PROPERTY).trim());
+			int howManyDaysHistory = Integer.valueOf(properties.getProperty(KEY_DAYS, DEFAULT_DAYS_PROPERTY).trim());
 
 			ZonedDateTime ourTimeNow = now.atZone(ourZoneId);
 
@@ -342,8 +388,6 @@ public class Octopussy {
 			//
 			//
 
-//			String someDaysAgo = startOfPreviousDays.toString();
-
 			V1ElectricityConsumption v1ElectricityConsumption = instance.getV1ElectricityConsumption(null,
 					48 * howManyDaysHistory, startOfPreviousDays, null);
 
@@ -371,7 +415,7 @@ public class Octopussy {
 			//
 			//
 
-			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty("yearly", DEFAULT_YEARLY_PROPERTY)))) {
+			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_YEARLY, DEFAULT_YEARLY_PROPERTY)))) {
 
 				SortedMap<Integer, PeriodicValues> yearly = accumulateCostsByField(ChronoField.YEAR);
 
@@ -384,7 +428,7 @@ public class Octopussy {
 			//
 			//
 
-			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty("monthly", DEFAULT_MONTHLY_PROPERTY)))) {
+			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_MONTHLY, DEFAULT_MONTHLY_PROPERTY)))) {
 
 				SortedMap<Integer, PeriodicValues> monthly = accumulateCostsByField(ChronoField.MONTH_OF_YEAR);
 
@@ -397,7 +441,7 @@ public class Octopussy {
 			//
 			//
 
-			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty("weekly", DEFAULT_WEEKLY_PROPERTY)))) {
+			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_WEEKLY, DEFAULT_WEEKLY_PROPERTY)))) {
 
 				SortedMap<Integer, PeriodicValues> weekly = accumulateCostsByField(ChronoField.ALIGNED_WEEK_OF_YEAR);
 
@@ -487,12 +531,15 @@ public class Octopussy {
 
 				String configuredValue = properties.getProperty(key);
 
-				if (!value.equals(configuredValue)) {
+				if (null != configuredValue) {
 
-					System.err.println("Discrepency: expected " + key + "=" + value + "\tbut found " + key + "="
-							+ configuredValue);
+					if (!value.equals(configuredValue)) {
 
-					tally++;
+						System.err.println("Discrepency: expected " + key + "=" + value + "\tbut found " + key + "="
+								+ configuredValue);
+
+						tally++;
+					}
 				}
 			}
 		}
@@ -504,7 +551,7 @@ public class Octopussy {
 
 		Map<String, String> result = new HashMap<String, String>();
 
-		result.put("base.url", DEFAULT_BASE_URL_PROPERTY);
+		result.put(KEY_BASE_URL, DEFAULT_BASE_URL_PROPERTY);
 
 		List<Detail> details = account.getProperties();
 
@@ -514,13 +561,13 @@ public class Octopussy {
 
 		ElectricityMeterPoint electricityMeterPoint = electricityMeterPoints.get(0);
 
-		result.put("electricity.mprn", electricityMeterPoint.getMpan());
+		result.put(KEY_ELECTRICITY_MPRN, electricityMeterPoint.getMpan());
 
 		List<Meter> meters = electricityMeterPoint.getMeters();
 
 		Meter firstElectricityMeter = meters.get(0);
 
-		result.put("electricity.sn", firstElectricityMeter.getSerialNumber());
+		result.put(KEY_ELECTRICITY_SN, firstElectricityMeter.getSerialNumber());
 
 		// find active electricity agreement
 
@@ -542,46 +589,46 @@ public class Octopussy {
 
 		String tariffCode = activeAgreement.getTariffCode();
 
-		result.put("tariff.code", tariffCode);
+		result.put(KEY_TARIFF_CODE, tariffCode);
 
 		String postcode = detail.getPostcode().substring(0, 4).trim();
 
-		result.put("#postcode", postcode);
+		result.put(KEY_POSTCODE, postcode);
 
 		String region = tariffCode.substring(tariffCode.length() - 1);
 
-		result.put("region", region);
+		result.put(KEY_REGION, region);
 
 		String prefix = tariffCode.substring(0, 5);
 
 		String importProductCode = tariffCode.substring(5, tariffCode.length() - 2);
 
-		result.put("import.product.code", importProductCode);
+		result.put(KEY_IMPORT_PRODUCT_CODE, importProductCode);
 
 		String periodFrom = activeAgreement.getValidFrom().substring(0, 10);
 
 		V1Charges agileElectricityStandingCharges = getV1ElectricityStandingCharges(importProductCode, tariffCode, 100,
 				periodFrom, null);
 
-		result.put("agile.electricity.standing",
+		result.put(KEY_AGILE_ELECTRICITY_STANDING,
 				String.valueOf(agileElectricityStandingCharges.getPriceResults().get(0).getValueIncVAT()));
 
-		boolean directDebitPrices = Boolean.parseBoolean(properties.getProperty("flexible.electricity.via.direct.debit",
-				DEFAULT_FLEXIBLE_ELECTRICITY_VIA_DIRECT_DEBIT_PROPERTY));
+		boolean directDebitPrices = Boolean.parseBoolean(properties.getProperty(
+				KEY_FLEXIBLE_ELECTRICITY_VIA_DIRECT_DEBIT, DEFAULT_FLEXIBLE_ELECTRICITY_VIA_DIRECT_DEBIT_PROPERTY));
 
-		result.put("flexible.electricity.via.direct.debit", (directDebitPrices ? "true" : "false"));
+		result.put(KEY_FLEXIBLE_ELECTRICITY_VIA_DIRECT_DEBIT, (directDebitPrices ? "true" : "false"));
 
-		String flexibleElectricityProductCode = properties.getProperty("flexible.electricity.product.code",
+		String flexibleElectricityProductCode = properties.getProperty(KEY_FLEXIBLE_ELECTRICITY_PRODUCT_CODE,
 				DEFAULT_FLEXIBLE_ELECTRICITY_PRODUCT_CODE_PROPERTY);
 
-		result.put("flexible.electricity.product.code", flexibleElectricityProductCode);
+		result.put(KEY_FLEXIBLE_ELECTRICITY_PRODUCT_CODE, flexibleElectricityProductCode);
 
 		String flexibleElectricityTariffCode = prefix + flexibleElectricityProductCode + "-" + region;
 
 		V1Charges flexibleElectricityStandingCharges = getV1ElectricityStandingCharges(flexibleElectricityProductCode,
 				flexibleElectricityTariffCode, 100, periodFrom, null);
 
-		result.put("flexible.electricity.standing",
+		result.put(KEY_FLEXIBLE_ELECTRICITY_STANDING,
 				String.valueOf(flexibleElectricityStandingCharges.getPriceResults().get(0).getValueIncVAT()));
 
 		V1Charges flexibleStandardUnitRates = getV1ElectricityStandardUnitRates(flexibleElectricityProductCode,
@@ -609,13 +656,10 @@ public class Octopussy {
 			throw new Exception(" Cannot get activePrices");
 		}
 
-		result.put("flexible.electricity.unit", String.valueOf(activePrices.getValueIncVAT()));
+		result.put(KEY_FLEXIBLE_ELECTRICITY_UNIT, String.valueOf(activePrices.getValueIncVAT()));
 
-		result.put("tariff.url", result.get("base.url") + "/v1/products/" + result.get("import.product.code")
-				+ "/electricity-tariffs/" + result.get("tariff.code"));
-
-//		base.url=https://api.octopus.energy
-//		tariff.url=$base.url$/v1/products/$import.product.code$/electricity-tariffs/$tariff.code$
+		result.put(KEY_TARIFF_URL, result.get(KEY_BASE_URL) + "/v1/products/" + result.get(KEY_IMPORT_PRODUCT_CODE)
+				+ "/electricity-tariffs/" + result.get(KEY_TARIFF_CODE));
 
 		//
 		// following not really needed for now
@@ -625,7 +669,7 @@ public class Octopussy {
 
 		GasMeterPoint firstGasMeterPoint = gasMeterPoints.get(0);
 
-		result.put("gas.mprn", firstGasMeterPoint.getMprn());
+		result.put(KEY_GAS_MPRN, firstGasMeterPoint.getMprn());
 
 		// find active gas agreement
 
@@ -649,7 +693,7 @@ public class Octopussy {
 
 		Meter firstGasMeter = gasMeters.get(0);
 
-		result.put("gas.sn", firstGasMeter.getSerialNumber());
+		result.put(KEY_GAS_SN, firstGasMeter.getSerialNumber());
 
 		return result;
 	}
@@ -735,9 +779,6 @@ public class Octopussy {
 			values.setCountHalfHours(1 + countHalfHours);
 			values.setAccConsumption(consumption);
 			values.setAccCost(cost);
-//
-//			System.out.println(
-//					ldt.toString() + "\t" + ldt.getDayOfYear() + "\t" + calendarElement + "\t" + countHalfHours);
 		}
 
 		return result;
@@ -772,9 +813,9 @@ public class Octopussy {
 		// if postcode=value specified, such as postcode=SN5
 		// the region=value will be verified for consistency
 
-		String postcode = properties.getProperty("postcode", DEFAULT_POSTCODE_PROPERTY);
+		String postcode = properties.getProperty(KEY_POSTCODE, DEFAULT_POSTCODE_PROPERTY);
 
-		if (null != postcode) {
+		if (null != postcode && 0 != postcode.trim().length() && !DEFAULT_POSTCODE_PROPERTY.equals(postcode)) {
 
 			V1GridSupplyPoints points = getV1GridSupplyPoints(postcode);
 
@@ -786,14 +827,14 @@ public class Octopussy {
 
 			String region = groupId.substring(1);
 
-			if (!properties.getProperty("region", DEFAULT_REGION_PROPERTY).equals(region)) {
+			if (!properties.getProperty(KEY_REGION, DEFAULT_REGION_PROPERTY).equals(region)) {
 
 				throw new Exception("Region and postcode discrepency");
 
 			}
 		}
 
-		extra = Boolean.valueOf(properties.getProperty("extra", DEFAULT_EXTRA_PROPERTY).trim());
+		extra = Boolean.valueOf(properties.getProperty(KEY_EXTRA, DEFAULT_EXTRA_PROPERTY).trim());
 
 		// expand properties substituting $key$ values
 
@@ -826,11 +867,11 @@ public class Octopussy {
 	private V1ElectricityConsumption getV1ElectricityConsumption(Integer page, Integer pageSize, String periodFrom,
 			String periodTo) throws MalformedURLException, IOException {
 
-		String mprn = properties.getProperty("electricity.mprn", DEFAULT_ELECTRICTY_MPRN_PROPERTY).trim();
+		String mprn = properties.getProperty(KEY_ELECTRICITY_MPRN, DEFAULT_ELECTRICTY_MPRN_PROPERTY).trim();
 
-		String sn = properties.getProperty("electricity.sn", DEFAULT_ELECTRICTY_SN_PROPERTY).trim();
+		String sn = properties.getProperty(KEY_ELECTRICITY_SN, DEFAULT_ELECTRICTY_SN_PROPERTY).trim();
 
-		String baseUrl = properties.getProperty("base.url", DEFAULT_BASE_URL_PROPERTY).trim();
+		String baseUrl = properties.getProperty(KEY_BASE_URL, DEFAULT_BASE_URL_PROPERTY).trim();
 
 		String json = instance.getRequest(
 				new URL(baseUrl + "/v1/electricity-meter-points/" + mprn + "/meters/" + sn + "/consumption/" +
@@ -858,7 +899,8 @@ public class Octopussy {
 
 	private V1Account getV1AccountData(Integer pageSize, String account) throws MalformedURLException, IOException {
 
-		String spec = properties.getProperty("base.url", DEFAULT_BASE_URL_PROPERTY).trim() + "/v1/accounts/" + account;
+		String spec = properties.getProperty(KEY_BASE_URL, DEFAULT_BASE_URL_PROPERTY).trim() + "/v1/accounts/"
+				+ account;
 
 		String json = getRequest(new URL(spec), true);
 
@@ -870,8 +912,9 @@ public class Octopussy {
 	private V1AgileFlex getV1AgileFlexImport(Integer pageSize, String periodFrom, String periodTo)
 			throws MalformedURLException, IOException {
 
-		String spec = properties.getProperty("tariff.url", DEFAULT_TARIFF_URL_PROPERTY).trim() + "/standard-unit-rates/"
-				+ "?page_size=" + pageSize + (null == periodFrom ? "" : "&period_from=" + periodFrom)
+		String spec = properties.getProperty(KEY_TARIFF_URL, DEFAULT_TARIFF_URL_PROPERTY).trim()
+				+ "/standard-unit-rates/" + "?page_size=" + pageSize
+				+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
 				+ (null == periodTo ? "" : "&period_to=" + periodTo);
 
 		String json = getRequest(new URL(spec), false);
@@ -884,7 +927,7 @@ public class Octopussy {
 	private V1Charges getV1ElectricityStandingCharges(String product, String tariff, Integer pageSize,
 			String periodFrom, String periodTo) throws MalformedURLException, IOException {
 
-		String spec = properties.getProperty("base.url", DEFAULT_BASE_URL_PROPERTY).trim() + "/v1/products/" + product
+		String spec = properties.getProperty(KEY_BASE_URL, DEFAULT_BASE_URL_PROPERTY).trim() + "/v1/products/" + product
 				+ "/electricity-tariffs/" + tariff + "/standing-charges/?page_size=" + pageSize
 				+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
 				+ (null == periodTo ? "" : "&period_to=" + periodTo);
@@ -901,7 +944,7 @@ public class Octopussy {
 	private V1Charges getV1ElectricityStandardUnitRates(String product, String tariff, Integer pageSize,
 			String periodFrom, String periodTo) throws MalformedURLException, IOException {
 
-		String spec = properties.getProperty("base.url", DEFAULT_BASE_URL_PROPERTY).trim() + "/v1/products/" + product
+		String spec = properties.getProperty(KEY_BASE_URL, DEFAULT_BASE_URL_PROPERTY).trim() + "/v1/products/" + product
 				+ "/electricity-tariffs/" + tariff + "/standard-unit-rates/?page_size=" + pageSize
 				+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
 				+ (null == periodTo ? "" : "&period_to=" + periodTo);
@@ -916,7 +959,7 @@ public class Octopussy {
 	private V1AgileFlex getV1AgileFlexExport(Integer pageSize, String periodFrom, String periodTo)
 			throws MalformedURLException, IOException {
 
-		String spec = properties.getProperty("export.tariff.url", DEFAULT_EXPORT_TARIFF_URL_PROPERTY).trim()
+		String spec = properties.getProperty(KEY_EXPORT_TARIFF_URL, DEFAULT_EXPORT_TARIFF_URL_PROPERTY).trim()
 				+ "/standard-unit-rates/" + "?page_size=" + pageSize
 				+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
 				+ (null == periodTo ? "" : "&period_to=" + periodTo);
@@ -930,7 +973,7 @@ public class Octopussy {
 
 	private static V1GridSupplyPoints getV1GridSupplyPoints(String postcode) throws MalformedURLException, IOException {
 
-		String spec = properties.getProperty("base.url", DEFAULT_BASE_URL_PROPERTY).trim()
+		String spec = properties.getProperty(KEY_BASE_URL, DEFAULT_BASE_URL_PROPERTY).trim()
 				+ "/v1/industry/grid-supply-points/" + "?postcode=" + postcode;
 
 		String json = getRequest(new URL(spec), false);
@@ -1045,17 +1088,17 @@ public class Octopussy {
 
 				for (String propertyKey : defaultPropertyKeys) {
 
-					if ("#postcode".equals(propertyKey)) {
+					if (KEY_POSTCODE.equals(propertyKey)) {
 
+						System.out
+								.println("#postcode=" + properties.getProperty(propertyKey, DEFAULT_POSTCODE_PROPERTY));
 						System.out.println("#");
 						System.out.println("# n.b. Southern England is region H");
 						System.out.println("#");
 						System.out.println("# if postcode is uncommented it will verify region=? based on Octopus API");
 						System.out.println("#");
-						System.out.println("#postcode=?");
-						System.out.println("#");
 
-					} else if ("ansi".equals(propertyKey)) {
+					} else if (KEY_ANSI.equals(propertyKey)) {
 
 						System.out.println("#");
 						System.out.println(
@@ -1202,34 +1245,35 @@ public class Octopussy {
 
 			usingExternalPropertyFile = loadProperties(externalProperties);
 
-			keyValue = properties.getProperty("apiKey", DEFAULT_APIKEY_PROPERTY).trim();
+			keyValue = properties.getProperty(KEY_APIKEY, DEFAULT_APIKEY_PROPERTY).trim();
 
 			if (null == keyValue) {
 
-				throw new Exception("apiKey");
+				throw new Exception(KEY_APIKEY);
 			}
 
 			properties.setProperty("basic", "Basic " + Base64.getEncoder().encodeToString(keyValue.getBytes()));
 
-			export = Boolean.valueOf(properties.getProperty("export", DEFAULT_EXPORT_PROPERTY).trim());
+			export = Boolean.valueOf(properties.getProperty(KEY_EXPORT, DEFAULT_EXPORT_PROPERTY).trim());
 
-			width = Integer.valueOf(properties.getProperty("width", DEFAULT_WIDTH_PROPERTY).trim());
+			width = Integer.valueOf(properties.getProperty(KEY_WIDTH, DEFAULT_WIDTH_PROPERTY).trim());
 
-			ansi = Boolean.valueOf(properties.getProperty("ansi", DEFAULT_ANSI_PROPERTY).trim());
+			ansi = Boolean.valueOf(properties.getProperty(KEY_ANSI, DEFAULT_ANSI_PROPERTY).trim());
 
-			plunge = Integer.valueOf(properties.getProperty("plunge", DEFAULT_PLUNGE_PROPERTY).trim()).intValue();
+			plunge = Integer.valueOf(properties.getProperty(KEY_PLUNGE, DEFAULT_PLUNGE_PROPERTY).trim()).intValue();
 
-			target = Integer.valueOf(properties.getProperty("target", DEFAULT_TARGET_PROPERTY).trim()).intValue();
+			target = Integer.valueOf(properties.getProperty(KEY_TARGET, DEFAULT_TARGET_PROPERTY).trim()).intValue();
 
-			ourZoneId = ZoneId.of(properties.getProperty("zone.id", DEFAULT_ZONE_ID_PROPERTY).trim());
+			ourZoneId = ZoneId.of(properties.getProperty(KEY_ZONE_ID, DEFAULT_ZONE_ID_PROPERTY).trim());
 
 			if (null == ourZoneId) {
 
-				throw new Exception("zone.id");
+				throw new Exception(KEY_ZONE_ID);
 			}
 
-			ANSI_COLOUR_LO = colourMapForeground.get(properties.getProperty("colour", DEFAULT_COLOUR_PROPERTY).trim());
-			ANSI_COLOR_HI = colourMapForeground.get(properties.getProperty("color", DEFAULT_COLOR_PROPERTY).trim());
+			ANSI_COLOUR_LO = colourMapForeground
+					.get(properties.getProperty(KEY_COLOUR, DEFAULT_COLOUR_PROPERTY).trim());
+			ANSI_COLOR_HI = colourMapForeground.get(properties.getProperty(KEY_COLOR, DEFAULT_COLOR_PROPERTY).trim());
 
 		} catch (Exception e) {
 
@@ -1525,7 +1569,7 @@ public class Octopussy {
 		float accumulateCost = 0;
 
 		float flatRate = Float.valueOf(
-				properties.getProperty("flexible.electricity.unit", DEFAULT_FLEXIBLE_ELECTRICTY_UNIT_PROPERTY));
+				properties.getProperty(KEY_FLEXIBLE_ELECTRICITY_UNIT, DEFAULT_FLEXIBLE_ELECTRICITY_UNIT_PROPERTY));
 
 		SortedSet<String> setOfDays = new TreeSet<String>();
 
@@ -1560,13 +1604,13 @@ public class Octopussy {
 
 			float agilePrice = dayValues.getDailyPrice();
 
-			float agileCharge = Float.valueOf(
-					properties.getProperty("agile.electricity.standing", DEFAULT_AGILE_ELECTRICTY_STANDING_PROPERTY));
+			float agileCharge = Float.valueOf(properties.getProperty(KEY_AGILE_ELECTRICITY_STANDING,
+					DEFAULT_AGILE_ELECTRICITY_STANDING_PROPERTY));
 
 			float standardPrice = consumption * flatRate;
 
-			float standardCharge = Float.valueOf(properties.getProperty("flexible.electricity.standing",
-					DEFAULT_FLEXIBLE_ELECTRICTY_STANDING_PROPERTY));
+			float standardCharge = Float.valueOf(properties.getProperty(KEY_FLEXIBLE_ELECTRICITY_STANDING,
+					DEFAULT_FLEXIBLE_ELECTRICITY_STANDING_PROPERTY));
 
 			float difference = (standardPrice + standardCharge) - (agilePrice + agileCharge);
 
@@ -1592,8 +1636,6 @@ public class Octopussy {
 		Float unitCostAverage = accumulateCost / accumulatePower;
 
 		String averageCostPerUnit = String.format("%.2f", unitCostAverage);
-
-//		int averageUnitCost = unitCostAverage.intValue();
 
 		String averagePower = String.format("%.2f", accumulatePower / countDays);
 
@@ -1645,7 +1687,7 @@ public class Octopussy {
 
 			sb.append('|');
 
-			if (extended > 1) {
+			if (extended > 0) {
 
 				String heads[] = { " 1hr |", " 1.5 |", " 2hr |", " 2.5 |", " 3hr |", " 3.5 |", " 4hr |", " 4.5 |",
 						" 5hr |", " 5.5 |", " 6hr |", " 6.5 |", " 7hr |", " 7.5 |", " 8hr |", " 8.5 |", " 9hr |",
@@ -1746,7 +1788,7 @@ public class Octopussy {
 
 			StringBuffer sb3 = new StringBuffer();
 
-			if (extended > 1) {
+			if (extended > 0) {
 
 				// calculate the average for 1hr/1.5hr/2hr... etc
 
@@ -1839,7 +1881,8 @@ public class Octopussy {
 
 			String clockHHMM = "";
 
-			if (extended > 0) {
+//			if (extended > 0)
+			{
 
 				Long epochSecond = slotCost.getEpochSecond();
 
