@@ -16,6 +16,7 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
@@ -96,6 +97,7 @@ public class Octopussy {
 	private final static String DEFAULT_YEARLY_PROPERTY = "false";
 	private final static String DEFAULT_MONTHLY_PROPERTY = "false";
 	private final static String DEFAULT_WEEKLY_PROPERTY = "false";
+	private final static String DEFAULT_DAILY_PROPERTY = "false";
 	private final static String DEFAULT_FLEXIBLE_ELECTRICITY_VIA_DIRECT_DEBIT_PROPERTY = "true";
 	private final static String DEFAULT_FLEXIBLE_ELECTRICITY_PRODUCT_CODE_PROPERTY = "VAR-22-11-01";
 	private final static String DEFAULT_FLEXIBLE_ELECTRICITY_UNIT_PROPERTY = "30.295124";
@@ -122,6 +124,12 @@ public class Octopussy {
 	private final static String DEFAULT_PLUNGE_PROPERTY = "3";
 	private final static String DEFAULT_TARGET_PROPERTY = "30";
 	private final static String DEFAULT_ZONE_ID_PROPERTY = "Europe/London";
+
+	private final static String DEFAULT_DAY_AFTER_PROPERTY = "2023-01-01";
+	private final static String DEFAULT_DAY_BEFORE_PROPERTY = "2023-12-31";
+
+	private final static String KEY_DAY_AFTER = "day.after";
+	private final static String KEY_DAY_BEFORE = "day.before";
 
 	private final static String KEY_APIKEY = "apiKey";
 	private final static String KEY_BASE_URL = "base.url";
@@ -163,6 +171,7 @@ public class Octopussy {
 	private final static String KEY_YEARLY = "yearly";
 	private final static String KEY_MONTHLY = "monthly";
 	private final static String KEY_WEEKLY = "weekly";
+	private final static String KEY_DAILY = "daily";
 
 	private final static String KEY_EXTRA = "extra";
 	private final static String KEY_REFERRAL = "referral";
@@ -174,13 +183,15 @@ public class Octopussy {
 			KEY_IMPORT_PRODUCT_CODE, KEY_TARIFF_CODE, KEY_TARIFF_URL, KEY_REGION, KEY_POSTCODE, KEY_ZONE_ID,
 			KEY_HISTORY, "#", KEY_EXPORT_PRODUCT_CODE, KEY_EXPORT_TARIFF_CODE, KEY_EXPORT_TARIFF_URL, KEY_EXPORT, "#",
 			KEY_DAYS, KEY_PLUNGE, KEY_TARGET, KEY_WIDTH, KEY_ANSI, KEY_COLOUR, KEY_COLOR, "#", KEY_YEARLY, KEY_MONTHLY,
-			KEY_WEEKLY, "#", KEY_EXTRA, KEY_REFERRAL };
+			KEY_WEEKLY, KEY_DAILY, "#", KEY_EXTRA, KEY_REFERRAL };
 
 	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd pph:mm a");
 
 	private final static DateTimeFormatter formatter24HourClock = DateTimeFormatter.ofPattern("HH:mm");
 
 	private final static DateTimeFormatter defaultDateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+
+	private final static DateTimeFormatter formatterLocalDate = DateTimeFormatter.ISO_LOCAL_DATE;
 
 	private static ZoneId ourZoneId;
 
@@ -417,7 +428,7 @@ public class Octopussy {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_YEARLY, DEFAULT_YEARLY_PROPERTY)))) {
 
-				SortedMap<Integer, PeriodicValues> yearly = accumulateCostsByField(ChronoField.YEAR);
+				SortedMap<Integer, PeriodicValues> yearly = accumulateCostsByField(ChronoField.YEAR, null, null);
 
 				System.out.println("\nHistorical yearly results:");
 
@@ -430,7 +441,8 @@ public class Octopussy {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_MONTHLY, DEFAULT_MONTHLY_PROPERTY)))) {
 
-				SortedMap<Integer, PeriodicValues> monthly = accumulateCostsByField(ChronoField.MONTH_OF_YEAR);
+				SortedMap<Integer, PeriodicValues> monthly = accumulateCostsByField(ChronoField.MONTH_OF_YEAR, null,
+						null);
 
 				System.out.println("\nHistorical monthly results:");
 
@@ -443,11 +455,37 @@ public class Octopussy {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_WEEKLY, DEFAULT_WEEKLY_PROPERTY)))) {
 
-				SortedMap<Integer, PeriodicValues> weekly = accumulateCostsByField(ChronoField.ALIGNED_WEEK_OF_YEAR);
+				SortedMap<Integer, PeriodicValues> weekly = accumulateCostsByField(ChronoField.ALIGNED_WEEK_OF_YEAR,
+						null, null);
 
 				System.out.println("\nHistorical weekly results:");
 
 				displayPeriodSummary("Week", weekly);
+			}
+			//
+			//
+			//
+
+			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_DAILY, DEFAULT_DAILY_PROPERTY)))) {
+
+				String dayAfter = properties.getProperty(KEY_DAY_AFTER, DEFAULT_DAY_AFTER_PROPERTY);
+				String dayBefore = properties.getProperty(KEY_DAY_BEFORE, DEFAULT_DAY_BEFORE_PROPERTY);
+
+				// assume a day range is required
+
+				LocalDate from = LocalDate.parse(dayAfter.trim(), formatterLocalDate);
+				LocalDate to = LocalDate.parse(dayBefore.trim(), formatterLocalDate);
+
+				Integer fromDayOfYear = from.getDayOfYear();
+
+				Integer upToDayOfYear = to.getDayOfYear();
+
+				SortedMap<Integer, PeriodicValues> daily = accumulateCostsByField(ChronoField.DAY_OF_YEAR,
+						fromDayOfYear, upToDayOfYear);
+
+				System.out.println("\nHistorical daily results:");
+
+				displayPeriodSummary("Daily", daily);
 			}
 
 			//
@@ -700,11 +738,33 @@ public class Octopussy {
 
 	private static void displayPeriodSummary(String id, SortedMap<Integer, PeriodicValues> periodic) {
 
+		LocalDate ld = null;
+
+		int year = now.getYear();
+
+		Float tallyEnergy = Float.valueOf(0);
+
+		Float tallyCost = Float.valueOf(0);
+
+		int count = 0;
+
 		for (Integer number : periodic.keySet()) {
 
 			PeriodicValues periodData = periodic.get(number);
 
 			Integer countHalfHours = periodData.getCountHalfHours();
+
+			if (id.startsWith("D")) {
+
+//				if (48 != countHalfHours) {
+//
+//					continue;
+//				}
+
+				ld = LocalDate.ofYearDay(year, number);
+			}
+
+			count++;
 
 			Float accCost = periodData.getAccCost();
 
@@ -718,16 +778,30 @@ public class Octopussy {
 
 			Float averagePricePerUnit = equivalentDailyAverageCost / equivalentDailyEnergy * 100;
 
-			System.out.println(id + ":" + String.format("%2d", number) + " " + String.format("%8.4f", accConsumption)
-					+ " kWhr  " + String.format("%7.2f", accCost) + "p  " + String.format("%4d", countHalfHours)
-					+ " half-hours ~ " + String.format("%5.2f", equivalentDays) + " days\tEquivalant daily cost: £"
-					+ String.format("%4.2f", equivalentDailyAverageCost) + "\t"
+			tallyEnergy += accConsumption;
+
+			tallyCost += accCost;
+
+			String tag = null == ld ? String.format("%5s", id) + ":" + String.format("%4d", number) : ld.toString();
+
+			System.out.println(tag + "  " + String.format("%8.4f", accConsumption) + " kWhr  "
+					+ String.format("%7.2f", accCost) + "p  " + String.format("%4d", countHalfHours) + " half-hours ~ "
+					+ String.format("%5.2f", equivalentDays) + " days\tEquivalant daily cost: £"
+					+ String.format("%5.2f", equivalentDailyAverageCost) + "\t"
 					+ String.format("%4.4f", equivalentDailyEnergy) + " kWhr Average price/unit: "
 					+ String.format("%4.4f", averagePricePerUnit) + "p");
 		}
+
+		if (count > 1) {
+
+			System.out.println("Totals:     " + String.format("%8.4f", tallyEnergy) + " kWhr\t\t\t\t\t\t\t\t      £"
+					+ String.format("%6.2f", (tallyCost / 100)) + "\t\t\t\t\t "
+					+ String.format("%4.4f", tallyCost / tallyEnergy) + "p");
+		}
 	}
 
-	private static SortedMap<Integer, PeriodicValues> accumulateCostsByField(ChronoField field) {
+	private static SortedMap<Integer, PeriodicValues> accumulateCostsByField(ChronoField field, Integer fromDayOfYear,
+			Integer upToDayOfYear) {
 
 		SortedMap<Integer, PeriodicValues> result = new TreeMap<Integer, PeriodicValues>();
 
@@ -739,21 +813,37 @@ public class Octopussy {
 
 			if (null == price) {
 
-				break;
+				continue;
 			}
 
 			Float consumption = data.getConsumption();
 
 			if (null == consumption) {
 
-				break;
+				continue;
 			}
-
-			Float cost = consumption * price;
 
 			LocalDateTime ldt = LocalDateTime.ofInstant(Instant.ofEpochSecond(key), ourZoneId);
 
 			Integer calendarElement = Long.valueOf(ldt.getLong(field)).intValue();
+
+			if (null != fromDayOfYear) {
+
+				if (ldt.getDayOfYear() < fromDayOfYear) {
+
+					continue;
+				}
+			}
+
+			if (null != upToDayOfYear) {
+
+				if (ldt.getDayOfYear() >= upToDayOfYear) {
+
+					continue;
+				}
+			}
+
+			Float cost = consumption * price;
 
 			PeriodicValues values = null;
 
@@ -1286,7 +1376,8 @@ public class Octopussy {
 
 	private ArrayList<Long> upcomingExport(List<SlotCost> pricesPerSlot) {
 
-		System.out.println("\nUpcoming best export price periods:");
+		System.out.println(
+				"\nUpcoming best " + (ansi ? ANSI_COLOR_HI + "export" + ANSI_RESET : "export") + " price periods:");
 
 		ArrayList<Long> bestStartTime = new ArrayList<Long>();
 
@@ -1309,6 +1400,11 @@ public class Octopussy {
 				for (int i = index; i < index + period + 1; i++) {
 
 					Float exportPrice = pricesPerSlot.get(i).getExportPrice();
+
+					if (null == exportPrice) {
+
+						break;
+					}
 
 					accumulate += exportPrice;
 				}
@@ -1368,7 +1464,8 @@ public class Octopussy {
 
 	private ArrayList<Long> upcomingImport(List<SlotCost> pricesPerSlot) {
 
-		System.out.println("\nUpcoming best import price periods:");
+		System.out.println(
+				"\nUpcoming best " + (ansi ? ANSI_COLOUR_LO + "import" + ANSI_RESET : "import") + " price periods:");
 
 		ArrayList<Long> bestStartTime = new ArrayList<Long>();
 
@@ -1391,6 +1488,11 @@ public class Octopussy {
 				for (int i = index; i < index + period + 1; i++) {
 
 					Float importPrice = pricesPerSlot.get(i).getImportPrice();
+
+					if (null == importPrice) {
+
+						break;
+					}
 
 					accumulate += importPrice;
 				}
@@ -1805,7 +1907,12 @@ public class Octopussy {
 
 							for (int j = index; j < index + i + 1; j++) {
 
-								accExport += pricesPerSlot.get(j).getExportPrice();
+								Float exportPrice = pricesPerSlot.get(j).getExportPrice();
+
+								if (null != exportPrice) {
+
+									accExport += exportPrice;
+								}
 							}
 						}
 					}
@@ -1894,7 +2001,9 @@ public class Octopussy {
 			}
 
 			String optionalExport = export
-					? (ansi & bestExport ? ANSI_COLOR_HI : "") + String.format("%6.2f", exportValueIncVat) + "p  "
+					? (ansi & bestExport ? ANSI_COLOR_HI : "")
+							+ (null == exportValueIncVat ? "       "
+									: String.format("%6.2f", exportValueIncVat) + "p  ")
 							+ (ansi & bestExport ? ANSI_RESET : "")
 					: "\t";
 
