@@ -10,7 +10,9 @@ public class ConsumptionHistory {
 
 	private OffsetDateTime to;
 
-	private Float price;
+	private Float price; // typically the slot price
+
+	private Float cost; // typically the cost of the energy consumed
 
 	public Float getConsumption() {
 		return consumption;
@@ -42,5 +44,13 @@ public class ConsumptionHistory {
 
 	public void setPrice(Float price) {
 		this.price = price;
+	}
+
+	public Float getCost() {
+		return cost;
+	}
+
+	public void setCost(Float cost) {
+		this.cost = cost;
 	}
 }

@@ -126,7 +126,7 @@ public class Octopussy {
 	private final static String DEFAULT_ZONE_ID_PROPERTY = "Europe/London";
 
 	private final static String DEFAULT_DAY_AFTER_PROPERTY = "2023-01-01";
-	private final static String DEFAULT_DAY_BEFORE_PROPERTY = "2023-12-31";
+	private final static String DEFAULT_DAY_BEFORE_PROPERTY = "2024-01-01";
 
 	private final static String KEY_DAY_AFTER = "day.after";
 	private final static String KEY_DAY_BEFORE = "day.before";
@@ -361,10 +361,28 @@ public class Octopussy {
 
 			String startOfPreviousDays = zulu.toString().substring(0, 17);
 
-			V1AgileFlex v1AgileFlex = instance.getV1AgileFlexImport(48 * (1 + howManyDaysHistory), startOfPreviousDays,
-					null);
+			Integer pageSize = 48 * (1 + howManyDaysHistory);
+
+			// we hope to get this in a single page
+
+			Integer page = 1;
+
+			V1AgileFlex v1AgileFlex = instance.getV1AgileFlexImport(page, pageSize, startOfPreviousDays, null);
 
 			ArrayList<Agile> agileResultsImport = v1AgileFlex.getAgileResults();
+
+			while (null != v1AgileFlex.getNext()) {
+
+				// we don't yet have all the results
+
+				page++;
+
+				v1AgileFlex = instance.getV1AgileFlexImport(page, pageSize, startOfPreviousDays, null);
+
+				ArrayList<Agile> pageAgileResults = v1AgileFlex.getAgileResults();
+
+				agileResultsImport.addAll(pageAgileResults);
+			}
 
 			if (extra) {
 
@@ -399,10 +417,16 @@ public class Octopussy {
 			//
 			//
 
-			V1ElectricityConsumption v1ElectricityConsumption = instance.getV1ElectricityConsumption(null,
+			page = 1;
+
+			// we hope to get this in a single page
+
+			V1ElectricityConsumption v1ElectricityConsumption = instance.getV1ElectricityConsumption(page,
 					48 * howManyDaysHistory, startOfPreviousDays, null);
 
 			ArrayList<V1PeriodConsumption> periodResults = v1ElectricityConsumption.getPeriodResults();
+
+			// the above call requires authentication, so remind the user about apiKey etc.,
 
 			if (null == periodResults) {
 
@@ -413,8 +437,28 @@ public class Octopussy {
 								+ "Alternatively replace the resource octopussy.properties inside the jar file using 7-Zip or similar\r\n");
 			}
 
+			while (null != v1ElectricityConsumption.getNext()) {
+
+				// we don't yet have all the results
+
+				page++;
+
+				v1ElectricityConsumption = instance.getV1ElectricityConsumption(page, 48 * howManyDaysHistory,
+						startOfPreviousDays, null);
+
+				ArrayList<V1PeriodConsumption> pagePeriodResults = v1ElectricityConsumption.getPeriodResults();
+
+				periodResults.addAll(pagePeriodResults);
+			}
+
 			periodResults = instance.updateHistory(startOfPreviousDays, periodResults, howManyDaysHistory,
 					v1ElectricityConsumption.getCount());
+
+			//
+			//
+			//
+
+			Map<String, DayValues> elecMapDaily = instance.buildElecMapDaily(periodResults, importExportPriceMap);
 
 			//
 			//
@@ -426,13 +470,20 @@ public class Octopussy {
 			//
 			//
 
+			LocalDate fromIncl = LocalDate.parse(
+					properties.getProperty(KEY_DAY_AFTER, DEFAULT_DAY_AFTER_PROPERTY).trim(), formatterLocalDate);
+			LocalDate toExcl = LocalDate.parse(
+					properties.getProperty(KEY_DAY_BEFORE, DEFAULT_DAY_BEFORE_PROPERTY).trim(), formatterLocalDate);
+			//
+			//
+			//
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_YEARLY, DEFAULT_YEARLY_PROPERTY)))) {
 
-				SortedMap<Integer, PeriodicValues> yearly = accumulateCostsByField(ChronoField.YEAR, null, null);
+				SortedMap<Integer, PeriodicValues> yearly = accumulateCostsByField(ChronoField.YEAR);
 
 				System.out.println("\nHistorical yearly results:");
 
-				displayPeriodSummary("Year", yearly);
+				displayPeriodSummary("Year", yearly, fromIncl, toExcl);
 			}
 
 			//
@@ -441,12 +492,11 @@ public class Octopussy {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_MONTHLY, DEFAULT_MONTHLY_PROPERTY)))) {
 
-				SortedMap<Integer, PeriodicValues> monthly = accumulateCostsByField(ChronoField.MONTH_OF_YEAR, null,
-						null);
+				SortedMap<Integer, PeriodicValues> monthly = accumulateCostsByField(ChronoField.MONTH_OF_YEAR);
 
 				System.out.println("\nHistorical monthly results:");
 
-				displayPeriodSummary("Month", monthly);
+				displayPeriodSummary("Month", monthly, fromIncl, toExcl);
 			}
 
 			//
@@ -455,12 +505,11 @@ public class Octopussy {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_WEEKLY, DEFAULT_WEEKLY_PROPERTY)))) {
 
-				SortedMap<Integer, PeriodicValues> weekly = accumulateCostsByField(ChronoField.ALIGNED_WEEK_OF_YEAR,
-						null, null);
+				SortedMap<Integer, PeriodicValues> weekly = accumulateCostsByField(ChronoField.ALIGNED_WEEK_OF_YEAR);
 
 				System.out.println("\nHistorical weekly results:");
 
-				displayPeriodSummary("Week", weekly);
+				displayPeriodSummary("Week", weekly, fromIncl, toExcl);
 			}
 			//
 			//
@@ -468,31 +517,13 @@ public class Octopussy {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_DAILY, DEFAULT_DAILY_PROPERTY)))) {
 
-				String dayAfter = properties.getProperty(KEY_DAY_AFTER, DEFAULT_DAY_AFTER_PROPERTY);
-				String dayBefore = properties.getProperty(KEY_DAY_BEFORE, DEFAULT_DAY_BEFORE_PROPERTY);
+				System.out.println(
+						"\nHistorical daily results: filter from " + fromIncl + " up to but not including " + toExcl);
 
-				// assume a day range is required
+				SortedMap<Integer, PeriodicValues> daily = accumulateCostsByField(ChronoField.DAY_OF_YEAR);
 
-				LocalDate from = LocalDate.parse(dayAfter.trim(), formatterLocalDate);
-				LocalDate to = LocalDate.parse(dayBefore.trim(), formatterLocalDate);
-
-				Integer fromDayOfYear = from.getDayOfYear();
-
-				Integer upToDayOfYear = to.getDayOfYear();
-
-				SortedMap<Integer, PeriodicValues> daily = accumulateCostsByField(ChronoField.DAY_OF_YEAR,
-						fromDayOfYear, upToDayOfYear);
-
-				System.out.println("\nHistorical daily results:");
-
-				displayPeriodSummary("Daily", daily);
+				displayPeriodSummary("Daily", daily, fromIncl, toExcl);
 			}
-
-			//
-			//
-			//
-
-			Map<String, DayValues> elecMapDaily = instance.buildElecMapDaily(periodResults, importExportPriceMap);
 
 			//
 			//
@@ -736,7 +767,8 @@ public class Octopussy {
 		return result;
 	}
 
-	private static void displayPeriodSummary(String id, SortedMap<Integer, PeriodicValues> periodic) {
+	private static void displayPeriodSummary(String id, SortedMap<Integer, PeriodicValues> periodic, LocalDate fromIncl,
+			LocalDate toExcl) {
 
 		LocalDate ld = null;
 
@@ -756,12 +788,21 @@ public class Octopussy {
 
 			if (id.startsWith("D")) {
 
-//				if (48 != countHalfHours) {
-//
-//					continue;
-//				}
-
 				ld = LocalDate.ofYearDay(year, number);
+
+				int test = ld.compareTo(fromIncl);
+
+				if (test < 0) {
+
+					continue; // not yet reached the first date in range
+				}
+
+				test = ld.compareTo(toExcl);
+
+				if (test >= 0) {
+
+					break; // give up because we know the keySet is ordered chronologically
+				}
 			}
 
 			count++;
@@ -784,24 +825,23 @@ public class Octopussy {
 
 			String tag = null == ld ? String.format("%5s", id) + ":" + String.format("%4d", number) : ld.toString();
 
-			System.out.println(tag + "  " + String.format("%8.4f", accConsumption) + " kWhr  "
+			System.out.println(tag + "  " + String.format("%8.3f", accConsumption) + " kWhr  "
 					+ String.format("%7.2f", accCost) + "p  " + String.format("%4d", countHalfHours) + " half-hours ~ "
 					+ String.format("%5.2f", equivalentDays) + " days\tEquivalant daily cost: £"
 					+ String.format("%5.2f", equivalentDailyAverageCost) + "\t"
-					+ String.format("%4.4f", equivalentDailyEnergy) + " kWhr Average price/unit: "
-					+ String.format("%4.4f", averagePricePerUnit) + "p");
+					+ String.format("%4.3f", equivalentDailyEnergy) + " kWhr Average price/unit: "
+					+ String.format("%4.2f", averagePricePerUnit) + "p");
 		}
 
 		if (count > 1) {
 
-			System.out.println("Totals:     " + String.format("%8.4f", tallyEnergy) + " kWhr\t\t\t\t\t\t\t\t      £"
-					+ String.format("%6.2f", (tallyCost / 100)) + "\t\t\t\t\t "
-					+ String.format("%4.4f", tallyCost / tallyEnergy) + "p");
+			System.out.println("Totals:     " + String.format("%8.3f", tallyEnergy) + " kWhr\t\t\t\t\t\t\t\t      £"
+					+ String.format("%6.2f", (tallyCost / 100)) + "\t\t\t\t\t"
+					+ String.format("%4.2f", tallyCost / tallyEnergy) + "p");
 		}
 	}
 
-	private static SortedMap<Integer, PeriodicValues> accumulateCostsByField(ChronoField field, Integer fromDayOfYear,
-			Integer upToDayOfYear) {
+	private static SortedMap<Integer, PeriodicValues> accumulateCostsByField(ChronoField field) {
 
 		SortedMap<Integer, PeriodicValues> result = new TreeMap<Integer, PeriodicValues>();
 
@@ -826,22 +866,6 @@ public class Octopussy {
 			LocalDateTime ldt = LocalDateTime.ofInstant(Instant.ofEpochSecond(key), ourZoneId);
 
 			Integer calendarElement = Long.valueOf(ldt.getLong(field)).intValue();
-
-			if (null != fromDayOfYear) {
-
-				if (ldt.getDayOfYear() < fromDayOfYear) {
-
-					continue;
-				}
-			}
-
-			if (null != upToDayOfYear) {
-
-				if (ldt.getDayOfYear() >= upToDayOfYear) {
-
-					continue;
-				}
-			}
 
 			Float cost = consumption * price;
 
@@ -999,11 +1023,11 @@ public class Octopussy {
 		return result;
 	}
 
-	private V1AgileFlex getV1AgileFlexImport(Integer pageSize, String periodFrom, String periodTo)
+	private V1AgileFlex getV1AgileFlexImport(Integer page, Integer pageSize, String periodFrom, String periodTo)
 			throws MalformedURLException, IOException {
 
 		String spec = properties.getProperty(KEY_TARIFF_URL, DEFAULT_TARIFF_URL_PROPERTY).trim()
-				+ "/standard-unit-rates/" + "?page_size=" + pageSize
+				+ "/standard-unit-rates/" + "?page_size=" + pageSize + (null == page ? "" : "&page=" + page)
 				+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
 				+ (null == periodTo ? "" : "&period_to=" + periodTo);
 
@@ -1080,7 +1104,7 @@ public class Octopussy {
 
 	private static String getRequest(URL url, boolean authorisationRequired) throws IOException {
 
-		int status;
+		int status = 0;
 
 		HttpURLConnection con = null;
 
@@ -1095,9 +1119,16 @@ public class Octopussy {
 			con.setRequestProperty("Authorization", properties.getProperty("basic"));
 		}
 
-		con.connect();
+		try {
+			con.connect();
 
-		status = con.getResponseCode();
+			status = con.getResponseCode();
+
+		} catch (java.net.SocketException e) {
+
+			System.err.println("API not available temporarily.  Please try again.");
+			System.exit(-1);
+		}
 
 		String json = "";
 
@@ -1235,27 +1266,45 @@ public class Octopussy {
 
 				String c = fields[0].trim();
 
-				if ("null".equals(c)) {
+				Float consumption = null;
 
-					ch.setConsumption(null);
+				if (!"null".equals(c) && 0 != c.length()) {
 
-				} else {
-
-					ch.setConsumption(Float.valueOf(c));
-
+					consumption = Float.valueOf(c);
 				}
+
+				ch.setConsumption(consumption);
 
 				OffsetDateTime from = OffsetDateTime.parse(fields[1].trim(), defaultDateTimeFormatter);
-				OffsetDateTime to = OffsetDateTime.parse(fields[2].trim(), defaultDateTimeFormatter);
 
-				if (4 == fields.length) { // assume price in data
+				OffsetDateTime to = null;
 
-					ch.setPrice(Float.valueOf(fields[3].trim()));
+				if ("".equals(fields[2]) || "null".equals(fields[2])) {
+
+					// generate the 'to' by assuming a 30-min slot
+
+					to = from.plusMinutes(30);
 
 				} else {
 
-					ch.setPrice(null);
+					to = OffsetDateTime.parse(fields[2].trim(), defaultDateTimeFormatter);
 				}
+
+				Float price = null;
+				Float cost = null;
+
+				if (fields.length > 3) { // assume price in data
+
+					price = Float.valueOf(fields[3].trim());
+
+					if (null != consumption) {
+
+						cost = Float.valueOf(consumption * price);
+					}
+				}
+
+				ch.setPrice(price);
+				ch.setCost(cost);
 
 				ch.setFrom(from);
 				ch.setTo(to);
@@ -1298,14 +1347,16 @@ public class Octopussy {
 
 				if (0 == epochFrom) {
 
-					bw.write("Consumption (kWh), Start, End, Price");
+					bw.write("Consumption(kWh), Start, End, Price(p), Cost(p)");
+					// n.b Cost is derived from consumption * price
+
 					epochFrom = key;
 				}
 
 				ConsumptionHistory ch = history.get(key);
 
 				String entry = ch.getConsumption() + ", " + ch.getFrom().toString() + ", " + ch.getTo() + ", "
-						+ ch.getPrice();
+						+ ch.getPrice() + ", " + ch.getCost();
 
 				bw.newLine();
 				bw.write(entry);
@@ -1554,45 +1605,64 @@ public class Octopussy {
 	private Map<LocalDateTime, ImportExportData> createPriceMap(ArrayList<Agile> agileResultsImport,
 			ArrayList<Agile> agileResultsExport) {
 
-		Map<LocalDateTime, ImportExportData> vatIncPriceMap = new HashMap<LocalDateTime, ImportExportData>();
+		Map<LocalDateTime, ImportExportData> priceMap = new HashMap<LocalDateTime, ImportExportData>();
 
 		for (Agile agile : agileResultsImport) {
 
 			String validFrom = agile.getValidFrom();
 
-			LocalDateTime ldt = LocalDateTime.parse(validFrom, DateTimeFormatter.ISO_ZONED_DATE_TIME);
+			LocalDateTime ldtFrom = LocalDateTime.parse(validFrom, DateTimeFormatter.ISO_ZONED_DATE_TIME);
 
 			// assume time obtained is zulu/UTC - need to convert to our local time (such as
 			// BST)
 
-			ZonedDateTime instant = ZonedDateTime.of(ldt, ZoneId.of("UTC"));
-			LocalDateTime actual = instant.withZoneSameInstant(ourZoneId).toLocalDateTime();
+			ZonedDateTime instantFrom = ZonedDateTime.of(ldtFrom, ZoneId.of("UTC"));
+			LocalDateTime actualFrom = instantFrom.withZoneSameInstant(ourZoneId).toLocalDateTime();
 
-			OffsetDateTime offsetDateTime = actual.atOffset(ZoneOffset.of("+01:00"));
+			OffsetDateTime offsetDateTime = actualFrom.atOffset(ZoneOffset.of("+01:00"));
 
-			long epochActual = offsetDateTime.toEpochSecond();
+			long epochActualFrom = offsetDateTime.toEpochSecond();
 
-			float valueIncVat = agile.getValueIncVat();
+			float valueExcVat = agile.getValueExcVat();
+//			float valueIncVat = agile.getValueIncVat();
 
 			ConsumptionHistory consumptionLatest = new ConsumptionHistory();
 
 			consumptionLatest.setFrom(offsetDateTime);
 
-			LocalDateTime actualTo = instant.withZoneSameInstant(ourZoneId).toLocalDateTime();
+			String validTo = agile.getValidTo();
+
+			LocalDateTime ldtTo = LocalDateTime.parse(validTo, DateTimeFormatter.ISO_ZONED_DATE_TIME);
+
+			// assume time obtained is zulu/UTC - need to convert to our local time (such as
+			// BST)
+
+			ZonedDateTime instantTo = ZonedDateTime.of(ldtTo, ZoneId.of("UTC"));
+
+			LocalDateTime actualTo = instantTo.withZoneSameInstant(ourZoneId).toLocalDateTime();
 
 			OffsetDateTime offsetDateTimeTo = actualTo.atOffset(ZoneOffset.of("+01:00"));
 
 			consumptionLatest.setTo(offsetDateTimeTo);
 
-			consumptionLatest.setPrice(Float.valueOf(valueIncVat));
+			consumptionLatest.setPrice(Float.valueOf(valueExcVat));
 
-			history.put(epochActual, consumptionLatest);
+			Float cost = null;
 
-			ImportExportData importExportPricesIncVat = new ImportExportData();
+			if (null != consumptionLatest.getConsumption()) {
 
-			importExportPricesIncVat.setImportPrice(Float.valueOf(valueIncVat));
+				cost = valueExcVat * consumptionLatest.getConsumption();
+			}
 
-			vatIncPriceMap.put(actual, importExportPricesIncVat);
+			consumptionLatest.setCost(cost);
+
+			history.put(epochActualFrom, consumptionLatest);
+
+			ImportExportData importExportPrices = new ImportExportData();
+
+			importExportPrices.setImportPrice(Float.valueOf(valueExcVat));
+
+			priceMap.put(actualFrom, importExportPrices);
 
 		}
 
@@ -1610,21 +1680,23 @@ public class Octopussy {
 				ZonedDateTime instant = ZonedDateTime.of(ldt, ZoneId.of("UTC"));
 				LocalDateTime actual = instant.withZoneSameInstant(ourZoneId).toLocalDateTime();
 
-				float valueIncVat = agile.getValueIncVat();
+//				float valueIncVat = agile.getValueIncVat();
+				float valueExcVat = agile.getValueExcVat();
 
-				ImportExportData importExportPricesIncVat = vatIncPriceMap.get(actual);
+				ImportExportData importExportPrices = priceMap.get(actual);
 
-				if (null == importExportPricesIncVat) {
-					importExportPricesIncVat = new ImportExportData();
+				if (null == importExportPrices) {
+
+					importExportPrices = new ImportExportData();
 				}
 
-				importExportPricesIncVat.setExportPrice(Float.valueOf(valueIncVat));
+				importExportPrices.setExportPrice(Float.valueOf(valueExcVat));
 
-				vatIncPriceMap.put(actual, importExportPricesIncVat);
+				priceMap.put(actual, importExportPrices);
 			}
 		}
 
-		return vatIncPriceMap;
+		return priceMap;
 	}
 
 	private int dailyResults(String today, Map<String, DayValues> elecMapDaily) {
@@ -2070,7 +2142,7 @@ public class Octopussy {
 	}
 
 	private Map<String, DayValues> buildElecMapDaily(ArrayList<V1PeriodConsumption> periodResults,
-			Map<LocalDateTime, ImportExportData> vatIncPriceMap) {
+			Map<LocalDateTime, ImportExportData> priceMap) {
 
 		Map<String, DayValues> elecMapDaily = new HashMap<String, DayValues>();
 
@@ -2101,7 +2173,7 @@ public class Octopussy {
 
 			Integer weekOfYear = Long.valueOf(ldt.getLong(ChronoField.ALIGNED_WEEK_OF_YEAR)).intValue();
 
-			ImportExportData importExportData = vatIncPriceMap.get(ldt);
+			ImportExportData importExportData = priceMap.get(ldt);
 
 			if (null == importExportData) {
 
@@ -2131,6 +2203,7 @@ public class Octopussy {
 
 				latestConsumption.setConsumption(consumption);
 				latestConsumption.setPrice(halfHourPrice);
+				latestConsumption.setCost(Float.valueOf(consumption * halfHourPrice));
 
 				history.put(epochKey, latestConsumption);
 			}
@@ -2223,7 +2296,15 @@ public class Octopussy {
 
 			entry.setConsumption(consumption);
 			entry.setIntervalStart(timestamp);
-			entry.setIntervalEnd(value.getTo().toString());
+
+			if (null == value.getTo()) {
+
+				entry.setIntervalEnd("null");
+
+			} else {
+
+				entry.setIntervalEnd(value.getTo().toString());
+			}
 
 			periodResults.add(entry);
 
