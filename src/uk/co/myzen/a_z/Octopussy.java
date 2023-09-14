@@ -125,11 +125,11 @@ public class Octopussy {
 	private final static String DEFAULT_TARGET_PROPERTY = "30";
 	private final static String DEFAULT_ZONE_ID_PROPERTY = "Europe/London";
 
-	private final static String DEFAULT_DAY_AFTER_PROPERTY = "2023-01-01";
-	private final static String DEFAULT_DAY_BEFORE_PROPERTY = "2024-01-01";
+	private final static String DEFAULT_DAY_FROM_PROPERTY = "";
+	private final static String DEFAULT_DAY_TO_PROPERTY = "";
 
-	private final static String KEY_DAY_AFTER = "day.after";
-	private final static String KEY_DAY_BEFORE = "day.before";
+	private final static String KEY_DAY_FROM = "day.from";
+	private final static String KEY_DAY_TO = "day.to";
 
 	private final static String KEY_APIKEY = "apiKey";
 	private final static String KEY_BASE_URL = "base.url";
@@ -344,22 +344,35 @@ public class Octopussy {
 			//
 			//
 
-			int howManyDaysHistory = Integer.valueOf(properties.getProperty(KEY_DAYS, DEFAULT_DAYS_PROPERTY).trim());
-
 			ZonedDateTime ourTimeNow = now.atZone(ourZoneId);
 
 			int dayOfYearToday = ourTimeNow.getDayOfYear();
+
+			// We define a recent history starting at the configured number of days ago
+			// and include the remainder of today in the time span
+
+			// N.B. we are unlikely to get data beyond 22:30 local if this is run before
+			// 16:00
+			// at which time when the schedule of prices appear for the next day
+
+			// since we will get a variable amount of data returned we will not pin the
+			// periodEnd
+			// and instead just grab whatever is available at the time the method is called
+
+			int howManyDaysHistory = Integer.valueOf(properties.getProperty(KEY_DAYS, DEFAULT_DAYS_PROPERTY).trim());
 
 			ZonedDateTime timeRecent = ourTimeNow.withDayOfYear(dayOfYearToday - howManyDaysHistory).withHour(00)
 					.withMinute(00).withSecond(00).withNano(0);
 
 			// UTC is one hour behind BST in summer time
 
-			ZonedDateTime zulu = timeRecent.withZoneSameInstant(ZoneId.of("UTC"));
+			ZonedDateTime zuluBegin = timeRecent.withZoneSameInstant(ZoneId.of("UTC"));
+
+			Long upToEpochSecond = zuluBegin.toEpochSecond();
 
 			// In summer time expecting something like 2023-08-27T23:00Z
 
-			String startOfPreviousDays = zulu.toString().substring(0, 17);
+			String beginRecentPeriod = zuluBegin.toString().substring(0, 17);
 
 			Integer pageSize = 48 * (1 + howManyDaysHistory);
 
@@ -367,17 +380,19 @@ public class Octopussy {
 
 			Integer page = 1;
 
-			V1AgileFlex v1AgileFlex = instance.getV1AgileFlexImport(page, pageSize, startOfPreviousDays, null);
+			V1AgileFlex v1AgileFlex = instance.getV1AgileFlexImport(page, pageSize, beginRecentPeriod, null);
 
 			ArrayList<Agile> agileResultsImport = v1AgileFlex.getAgileResults();
 
 			while (null != v1AgileFlex.getNext()) {
 
-				// we don't yet have all the results
+				// we don't yet have all the results - pause and then get the next page
+
+				Thread.sleep(1500); // this is just so we don't bombard the API provider
 
 				page++;
 
-				v1AgileFlex = instance.getV1AgileFlexImport(page, pageSize, startOfPreviousDays, null);
+				v1AgileFlex = instance.getV1AgileFlexImport(page, pageSize, beginRecentPeriod, null);
 
 				ArrayList<Agile> pageAgileResults = v1AgileFlex.getAgileResults();
 
@@ -395,7 +410,7 @@ public class Octopussy {
 
 			if (export) {
 
-				v1AgileFlex = instance.getV1AgileFlexExport(48 * howManyDaysHistory, startOfPreviousDays, null);
+				v1AgileFlex = instance.getV1AgileFlexExport(48 * howManyDaysHistory, beginRecentPeriod, null);
 
 				agileResultsExport = v1AgileFlex.getAgileResults();
 
@@ -422,7 +437,7 @@ public class Octopussy {
 			// we hope to get this in a single page
 
 			V1ElectricityConsumption v1ElectricityConsumption = instance.getV1ElectricityConsumption(page,
-					48 * howManyDaysHistory, startOfPreviousDays, null);
+					48 * howManyDaysHistory, beginRecentPeriod, null);
 
 			ArrayList<V1PeriodConsumption> periodResults = v1ElectricityConsumption.getPeriodResults();
 
@@ -439,19 +454,21 @@ public class Octopussy {
 
 			while (null != v1ElectricityConsumption.getNext()) {
 
-				// we don't yet have all the results
+				// we don't yet have all the results - pause and then get the next page
+
+				Thread.sleep(1500); // this is just so we don't bombard the API provider
 
 				page++;
 
 				v1ElectricityConsumption = instance.getV1ElectricityConsumption(page, 48 * howManyDaysHistory,
-						startOfPreviousDays, null);
+						beginRecentPeriod, null);
 
 				ArrayList<V1PeriodConsumption> pagePeriodResults = v1ElectricityConsumption.getPeriodResults();
 
 				periodResults.addAll(pagePeriodResults);
 			}
 
-			periodResults = instance.updateHistory(startOfPreviousDays, periodResults, howManyDaysHistory,
+			periodResults = instance.updateHistory(beginRecentPeriod, periodResults, howManyDaysHistory,
 					v1ElectricityConsumption.getCount());
 
 			//
@@ -470,20 +487,46 @@ public class Octopussy {
 			//
 			//
 
-			LocalDate fromIncl = LocalDate.parse(
-					properties.getProperty(KEY_DAY_AFTER, DEFAULT_DAY_AFTER_PROPERTY).trim(), formatterLocalDate);
-			LocalDate toExcl = LocalDate.parse(
-					properties.getProperty(KEY_DAY_BEFORE, DEFAULT_DAY_BEFORE_PROPERTY).trim(), formatterLocalDate);
+			Integer fromEpochDayIncl = null;
+			Integer toEpochDayIncl = null;
+
+			LocalDate fromIncl = null; // default
+
+			String filterFrom = properties.getProperty(KEY_DAY_FROM, DEFAULT_DAY_FROM_PROPERTY).trim();
+
+			if (!"".equals(filterFrom)) {
+
+				fromIncl = LocalDate.parse(filterFrom, formatterLocalDate);
+
+				fromEpochDayIncl = Long.valueOf(fromIncl.getLong(ChronoField.EPOCH_DAY)).intValue();
+			}
+
+			// beginRecentPeriod
+
+			long requiredEpochSecond = -1; // default
+
+			String filterTo = properties.getProperty(KEY_DAY_TO, DEFAULT_DAY_TO_PROPERTY).trim();
+
+			if (!"".equals(filterTo)) {
+
+				LocalDate toIncl = LocalDate.parse(filterTo, formatterLocalDate);
+
+				toEpochDayIncl = Long.valueOf(toIncl.getLong(ChronoField.EPOCH_DAY)).intValue();
+
+				requiredEpochSecond = 86400L * (1 + toIncl.getLong(ChronoField.EPOCH_DAY));
+			}
+
 			//
 			//
 			//
+
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_YEARLY, DEFAULT_YEARLY_PROPERTY)))) {
 
-				SortedMap<Integer, PeriodicValues> yearly = accumulateCostsByField(ChronoField.YEAR);
+				SortedMap<Integer, PeriodicValues> yearly = accumulateCostsByField(ChronoField.YEAR, upToEpochSecond);
 
 				System.out.println("\nHistorical yearly results:");
 
-				displayPeriodSummary("Year", yearly, fromIncl, toExcl);
+				displayPeriodSummary("Year", yearly, null, null);
 			}
 
 			//
@@ -492,11 +535,12 @@ public class Octopussy {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_MONTHLY, DEFAULT_MONTHLY_PROPERTY)))) {
 
-				SortedMap<Integer, PeriodicValues> monthly = accumulateCostsByField(ChronoField.MONTH_OF_YEAR);
+				SortedMap<Integer, PeriodicValues> monthly = accumulateCostsByField(ChronoField.MONTH_OF_YEAR,
+						upToEpochSecond);
 
 				System.out.println("\nHistorical monthly results:");
 
-				displayPeriodSummary("Month", monthly, fromIncl, toExcl);
+				displayPeriodSummary("Month", monthly, null, null);
 			}
 
 			//
@@ -505,11 +549,12 @@ public class Octopussy {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_WEEKLY, DEFAULT_WEEKLY_PROPERTY)))) {
 
-				SortedMap<Integer, PeriodicValues> weekly = accumulateCostsByField(ChronoField.ALIGNED_WEEK_OF_YEAR);
+				SortedMap<Integer, PeriodicValues> weekly = accumulateCostsByField(ChronoField.ALIGNED_WEEK_OF_YEAR,
+						upToEpochSecond);
 
 				System.out.println("\nHistorical weekly results:");
 
-				displayPeriodSummary("Week", weekly, fromIncl, toExcl);
+				displayPeriodSummary("Week", weekly, null, null);
 			}
 			//
 			//
@@ -518,11 +563,14 @@ public class Octopussy {
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_DAILY, DEFAULT_DAILY_PROPERTY)))) {
 
 				System.out.println(
-						"\nHistorical daily results: filter from " + fromIncl + " up to but not including " + toExcl);
+						"\nHistorical daily results: filter from " + filterFrom + " up to and including " + filterTo);
 
-				SortedMap<Integer, PeriodicValues> daily = accumulateCostsByField(ChronoField.DAY_OF_YEAR);
+				// get epochSecond for start of next day of range
 
-				displayPeriodSummary("Daily", daily, fromIncl, toExcl);
+				SortedMap<Integer, PeriodicValues> daily = accumulateCostsByField(ChronoField.EPOCH_DAY,
+						requiredEpochSecond < 0 ? upToEpochSecond : requiredEpochSecond);
+
+				displayPeriodSummary("Daily", daily, fromEpochDayIncl, toEpochDayIncl);
 			}
 
 			//
@@ -767,12 +815,10 @@ public class Octopussy {
 		return result;
 	}
 
-	private static void displayPeriodSummary(String id, SortedMap<Integer, PeriodicValues> periodic, LocalDate fromIncl,
-			LocalDate toExcl) {
+	private static void displayPeriodSummary(String id, SortedMap<Integer, PeriodicValues> periodic, Integer fromIncl,
+			Integer toIncl) {
 
-		LocalDate ld = null;
-
-		int year = now.getYear();
+		String datestamp = null;
 
 		Float tallyEnergy = Float.valueOf(0);
 
@@ -786,23 +832,34 @@ public class Octopussy {
 
 			Integer countHalfHours = periodData.getCountHalfHours();
 
-			if (id.startsWith("D")) {
+			if (null != fromIncl) {
 
-				ld = LocalDate.ofYearDay(year, number);
-
-				int test = ld.compareTo(fromIncl);
+				int test = number.compareTo(fromIncl);
 
 				if (test < 0) {
 
 					continue; // not yet reached the first date in range
 				}
+			}
 
-				test = ld.compareTo(toExcl);
+			if (null != toIncl) {
 
-				if (test >= 0) {
+				int test = number.compareTo(toIncl);
+
+				if (test > 0) {
 
 					break; // give up because we know the keySet is ordered chronologically
 				}
+			}
+
+			if (id.startsWith("D")) {
+
+				// get the day as YYYY-MM-DD
+
+				Long epochSecond = (long) number * 86400;
+
+				datestamp = LocalDateTime.ofInstant(Instant.ofEpochSecond(epochSecond), ourZoneId).toString()
+						.substring(0, 10);
 			}
 
 			count++;
@@ -823,7 +880,7 @@ public class Octopussy {
 
 			tallyCost += accCost;
 
-			String tag = null == ld ? String.format("%5s", id) + ":" + String.format("%4d", number) : ld.toString();
+			String tag = null == datestamp ? String.format("%5s", id) + ":" + String.format("%4d", number) : datestamp;
 
 			System.out.println(tag + "  " + String.format("%8.3f", accConsumption) + " kWhr  "
 					+ String.format("%7.2f", accCost) + "p  " + String.format("%4d", countHalfHours) + " half-hours ~ "
@@ -841,11 +898,19 @@ public class Octopussy {
 		}
 	}
 
-	private static SortedMap<Integer, PeriodicValues> accumulateCostsByField(ChronoField field) {
+	private static SortedMap<Integer, PeriodicValues> accumulateCostsByField(ChronoField field, Long upToEpochSecond) {
 
 		SortedMap<Integer, PeriodicValues> result = new TreeMap<Integer, PeriodicValues>();
 
 		for (Long key : history.keySet()) {
+
+			if (null != upToEpochSecond) {
+
+				if (key >= upToEpochSecond) {
+
+					break;
+				}
+			}
 
 			ConsumptionHistory data = history.get(key);
 
