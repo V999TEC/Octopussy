@@ -824,13 +824,11 @@ public class Octopussy {
 
 		Float tallyCost = Float.valueOf(0);
 
+		int tallyHalfHours = 0;
+
 		int count = 0;
 
 		for (Integer number : periodic.keySet()) {
-
-			PeriodicValues periodData = periodic.get(number);
-
-			Integer countHalfHours = periodData.getCountHalfHours();
 
 			if (null != fromIncl) {
 
@@ -851,6 +849,12 @@ public class Octopussy {
 					break; // give up because we know the keySet is ordered chronologically
 				}
 			}
+
+			PeriodicValues periodData = periodic.get(number);
+
+			Integer countHalfHours = periodData.getCountHalfHours();
+
+			tallyHalfHours += countHalfHours;
 
 			if (id.startsWith("D")) {
 
@@ -883,18 +887,20 @@ public class Octopussy {
 			String tag = null == datestamp ? String.format("%5s", id) + ":" + String.format("%4d", number) : datestamp;
 
 			System.out.println(tag + "  " + String.format("%8.3f", accConsumption) + " kWhr  "
-					+ String.format("%7.2f", accCost) + "p  " + String.format("%4d", countHalfHours) + " half-hours ~ "
-					+ String.format("%5.2f", equivalentDays) + " days\tEquivalant daily cost: £"
-					+ String.format("%5.2f", equivalentDailyAverageCost) + "\t"
-					+ String.format("%4.3f", equivalentDailyEnergy) + " kWhr Average price/unit: "
-					+ String.format("%4.2f", averagePricePerUnit) + "p");
+					+ String.format("%8.2f", accCost) + "p  " + String.format("%5d", countHalfHours) + " half-hours ~ "
+					+ String.format("%5.2f", equivalentDays) + " days @ £"
+					+ String.format("%7.2f", equivalentDailyAverageCost) + "   equivalent to "
+					+ String.format("%4.3f", equivalentDailyEnergy) + " kWhr @ "
+					+ String.format("%4.2f", averagePricePerUnit) + "p per unit");
 		}
 
 		if (count > 1) {
 
-			System.out.println("Totals:     " + String.format("%8.3f", tallyEnergy) + " kWhr\t\t\t\t\t\t\t\t      £"
-					+ String.format("%6.2f", (tallyCost / 100)) + "\t\t\t\t\t"
-					+ String.format("%4.2f", tallyCost / tallyEnergy) + "p");
+			Float equivalentDays = tallyHalfHours / (float) 48;
+
+			System.out.println("Totals:     " + String.format("%8.3f", tallyEnergy) + " kWhr\t\t\t\t "
+					+ String.format("%5.2f", equivalentDays) + " days @ £" + String.format("%7.2f", (tallyCost / 100))
+					+ "\t\t\t\t     " + String.format("%4.2f", tallyCost / tallyEnergy) + "p");
 		}
 	}
 
@@ -1857,7 +1863,7 @@ public class Octopussy {
 
 			System.out.println(dayValues.getDayOfWeek() + (lowestPrice < plunge ? " * " : "   ") + key
 					+ (lowestPrice < plunge ? String.format("%6.2f", lowestPrice) + "p " : "        ")
-					+ String.format("%7.2f", consumption) + " kWhr  Agile: " + String.format("%8.4f", agilePrice)
+					+ String.format("%7.3f", consumption) + " kWhr  Agile: " + String.format("%8.4f", agilePrice)
 					+ "p +" + agileCharge + "p (X: " + String.format("%8.4f", standardPrice) + "p +" + standardCharge
 					+ "p)  saving: £" + String.format("%5.2f", (difference / 100)));
 
@@ -1876,10 +1882,10 @@ public class Octopussy {
 
 		String averageCostPerUnit = String.format("%.2f", unitCostAverage);
 
-		String averagePower = String.format("%.2f", accumulatePower / countDays);
+		String averagePower = String.format("%.3f", accumulatePower / countDays);
 
-		System.out.println("\nOver " + countDays + " days, using " + accumulatePower + " kWhr, Agile has saved £"
-				+ pounds2DP + " compared to the " + flatRate + "p (X) flat rate tariff");
+		System.out.println("\nOver " + countDays + " days, using " + String.format("%.3f", accumulatePower)
+				+ " kWhr, Agile has saved £" + pounds2DP + " compared to the " + flatRate + "p (X) flat rate tariff");
 		System.out.println("Average daily saving: £" + averagePounds2DP + " Average cost per unit (A): "
 				+ averageCostPerUnit + "p  Average daily power usage: " + averagePower + " kWhr");
 
