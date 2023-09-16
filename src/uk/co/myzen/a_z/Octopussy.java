@@ -125,11 +125,8 @@ public class Octopussy {
 	private final static String DEFAULT_TARGET_PROPERTY = "30";
 	private final static String DEFAULT_ZONE_ID_PROPERTY = "Europe/London";
 
-	private final static String DEFAULT_DAY_FROM_PROPERTY = "";
-	private final static String DEFAULT_DAY_TO_PROPERTY = "";
-
-	private final static String KEY_DAY_FROM = "day.from";
-	private final static String KEY_DAY_TO = "day.to";
+	private final static String DEFAULT_DAY_FROM_PROPERTY = "2023-08-11";
+	private final static String DEFAULT_DAY_TO_PROPERTY = "2023-09-08";
 
 	private final static String KEY_APIKEY = "apiKey";
 	private final static String KEY_BASE_URL = "base.url";
@@ -173,6 +170,9 @@ public class Octopussy {
 	private final static String KEY_WEEKLY = "weekly";
 	private final static String KEY_DAILY = "daily";
 
+	private final static String KEY_DAY_FROM = "day.from";
+	private final static String KEY_DAY_TO = "day.to";
+
 	private final static String KEY_EXTRA = "extra";
 	private final static String KEY_REFERRAL = "referral";
 
@@ -183,7 +183,7 @@ public class Octopussy {
 			KEY_IMPORT_PRODUCT_CODE, KEY_TARIFF_CODE, KEY_TARIFF_URL, KEY_REGION, KEY_POSTCODE, KEY_ZONE_ID,
 			KEY_HISTORY, "#", KEY_EXPORT_PRODUCT_CODE, KEY_EXPORT_TARIFF_CODE, KEY_EXPORT_TARIFF_URL, KEY_EXPORT, "#",
 			KEY_DAYS, KEY_PLUNGE, KEY_TARGET, KEY_WIDTH, KEY_ANSI, KEY_COLOUR, KEY_COLOR, "#", KEY_YEARLY, KEY_MONTHLY,
-			KEY_WEEKLY, KEY_DAILY, "#", KEY_EXTRA, KEY_REFERRAL };
+			KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO, "#", KEY_EXTRA, KEY_REFERRAL };
 
 	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd pph:mm a");
 
@@ -899,7 +899,7 @@ public class Octopussy {
 			Float equivalentDays = tallyHalfHours / (float) 48;
 
 			System.out.println("Totals:     " + String.format("%8.3f", tallyEnergy) + " kWhr\t\t\t\t "
-					+ String.format("%5.2f", equivalentDays) + " days @ £" + String.format("%7.2f", (tallyCost / 100))
+					+ String.format("%5.2f", equivalentDays) + " days   £" + String.format("%7.2f", (tallyCost / 100))
 					+ "\t\t\t\t     " + String.format("%4.2f", tallyCost / tallyEnergy) + "p");
 		}
 	}
@@ -1297,6 +1297,15 @@ public class Octopussy {
 								"# in Windows console to show ANSI update Registry set REG_DWORD VirtualTerminalLevel=1 for Computer\\HKEY_CURRENT_USER\\Console");
 						System.out.println("#");
 						System.out.println("ansi=true");
+
+					} else if (KEY_DAY_FROM.equals(propertyKey)) {
+
+						System.out
+								.println("#day.from=" + properties.getProperty(propertyKey, DEFAULT_DAY_FROM_PROPERTY));
+
+					} else if (KEY_DAY_TO.equals(propertyKey)) {
+
+						System.out.println("#day.to=" + properties.getProperty(propertyKey, DEFAULT_DAY_TO_PROPERTY));
 
 					} else {
 
