@@ -125,8 +125,8 @@ public class Octopussy {
 	private final static String DEFAULT_TARGET_PROPERTY = "30";
 	private final static String DEFAULT_ZONE_ID_PROPERTY = "Europe/London";
 
-	private final static String DEFAULT_DAY_FROM_PROPERTY = "2023-08-11";
-	private final static String DEFAULT_DAY_TO_PROPERTY = "2023-09-08";
+	private final static String DEFAULT_DAY_FROM_PROPERTY = "";
+	private final static String DEFAULT_DAY_TO_PROPERTY = "";
 
 	private final static String KEY_APIKEY = "apiKey";
 	private final static String KEY_BASE_URL = "base.url";
@@ -896,11 +896,14 @@ public class Octopussy {
 
 		if (count > 1) {
 
-			Float equivalentDays = tallyHalfHours / (float) 48;
+			float equivalentDays = tallyHalfHours / (float) 48;
+
+			float averageDailyEnergy = tallyEnergy / equivalentDays;
 
 			System.out.println("Totals:     " + String.format("%8.3f", tallyEnergy) + " kWhr\t\t\t\t "
 					+ String.format("%5.2f", equivalentDays) + " days   £" + String.format("%7.2f", (tallyCost / 100))
-					+ "\t\t\t\t     " + String.format("%4.2f", tallyCost / tallyEnergy) + "p");
+					+ "\t\t       " + String.format("%4.3f", averageDailyEnergy) + " kWhr @ "
+					+ String.format("%4.2f", tallyCost / tallyEnergy) + "p");
 		}
 	}
 
@@ -1870,11 +1873,14 @@ public class Octopussy {
 
 			float lowestPrice = dayValues.getLowestPrice();
 
+			float dailyAverageUnitPrice = agilePrice / consumption;
+
 			System.out.println(dayValues.getDayOfWeek() + (lowestPrice < plunge ? " * " : "   ") + key
 					+ (lowestPrice < plunge ? String.format("%6.2f", lowestPrice) + "p " : "        ")
 					+ String.format("%7.3f", consumption) + " kWhr  Agile: " + String.format("%8.4f", agilePrice)
 					+ "p +" + agileCharge + "p (X: " + String.format("%8.4f", standardPrice) + "p +" + standardCharge
-					+ "p)  saving: £" + String.format("%5.2f", (difference / 100)));
+					+ "p)  saving: £" + String.format("%5.2f", (difference / 100)) + "  @ "
+					+ String.format("%.2f", dailyAverageUnitPrice) + "p per unit");
 
 			accumulateDifference += difference;
 
@@ -1895,8 +1901,8 @@ public class Octopussy {
 
 		System.out.println("\nOver " + countDays + " days, using " + String.format("%.3f", accumulatePower)
 				+ " kWhr, Agile has saved £" + pounds2DP + " compared to the " + flatRate + "p (X) flat rate tariff");
-		System.out.println("Average daily saving: £" + averagePounds2DP + " Average cost per unit (A): "
-				+ averageCostPerUnit + "p  Average daily power usage: " + averagePower + " kWhr");
+		System.out.println("Average daily saving: £" + averagePounds2DP + " Recent average cost per unit (A): "
+				+ averageCostPerUnit + "p and daily power usage: " + averagePower + " kWhr");
 
 		return unitCostAverage.intValue();
 	}
