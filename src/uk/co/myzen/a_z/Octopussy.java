@@ -346,6 +346,12 @@ public class Octopussy {
 
 			ZonedDateTime ourTimeNow = now.atZone(ourZoneId);
 
+			long epochNow = ourTimeNow.toEpochSecond();
+
+			// get today as YYYY-MM-DD
+			String today = LocalDateTime.ofInstant(Instant.ofEpochSecond(epochNow), ourZoneId).toString().substring(0,
+					10);
+
 			int dayOfYearToday = ourTimeNow.getDayOfYear();
 
 			// We define a recent history starting at the configured number of days ago
@@ -507,7 +513,14 @@ public class Octopussy {
 
 			String filterTo = properties.getProperty(KEY_DAY_TO, DEFAULT_DAY_TO_PROPERTY).trim();
 
-			if (!"".equals(filterTo)) {
+			if ("".equals(filterTo)) {
+
+				if (!"".equals(filterFrom)) {
+
+					requiredEpochSecond = epochNow;
+				}
+
+			} else {
 
 				LocalDate toIncl = LocalDate.parse(filterTo, formatterLocalDate);
 
@@ -562,13 +575,13 @@ public class Octopussy {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_DAILY, DEFAULT_DAILY_PROPERTY)))) {
 
-				System.out.println(
-						"\nHistorical daily results: filter from " + filterFrom + " up to and including " + filterTo);
-
 				// get epochSecond for start of next day of range
 
 				SortedMap<Integer, PeriodicValues> daily = accumulateCostsByField(ChronoField.EPOCH_DAY,
 						requiredEpochSecond < 0 ? upToEpochSecond : requiredEpochSecond);
+
+				System.out.println("\nHistorical daily results: " + ("".equals(filterFrom) ? "" : " from " + filterFrom)
+						+ ("".equals(filterTo) ? "" : " up to " + filterTo));
 
 				displayPeriodSummary("Daily", daily, fromEpochDayIncl, toEpochDayIncl);
 			}
@@ -576,12 +589,6 @@ public class Octopussy {
 			//
 			//
 			//
-
-			long epochNow = now.atZone(ourZoneId).toEpochSecond();
-
-			// get today as YYYY-MM-DD
-			String today = LocalDateTime.ofInstant(Instant.ofEpochSecond(epochNow), ourZoneId).toString().substring(0,
-					10);
 
 			int averageUnitCost = instance.dailyResults(today, elecMapDaily);
 
@@ -890,7 +897,7 @@ public class Octopussy {
 					+ String.format("%8.2f", accCost) + "p  " + String.format("%5d", countHalfHours) + " half-hours ~ "
 					+ String.format("%5.2f", equivalentDays) + " days @ £"
 					+ String.format("%7.2f", equivalentDailyAverageCost) + "   equivalent to "
-					+ String.format("%4.3f", equivalentDailyEnergy) + " kWhr @ "
+					+ String.format("%6.3f", equivalentDailyEnergy) + " kWhr @ "
 					+ String.format("%4.2f", averagePricePerUnit) + "p per unit");
 		}
 
@@ -902,7 +909,7 @@ public class Octopussy {
 
 			System.out.println("Totals:     " + String.format("%8.3f", tallyEnergy) + " kWhr\t\t\t\t "
 					+ String.format("%5.2f", equivalentDays) + " days   £" + String.format("%7.2f", (tallyCost / 100))
-					+ "\t\t       " + String.format("%4.3f", averageDailyEnergy) + " kWhr @ "
+					+ "\t      Average: " + String.format("%6.3f", averageDailyEnergy) + " kWhr @ "
 					+ String.format("%4.2f", tallyCost / tallyEnergy) + "p");
 		}
 	}
