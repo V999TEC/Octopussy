@@ -1421,49 +1421,6 @@ public class Octopussy {
 	}
 
 	private void appendToHistoryFile(File importData, Map<Long, ConsumptionHistory> history) throws IOException {
-//		//
-//		// Now 'append' recent data to history file (which conceivably could be empty)
-//		// We do not actually just add to the end of the existing file as we need to
-//		// backtrack and fill in
-//		// missing gaps in the data i.e., fields that were previously null that may now
-//		// have a proper value.
-//		// We assume everything up to timestamp epochFrom to be devoid of nulls
-//		//
-//
-//		RandomAccessFile raf = new RandomAccessFile(importData, "rw");
-//
-//		long pos = raf.length();
-//		// position on end of file
-//		raf.seek(pos);
-//
-//		// now backtrack each line until we hit the position without nulls
-//		// the challenge is that each line has variable length
-//
-//		String line = "";
-//
-//		while ("".equals(line)) {
-//
-//			pos -= 1000;
-//			raf.seek(pos);
-//
-//			line = raf.readLine();
-//		}
-//
-//		while( true ) {
-//			
-//		
-//		
-//		String fields[] = line.split(",");
-//
-//		System.out.println(pos + "\t: " + line);
-//		
-//		// how many commas revealed? (This indicates the number of fields observed)
-//		
-//		// need to find the start of the line by repositioning until previous line found
-//		
-//		
-//		
-//		}
 
 		FileWriter fw = new FileWriter(importData, true);
 
