@@ -700,6 +700,10 @@ public class Octopussy {
 
 			myReader.close();
 
+			int hours = accSeconds / 3600;
+			int mins = (accSeconds % 3600) / 60;
+			int secs = (accSeconds % 3600) % 60;
+
 			int lastIndex = offsetPowerList.size() - 1;
 
 			// if zero power on last element, remove it from list
@@ -723,66 +727,69 @@ public class Octopussy {
 
 			long stopEpochSecond = pricesPerSlot.get(lastSlot).getEpochSecond() + 1800 - accSeconds;
 
-			int hours = accSeconds / 3600;
+			if (stopEpochSecond < startEpochSecond) {
 
-			int mins = (accSeconds % 3600) / 60;
+				System.out.println("\n" + String.format("%30s", profileName.getName()) + " recorded: " + hours
+						+ " hours " + mins + " mins " + secs + " secs - too long to schedule now ");
 
-			int secs = (accSeconds % 3600) % 60;
+			} else {
 
-			LocalDateTime rangeLimitFrom = LocalDateTime.ofInstant(Instant.ofEpochSecond(startEpochSecond), ourZoneId);
-			LocalDateTime rangeLimitTo = LocalDateTime.ofInstant(Instant.ofEpochSecond(stopEpochSecond), ourZoneId);
+				LocalDateTime rangeLimitFrom = LocalDateTime.ofInstant(Instant.ofEpochSecond(startEpochSecond),
+						ourZoneId);
+				LocalDateTime rangeLimitTo = LocalDateTime.ofInstant(Instant.ofEpochSecond(stopEpochSecond), ourZoneId);
 
-			System.out.println("\n" + String.format("%30s", profileName.getName()) + " requires: " + hours + " hours "
-					+ mins + " mins " + secs + " secs - Scanning pricing data between "
-					+ rangeLimitFrom.format(formatterDayHourMinute) + " and "
-					+ rangeLimitTo.format(formatterDayHourMinute));
+				System.out.println("\n" + String.format("%30s", profileName.getName()) + " recorded: " + hours
+						+ " hours " + mins + " mins " + secs + " secs - Scanning pricing data between "
+						+ rangeLimitFrom.format(formatterDayHourMinute) + " and "
+						+ rangeLimitTo.format(formatterDayHourMinute));
 
-			Float highestCost = null;
-			Float lowestCost = null;
-			Float lowestCost30MinuteGranularity = null;
+				Float highestCost = null;
+				Float lowestCost = null;
+				Float lowestCost30MinuteGranularity = null;
 
-			LocalDateTime timeOfHighestCost = null;
-			LocalDateTime timeOfLowestCost = null;
-			LocalDateTime timeOfLowest30MinuteGranularity = null;
+				LocalDateTime timeOfHighestCost = null;
+				LocalDateTime timeOfLowestCost = null;
+				LocalDateTime timeOfLowest30MinuteGranularity = null;
 
-			for (long epochSecond = startEpochSecond; epochSecond < stopEpochSecond; epochSecond += 60) {
+				for (long epochSecond = startEpochSecond; epochSecond < stopEpochSecond; epochSecond += 60) {
 
-				float cost = analyseCost(epochSecond, pricesPerSlot, offsetPowerList);
+					float cost = analyseCost(epochSecond, pricesPerSlot, offsetPowerList);
 
-				Instant instant = Instant.ofEpochSecond(epochSecond);
+					Instant instant = Instant.ofEpochSecond(epochSecond);
 
-				if (0 == epochSecond % 1800) {
+					if (0 == epochSecond % 1800) {
 
-					if (null == lowestCost30MinuteGranularity || cost < lowestCost30MinuteGranularity) {
+						if (null == lowestCost30MinuteGranularity || cost < lowestCost30MinuteGranularity) {
 
-						lowestCost30MinuteGranularity = cost;
+							lowestCost30MinuteGranularity = cost;
 
-						timeOfLowest30MinuteGranularity = LocalDateTime.ofInstant(instant, ourZoneId);
+							timeOfLowest30MinuteGranularity = LocalDateTime.ofInstant(instant, ourZoneId);
+						}
 					}
+
+					if (null == lowestCost || cost < lowestCost) {
+
+						timeOfLowestCost = LocalDateTime.ofInstant(instant, ourZoneId);
+
+						lowestCost = cost;
+					}
+
+					if (null == highestCost || cost > highestCost) {
+
+						timeOfHighestCost = LocalDateTime.ofInstant(instant, ourZoneId);
+
+						highestCost = cost;
+					}
+
 				}
 
-				if (null == lowestCost || cost < lowestCost) {
-
-					timeOfLowestCost = LocalDateTime.ofInstant(instant, ourZoneId);
-
-					lowestCost = cost;
-				}
-
-				if (null == highestCost || cost > highestCost) {
-
-					timeOfHighestCost = LocalDateTime.ofInstant(instant, ourZoneId);
-
-					highestCost = cost;
-				}
-
+				System.out.println("\t\t" + timeOfHighestCost.format(formatterDayHourMinute) + "\t"
+						+ String.format("%5.2f", highestCost) + " p");
+				System.out.println("\t\t" + timeOfLowestCost.format(formatterDayHourMinute) + "\t"
+						+ String.format("%5.2f", lowestCost) + " p");
+				System.out.println("\t\t" + timeOfLowest30MinuteGranularity.format(formatterDayHourMinute) + "\t"
+						+ String.format("%5.2f", lowestCost30MinuteGranularity) + " p");
 			}
-
-			System.out.println("\t\t" + timeOfHighestCost.format(formatterDayHourMinute) + "\t"
-					+ String.format("%5.2f", highestCost) + " p");
-			System.out.println("\t\t" + timeOfLowestCost.format(formatterDayHourMinute) + "\t"
-					+ String.format("%5.2f", lowestCost) + " p");
-			System.out.println("\t\t" + timeOfLowest30MinuteGranularity.format(formatterDayHourMinute) + "\t"
-					+ String.format("%5.2f", lowestCost30MinuteGranularity) + " p");
 
 			// now deduce the best time to start this device based on the energy profile
 
@@ -820,13 +827,17 @@ public class Octopussy {
 
 		float accumulatedCost = 0;
 
-		// rebase the times in the device profile to match our starting time
+		// rebase the times in the device profile to match our new starting time
 
 		for (int index = 0; index < offsetPowerList.size(); index++) {
 
 			offsetPowerList.get(index).setEpochSecond(startingAtEpochSecond);
 
-			startingAtEpochSecond += offsetPowerList.get(index).getSecsDuration();
+			PowerDuration powerDuration = offsetPowerList.get(index);
+
+			Integer secs = powerDuration.getSecsDuration();
+
+			startingAtEpochSecond += secs;
 		}
 
 		for (int index = 0; index < offsetPowerList.size(); index++) {
@@ -838,8 +849,6 @@ public class Octopussy {
 			Integer secs = powerDuration.getSecsDuration();
 
 			long epochSecond = powerDuration.getEpochSecond();
-
-//			System.out.println(watts + " watts for " + secs + " seconds:");
 
 			do {
 
@@ -873,14 +882,11 @@ public class Octopussy {
 
 						accumulatedCost += cost;
 
-//						System.out.println("\t\t" + secs + " seconds of " + watts + " watts @ " + priceAt + " costs "
-//								+ cost + "  (acc: " + accumulatedCost + " )");
 						break;
 					}
 
-					// split the seconds
-
-//					System.out.println("\t" + secs + " seconds > remaining in current slot " + secsRemainingInSlot);
+					// split the seconds across this and next slot and iterate until secs <
+					// secsRemainingInSlot
 
 					secs -= secsRemainingInSlot;
 
@@ -893,16 +899,11 @@ public class Octopussy {
 					float cost = kWhr * priceAt;
 
 					accumulatedCost += cost;
-
-//					System.out.println("\t\t" + secsRemainingInSlot + " seconds of " + watts + " watts @ " + priceAt
-//							+ " costs " + cost + "  (acc: " + accumulatedCost + " )");
 				}
 
 			} while (true);
 
 		}
-
-//		System.out.println(startingAtEpochSecond + "\t" + kWhrAccumulated);
 
 		return accumulatedCost;
 	}
