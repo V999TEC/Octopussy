@@ -1,4 +1,7 @@
 # Octopussy
+
+There is a wiki giving context about this project here https://github.com/V999TEC/Octopussy/wiki/The-Home-of-Icarus  
+
 Java CLI uses Octopus API to analyse Agile tariff electricity consumption.  
 The recent cost saving is shown compared to the flat rate tariff.  
 The day ahead unit pricing is shown, together with the best times to start an activity.
