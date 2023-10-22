@@ -653,7 +653,7 @@ public class Octopussy {
 		String startTime = pricesPerSlot.get(0).getSimpleTimeStamp();
 		String stopTime = pricesPerSlot.get(lastSlot).getSimpleTimeStamp();
 
-		System.out.println("\nPrice data available between " + startTime + " and " + stopTime);
+		System.out.println("\nPrice data available for half-hour slots in the range " + startTime + " and " + stopTime);
 
 		int deviceNumber = 1;
 
@@ -730,7 +730,7 @@ public class Octopussy {
 			if (stopEpochSecond < startEpochSecond) {
 
 				System.out.println("\n" + String.format("%30s", profileName.getName()) + " recorded: " + hours
-						+ " hours " + mins + " mins " + secs + " secs - too long to schedule now ");
+						+ " hours " + mins + " mins " + secs + " secs - too long a period to schedule now");
 
 			} else {
 
@@ -785,10 +785,12 @@ public class Octopussy {
 
 				System.out.println("\t\t" + timeOfHighestCost.format(formatterDayHourMinute) + "\t"
 						+ String.format("%5.2f", highestCost) + " p");
-				System.out.println("\t\t" + timeOfLowestCost.format(formatterDayHourMinute) + "\t"
-						+ String.format("%5.2f", lowestCost) + " p");
+
 				System.out.println("\t\t" + timeOfLowest30MinuteGranularity.format(formatterDayHourMinute) + "\t"
 						+ String.format("%5.2f", lowestCost30MinuteGranularity) + " p");
+
+				System.out.println("\t\t" + timeOfLowestCost.format(formatterDayHourMinute) + "\t"
+						+ String.format("%5.2f", lowestCost) + " p");
 			}
 
 			// now deduce the best time to start this device based on the energy profile
