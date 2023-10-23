@@ -661,6 +661,8 @@ public class Octopussy {
 
 			int accSeconds = 0;
 
+			float kWhr = 0;
+
 			List<PowerDuration> offsetPowerList = new ArrayList<PowerDuration>();
 
 			File profileName = new File(properties.getProperty("device" + String.valueOf(deviceNumber)));
@@ -673,7 +675,7 @@ public class Octopussy {
 
 				String[] parts = line.split("\t");
 
-				if (20 == parts[0].length() && parts[0].endsWith("Z")) {
+				if (20 == parts[0].length() || ('T' == parts[0].charAt(10) && parts[0].endsWith("Z"))) {
 
 					String value = parts[1].trim();
 
@@ -695,6 +697,19 @@ public class Octopussy {
 					offsetPowerList.add(offsetPower);
 
 					accSeconds += duration;
+
+				} else {
+
+					int pos = line.indexOf("kWhr consumed by");
+
+					if (line.contains("day(s) from:") && -1 != pos) {
+
+						// assume last significant line for this device
+
+						kWhr = Float.parseFloat(line.substring(pos - 10, pos).trim());
+
+						break;
+					}
 				}
 			}
 
@@ -739,7 +754,7 @@ public class Octopussy {
 				LocalDateTime rangeLimitTo = LocalDateTime.ofInstant(Instant.ofEpochSecond(stopEpochSecond), ourZoneId);
 
 				System.out.println("\n" + String.format("%30s", profileName.getName()) + " recorded: " + hours
-						+ " hours " + mins + " mins " + secs + " secs - Scanning pricing data between "
+						+ " hours " + mins + " mins " + secs + " secs " + kWhr + " kWhr consumed. Schedule between "
 						+ rangeLimitFrom.format(formatterDayHourMinute) + " and "
 						+ rangeLimitTo.format(formatterDayHourMinute));
 
