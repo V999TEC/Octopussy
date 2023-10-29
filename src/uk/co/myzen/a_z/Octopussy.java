@@ -191,6 +191,8 @@ public class Octopussy {
 
 	private final static DateTimeFormatter formatterDayHourMinute = DateTimeFormatter.ofPattern("E HH:mm");
 
+	private final static DateTimeFormatter formatterDayHourMinuteSecond = DateTimeFormatter.ofPattern("E HH:mm:ss");
+
 	private final static DateTimeFormatter defaultDateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
 	private final static DateTimeFormatter formatterLocalDate = DateTimeFormatter.ISO_LOCAL_DATE;
@@ -736,9 +738,20 @@ public class Octopussy {
 				offsetPowerList.remove(0);
 			}
 
-			LocalDateTime ldt = LocalDateTime.ofInstant(Instant.now(), ourZoneId).withSecond(0).plusMinutes(1);
+			long startEpochSecond = pricesPerSlot.get(0).getEpochSecond();
 
-			long startEpochSecond = 60 + ldt.toEpochSecond(ZoneOffset.of("+01:00"));
+			LocalDateTime ldt = LocalDateTime.ofInstant(Instant.now(), ourZoneId);
+
+			int minute = ldt.getMinute();
+
+			// how many minutes past the half-hour?
+
+			if (minute > 29) {
+
+				minute -= 30;
+			}
+
+			startEpochSecond += (60 * minute);
 
 			long stopEpochSecond = pricesPerSlot.get(lastSlot).getEpochSecond() + 1800 - accSeconds;
 
@@ -754,9 +767,9 @@ public class Octopussy {
 				LocalDateTime rangeLimitTo = LocalDateTime.ofInstant(Instant.ofEpochSecond(stopEpochSecond), ourZoneId);
 
 				System.out.println("\n" + String.format("%30s", profileName.getName()) + " recorded: " + hours
-						+ " hours " + mins + " mins " + secs + " secs " + kWhr + " kWhr consumed. Schedule between "
-						+ rangeLimitFrom.format(formatterDayHourMinute) + " and "
-						+ rangeLimitTo.format(formatterDayHourMinute));
+						+ " hours " + mins + " mins " + secs + " secs & " + kWhr
+						+ " kWhr consumed. Schedule again between " + rangeLimitFrom.format(formatterDayHourMinute)
+						+ " and " + rangeLimitTo.format(formatterDayHourMinute));
 
 				Float highestCost = null;
 				Float lowestCost = null;
@@ -768,9 +781,21 @@ public class Octopussy {
 
 				for (long epochSecond = startEpochSecond; epochSecond < stopEpochSecond; epochSecond += 60) {
 
-					float cost = analyseCost(epochSecond, pricesPerSlot, offsetPowerList);
-
 					Instant instant = Instant.ofEpochSecond(epochSecond);
+
+					Float cost = analyseCost(epochSecond, pricesPerSlot, offsetPowerList);
+
+					if (null == cost) {
+
+						System.err.println("Error: device" + deviceNumber + " unable to determine cost for "
+								+ LocalDateTime.ofInstant(instant, ourZoneId).format(formatterDayHourMinuteSecond));
+
+						// skip half-hour
+
+						epochSecond += (1800 - 60);
+
+						continue;
+					}
 
 					if (0 == epochSecond % 1800) {
 
@@ -839,10 +864,10 @@ public class Octopussy {
 		return result;
 	}
 
-	private float analyseCost(long startingAtEpochSecond, List<SlotCost> pricesPerSlot,
+	private Float analyseCost(long startingAtEpochSecond, List<SlotCost> pricesPerSlot,
 			List<PowerDuration> offsetPowerList) {
 
-		float accumulatedCost = 0;
+		Float accumulatedCost = 0F;
 
 		// rebase the times in the device profile to match our new starting time
 
@@ -878,48 +903,48 @@ public class Octopussy {
 					System.err.println(
 							"last slot epoch is " + pricesPerSlot.get(pricesPerSlot.size() - 1).getSimpleTimeStamp()
 									+ "\t" + pricesPerSlot.get(pricesPerSlot.size() - 1).getEpochSecond());
-				} else {
 
-					Float priceAt = matchingSlot.getImportPrice();
+					return null;
+				}
 
-					// we have to see if the matching slot can accommodate the secs logged
-					// or if the secs need to span more than one slot
+				Float priceAt = matchingSlot.getImportPrice();
 
-					Integer secsRemainingInSlot = matchingSlot.getSecsRemaingInSlot();
+				// we have to see if the matching slot can accommodate the secs logged
+				// or if the secs need to span more than one slot
 
-					if (secsRemainingInSlot >= secs) {
+				Integer secsRemainingInSlot = matchingSlot.getSecsRemaingInSlot();
 
-						// we're ok
+				if (secsRemainingInSlot >= secs) {
 
-						float wattSeconds = watts * secs;
+					// we're ok
 
-						float kWhr = wattSeconds / 3600 / 1000;
-
-						float cost = kWhr * priceAt;
-
-						accumulatedCost += cost;
-
-						break;
-					}
-
-					// split the seconds across this and next slot and iterate until secs <
-					// secsRemainingInSlot
-
-					secs -= secsRemainingInSlot;
-
-					epochSecond += secsRemainingInSlot;
-
-					float wattSeconds = watts * secsRemainingInSlot;
+					float wattSeconds = watts * secs;
 
 					float kWhr = wattSeconds / 3600 / 1000;
 
 					float cost = kWhr * priceAt;
 
 					accumulatedCost += cost;
+
+					break;
 				}
 
-			} while (true);
+				// split the seconds across this and next slot and iterate until secs <
+				// secsRemainingInSlot
 
+				secs -= secsRemainingInSlot;
+
+				epochSecond += secsRemainingInSlot;
+
+				float wattSeconds = watts * secsRemainingInSlot;
+
+				float kWhr = wattSeconds / 3600 / 1000;
+
+				float cost = kWhr * priceAt;
+
+				accumulatedCost += cost;
+
+			} while (true);
 		}
 
 		return accumulatedCost;
