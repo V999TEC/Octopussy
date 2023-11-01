@@ -27,6 +27,7 @@ import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -632,9 +633,13 @@ public class Octopussy {
 			//
 			//
 
+			// ADVANCED: check for a devicesN=a,b,c etc and build a List of Set<Integer>
+
+			List<Set<Integer>> sampleGroups = instance.loadDeviceGroups();
+
 			// ADVANCED: check for a device profile deviceN=name
 
-			instance.matchDevices(pricesPerSlot);
+			instance.matchDevices(pricesPerSlot, sampleGroups);
 
 			System.exit(0);
 
@@ -648,7 +653,39 @@ public class Octopussy {
 		}
 	}
 
-	private void matchDevices(List<SlotCost> pricesPerSlot) throws FileNotFoundException {
+	private List<Set<Integer>> loadDeviceGroups() {
+
+		List<Set<Integer>> results = new ArrayList<Set<Integer>>();
+
+		int groupNumber = 0;
+
+		while (properties.containsKey("group" + String.valueOf(groupNumber))) {
+
+			String csvDevices = properties.getProperty("group" + String.valueOf(groupNumber));
+
+			String[] csv = csvDevices.split(",");
+
+			Set<Integer> group = new HashSet<Integer>(csv.length);
+
+			for (String value : csv) {
+
+				Integer number = Integer.valueOf(value);
+
+				group.add(number);
+			}
+
+			results.add(group);
+
+			groupNumber++;
+		}
+
+		return results;
+	}
+
+	private void matchDevices(List<SlotCost> pricesPerSlot, List<Set<Integer>> sampleGroups)
+			throws FileNotFoundException {
+
+		List<List<PowerDuration>> allSamples = new ArrayList<List<PowerDuration>>();
 
 		int lastSlot = pricesPerSlot.size() - 1;
 
@@ -657,9 +694,9 @@ public class Octopussy {
 
 		System.out.println("\nPrice data available for half-hour slots in the range " + startTime + " and " + stopTime);
 
-		int deviceNumber = 1;
+		int sampleNumber = 0;
 
-		while (properties.containsKey("device" + String.valueOf(deviceNumber))) {
+		while (properties.containsKey("sample" + String.valueOf(sampleNumber))) {
 
 			int accSeconds = 0;
 
@@ -667,7 +704,7 @@ public class Octopussy {
 
 			List<PowerDuration> offsetPowerList = new ArrayList<PowerDuration>();
 
-			File profileName = new File(properties.getProperty("device" + String.valueOf(deviceNumber)));
+			File profileName = new File(properties.getProperty("sample" + String.valueOf(sampleNumber)));
 
 			Scanner myReader = new Scanner(profileName);
 
@@ -717,10 +754,6 @@ public class Octopussy {
 
 			myReader.close();
 
-			int hours = accSeconds / 3600;
-			int mins = (accSeconds % 3600) / 60;
-			int secs = (accSeconds % 3600) % 60;
-
 			int lastIndex = offsetPowerList.size() - 1;
 
 			// if zero power on last element, remove it from list
@@ -738,104 +771,234 @@ public class Octopussy {
 				offsetPowerList.remove(0);
 			}
 
-			long startEpochSecond = pricesPerSlot.get(0).getEpochSecond();
+			allSamples.add(sampleNumber, offsetPowerList);
 
-			LocalDateTime ldt = LocalDateTime.ofInstant(Instant.now(), ourZoneId);
+			int group = -1;
 
-			int minute = ldt.getMinute();
+			for (int index = 0; index < sampleGroups.size(); index++) {
 
-			// how many minutes past the half-hour?
+				for (Integer value : sampleGroups.get(index)) {
 
-			if (minute > 29) {
+					if (value.equals(Integer.valueOf(sampleNumber))) {
 
-				minute -= 30;
+						group = index;
+
+						break;
+					}
+				}
+
+				if (-1 != group) {
+
+					break;
+				}
 			}
 
-			startEpochSecond += (60 * minute);
+			if (-1 == group) {
 
-			long stopEpochSecond = pricesPerSlot.get(lastSlot).getEpochSecond() + 1800 - accSeconds;
+				// now deduce the best time to start this device based on the sampled energy
+				// profile
 
-			if (stopEpochSecond < startEpochSecond) {
-
-				System.out.println("\n" + String.format("%30s", profileName.getName()) + " recorded: " + hours
-						+ " hours " + mins + " mins " + secs + " secs - too long a period to schedule now");
+				processSample(pricesPerSlot, sampleNumber, accSeconds, kWhr, profileName.getName(), offsetPowerList);
 
 			} else {
 
-				LocalDateTime rangeLimitFrom = LocalDateTime.ofInstant(Instant.ofEpochSecond(startEpochSecond),
-						ourZoneId);
-				LocalDateTime rangeLimitTo = LocalDateTime.ofInstant(Instant.ofEpochSecond(stopEpochSecond), ourZoneId);
-
-				System.out.println("\n" + String.format("%30s", profileName.getName()) + " recorded: " + hours
-						+ " hours " + mins + " mins " + secs + " secs & " + kWhr
-						+ " kWhr consumed. Schedule again between " + rangeLimitFrom.format(formatterDayHourMinute)
-						+ " and " + rangeLimitTo.format(formatterDayHourMinute));
-
-				Float highestCost = null;
-				Float lowestCost = null;
-				Float lowestCost30MinuteGranularity = null;
-
-				LocalDateTime timeOfHighestCost = null;
-				LocalDateTime timeOfLowestCost = null;
-				LocalDateTime timeOfLowest30MinuteGranularity = null;
-
-				for (long epochSecond = startEpochSecond; epochSecond < stopEpochSecond; epochSecond += 60) {
-
-					Instant instant = Instant.ofEpochSecond(epochSecond);
-
-					Float cost = analyseCost(epochSecond, pricesPerSlot, offsetPowerList);
-
-					if (null == cost) {
-
-						System.err.println("Error: device" + deviceNumber + " unable to determine cost for "
-								+ LocalDateTime.ofInstant(instant, ourZoneId).format(formatterDayHourMinuteSecond));
-
-						// skip half-hour
-
-						epochSecond += (1800 - 60);
-
-						continue;
-					}
-
-					if (0 == epochSecond % 1800) {
-
-						if (null == lowestCost30MinuteGranularity || cost < lowestCost30MinuteGranularity) {
-
-							lowestCost30MinuteGranularity = cost;
-
-							timeOfLowest30MinuteGranularity = LocalDateTime.ofInstant(instant, ourZoneId);
-						}
-					}
-
-					if (null == lowestCost || cost < lowestCost) {
-
-						timeOfLowestCost = LocalDateTime.ofInstant(instant, ourZoneId);
-
-						lowestCost = cost;
-					}
-
-					if (null == highestCost || cost > highestCost) {
-
-						timeOfHighestCost = LocalDateTime.ofInstant(instant, ourZoneId);
-
-						highestCost = cost;
-					}
-
-				}
-
-				System.out.println("\t\t" + timeOfHighestCost.format(formatterDayHourMinute) + "\t"
-						+ String.format("%5.2f", highestCost) + " p");
-
-				System.out.println("\t\t" + timeOfLowest30MinuteGranularity.format(formatterDayHourMinute) + "\t"
-						+ String.format("%5.2f", lowestCost30MinuteGranularity) + " p");
-
-				System.out.println("\t\t" + timeOfLowestCost.format(formatterDayHourMinute) + "\t"
-						+ String.format("%5.2f", lowestCost) + " p");
+				System.out.println("sample" + sampleNumber + " is part of group" + group + " and "
+						+ profileName.getName() + " will be combined with other sample(s) before cost assessment");
 			}
 
-			// now deduce the best time to start this device based on the energy profile
+			sampleNumber++;
+		}
 
-			deviceNumber++;
+		// now deal with the deferred samples that need to be combined
+
+		for (int index = 0; index < sampleGroups.size(); index++) {
+
+			List<PowerDuration> averageOffsetPowerList = new ArrayList<PowerDuration>();
+
+			// create 1-second granularity list to merge multiple samples and deduce an
+			// average profile
+
+//			float accWattSeconds = 0;
+
+			for (Integer sampleIndex : sampleGroups.get(index)) {
+
+				List<PowerDuration> offsetPowerList = allSamples.get(sampleIndex);
+
+				Long offset = 0L;
+
+				for (int i = 0; i < offsetPowerList.size(); i++) {
+
+					PowerDuration pd = offsetPowerList.get(i);
+
+					Integer duration = pd.getSecsDuration();
+
+					Float power = pd.getPower();
+
+//					accWattSeconds += (power * duration);
+
+					for (int d = 0; d < duration.intValue(); d++) {
+
+						PowerDuration pdMerge = null;
+
+						int last = averageOffsetPowerList.size() - 1;
+
+						if (offset > last) {
+
+							pdMerge = new PowerDuration();
+
+							pdMerge.setEpochSecond(offset);
+							pdMerge.setSecsDuration(1);
+							pdMerge.setPower(power);
+
+							averageOffsetPowerList.add(pdMerge);
+
+						} else {
+
+							pdMerge = averageOffsetPowerList.get(i);
+
+							pdMerge.setPower(power + pdMerge.getPower());
+						}
+
+						offset++;
+					}
+				}
+
+				String name = properties.getProperty("sample" + String.valueOf(sampleIndex));
+
+				System.out.println("group" + index + " : " + name);
+
+			}
+
+			int sampleSize = sampleGroups.get(index).size();
+
+//			System.out.println(
+//					"sample group " + index + "\taverage kWhr: " + (accWattSeconds / 3600 / 1000 / sampleSize));
+
+			// now find average power for each second by dividing by sample size
+
+			int secondsInList = averageOffsetPowerList.size();
+
+			float accPower = 0;
+
+			for (int s = 0; s < secondsInList; s++) {
+
+				PowerDuration pdMerge = averageOffsetPowerList.get(s);
+
+				float power = pdMerge.getPower() / sampleSize;
+
+				pdMerge.setPower(power);
+
+				accPower += power;
+			}
+
+			float kWhrAverage = accPower / 1000 / 3600;
+
+			processSample(pricesPerSlot, -1, secondsInList, kWhrAverage, "group" + index, averageOffsetPowerList);
+		}
+
+	}
+
+	private void processSample(List<SlotCost> pricesPerSlot, Integer sampleNumber, int accSeconds, float kWhr,
+			String name, List<PowerDuration> offsetPowerList) {
+
+		int lastSlot = pricesPerSlot.size() - 1;
+
+		int hours = accSeconds / 3600;
+		int mins = (accSeconds % 3600) / 60;
+		int secs = (accSeconds % 3600) % 60;
+
+		long startEpochSecond = pricesPerSlot.get(0).getEpochSecond();
+
+		LocalDateTime ldt = LocalDateTime.ofInstant(Instant.now(), ourZoneId);
+
+		int minute = ldt.getMinute();
+
+		// how many minutes past the half-hour?
+
+		if (minute > 29) {
+
+			minute -= 30;
+		}
+
+		startEpochSecond += (60 * minute);
+
+		long stopEpochSecond = pricesPerSlot.get(lastSlot).getEpochSecond() + 1800 - accSeconds;
+
+		if (stopEpochSecond < startEpochSecond) {
+
+			System.out.println("\n" + String.format("%30s", name) + " : " + hours + " hours " + mins + " mins " + secs
+					+ " secs - too long a period to schedule now");
+
+		} else {
+
+			LocalDateTime rangeLimitFrom = LocalDateTime.ofInstant(Instant.ofEpochSecond(startEpochSecond), ourZoneId);
+			LocalDateTime rangeLimitTo = LocalDateTime.ofInstant(Instant.ofEpochSecond(stopEpochSecond), ourZoneId);
+
+			System.out.println("\n" + String.format("%30s", name) + " : " + hours + " hours " + mins + " mins " + secs
+					+ " secs & " + kWhr + " kWhr consumed. Assessing costs between "
+					+ rangeLimitFrom.format(formatterDayHourMinute) + " and "
+					+ rangeLimitTo.format(formatterDayHourMinute));
+
+			Float highestCost = null;
+			Float lowestCost = null;
+			Float lowestCost30MinuteGranularity = null;
+
+			LocalDateTime timeOfHighestCost = null;
+			LocalDateTime timeOfLowestCost = null;
+			LocalDateTime timeOfLowest30MinuteGranularity = null;
+
+			for (long epochSecond = startEpochSecond; epochSecond < stopEpochSecond; epochSecond += 60) {
+
+				Instant instant = Instant.ofEpochSecond(epochSecond);
+
+				Float cost = analyseCost(epochSecond, pricesPerSlot, offsetPowerList);
+
+				if (null == cost) {
+
+					System.err.println("Error: sample" + sampleNumber + " unable to determine cost for "
+							+ LocalDateTime.ofInstant(instant, ourZoneId).format(formatterDayHourMinuteSecond));
+
+					// skip half-hour
+
+					epochSecond += (1800 - 60);
+
+					continue;
+				}
+
+				if (0 == epochSecond % 1800) {
+
+					if (null == lowestCost30MinuteGranularity || cost < lowestCost30MinuteGranularity) {
+
+						lowestCost30MinuteGranularity = cost;
+
+						timeOfLowest30MinuteGranularity = LocalDateTime.ofInstant(instant, ourZoneId);
+					}
+				}
+
+				if (null == lowestCost || cost < lowestCost) {
+
+					timeOfLowestCost = LocalDateTime.ofInstant(instant, ourZoneId);
+
+					lowestCost = cost;
+				}
+
+				if (null == highestCost || cost > highestCost) {
+
+					timeOfHighestCost = LocalDateTime.ofInstant(instant, ourZoneId);
+
+					highestCost = cost;
+				}
+
+			}
+
+			System.out.println("\t\t" + timeOfHighestCost.format(formatterDayHourMinute) + "\t"
+					+ String.format("%5.2f", highestCost) + " p");
+
+			System.out.println("\t\t" + timeOfLowest30MinuteGranularity.format(formatterDayHourMinute) + "\t"
+					+ String.format("%5.2f", lowestCost30MinuteGranularity) + " p");
+
+			System.out.println("\t\t" + timeOfLowestCost.format(formatterDayHourMinute) + "\t"
+					+ String.format("%5.2f", lowestCost) + " p");
 		}
 
 	}
@@ -868,6 +1031,8 @@ public class Octopussy {
 			List<PowerDuration> offsetPowerList) {
 
 		Float accumulatedCost = 0F;
+
+		Float accumulatedWattSeconds = 0F;
 
 		// rebase the times in the device profile to match our new starting time
 
@@ -920,6 +1085,8 @@ public class Octopussy {
 
 					float wattSeconds = watts * secs;
 
+					accumulatedWattSeconds += wattSeconds;
+
 					float kWhr = wattSeconds / 3600 / 1000;
 
 					float cost = kWhr * priceAt;
@@ -938,6 +1105,8 @@ public class Octopussy {
 
 				float wattSeconds = watts * secsRemainingInSlot;
 
+				accumulatedWattSeconds += wattSeconds;
+
 				float kWhr = wattSeconds / 3600 / 1000;
 
 				float cost = kWhr * priceAt;
@@ -946,6 +1115,8 @@ public class Octopussy {
 
 			} while (true);
 		}
+
+//		System.out.println("accumulatedWattSeconds: " + accumulatedWattSeconds);
 
 		return accumulatedCost;
 	}
