@@ -633,11 +633,11 @@ public class Octopussy {
 			//
 			//
 
-			// ADVANCED: check for a devicesN=a,b,c etc and build a List of Set<Integer>
+			// ADVANCED: check for a groupN=a,b,c etc and build a List of Set<Integer>
 
 			List<Set<Integer>> sampleGroups = instance.loadDeviceGroups();
 
-			// ADVANCED: check for a device profile deviceN=name
+			// ADVANCED: check for a device profile sampleN=name
 
 			instance.matchDevices(pricesPerSlot, sampleGroups);
 
@@ -818,8 +818,6 @@ public class Octopussy {
 			// create 1-second granularity list to merge multiple samples and deduce an
 			// average profile
 
-//			float accWattSeconds = 0;
-
 			for (Integer sampleIndex : sampleGroups.get(groupIndex)) {
 
 				List<PowerDuration> offsetPowerList = allSamples.get(sampleIndex);
@@ -833,8 +831,6 @@ public class Octopussy {
 					Integer duration = pd.getSecsDuration();
 
 					Float power = pd.getPower();
-
-//					accWattSeconds += (power * duration);
 
 					for (int d = 0; d < duration.intValue(); d++) {
 
@@ -870,13 +866,9 @@ public class Octopussy {
 				String name = properties.getProperty("sample" + String.valueOf(sampleIndex));
 
 				System.out.println("group" + groupIndex + " : " + name);
-
 			}
 
 			int sampleSize = sampleGroups.get(groupIndex).size();
-
-//			System.out.println(
-//					"sample group " + index + "\taverage kWhr: " + (accWattSeconds / 3600 / 1000 / sampleSize));
 
 			// now find average power for each second by dividing by sample size
 
@@ -908,12 +900,10 @@ public class Octopussy {
 				compressPowerList(fileName, averageOffsetPowerList);
 
 			} catch (IOException e) {
-				// TODO Auto-generated catch block
+
 				e.printStackTrace();
 			}
-
 		}
-
 	}
 
 	private void compressPowerList(String fileName, List<PowerDuration> averageOffsetPowerList) throws IOException {
