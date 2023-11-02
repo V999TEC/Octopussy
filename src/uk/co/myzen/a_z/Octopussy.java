@@ -739,7 +739,7 @@ public class Octopussy {
 
 				} else {
 
-					int pos = line.indexOf("kWhr consumed by");
+					int pos = line.indexOf("kWhr consumed ");
 
 					if (line.contains("day(s) from:") && -1 != pos) {
 
@@ -811,7 +811,7 @@ public class Octopussy {
 
 		// now deal with the deferred samples that need to be combined
 
-		for (int index = 0; index < sampleGroups.size(); index++) {
+		for (int groupIndex = 0; groupIndex < sampleGroups.size(); groupIndex++) {
 
 			List<PowerDuration> averageOffsetPowerList = new ArrayList<PowerDuration>();
 
@@ -820,11 +820,11 @@ public class Octopussy {
 
 //			float accWattSeconds = 0;
 
-			for (Integer sampleIndex : sampleGroups.get(index)) {
+			for (Integer sampleIndex : sampleGroups.get(groupIndex)) {
 
 				List<PowerDuration> offsetPowerList = allSamples.get(sampleIndex);
 
-				Long offset = 0L;
+				int offsetIntoAverageList = 0;
 
 				for (int i = 0; i < offsetPowerList.size(); i++) {
 
@@ -842,11 +842,13 @@ public class Octopussy {
 
 						int last = averageOffsetPowerList.size() - 1;
 
-						if (offset > last) {
+						if (offsetIntoAverageList > last) {
+
+							// need to extend the list
 
 							pdMerge = new PowerDuration();
 
-							pdMerge.setEpochSecond(offset);
+							pdMerge.setEpochSecond((long) offsetIntoAverageList);
 							pdMerge.setSecsDuration(1);
 							pdMerge.setPower(power);
 
@@ -854,22 +856,24 @@ public class Octopussy {
 
 						} else {
 
-							pdMerge = averageOffsetPowerList.get(i);
+							// need to update existing entry the list
+
+							pdMerge = averageOffsetPowerList.get(offsetIntoAverageList);
 
 							pdMerge.setPower(power + pdMerge.getPower());
 						}
 
-						offset++;
+						offsetIntoAverageList++;
 					}
 				}
 
 				String name = properties.getProperty("sample" + String.valueOf(sampleIndex));
 
-				System.out.println("group" + index + " : " + name);
+				System.out.println("group" + groupIndex + " : " + name);
 
 			}
 
-			int sampleSize = sampleGroups.get(index).size();
+			int sampleSize = sampleGroups.get(groupIndex).size();
 
 //			System.out.println(
 //					"sample group " + index + "\taverage kWhr: " + (accWattSeconds / 3600 / 1000 / sampleSize));
@@ -888,14 +892,120 @@ public class Octopussy {
 
 				pdMerge.setPower(power);
 
+				averageOffsetPowerList.set(s, pdMerge);
+
 				accPower += power;
 			}
 
 			float kWhrAverage = accPower / 1000 / 3600;
 
-			processSample(pricesPerSlot, -1, secondsInList, kWhrAverage, "group" + index, averageOffsetPowerList);
+			processSample(pricesPerSlot, -1, secondsInList, kWhrAverage, "group" + groupIndex, averageOffsetPowerList);
+
+			try {
+
+				String fileName = "Samples-" + properties.getProperty("group" + groupIndex) + ".log";
+
+				compressPowerList(fileName, averageOffsetPowerList);
+
+			} catch (IOException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			}
+
 		}
 
+	}
+
+	private void compressPowerList(String fileName, List<PowerDuration> averageOffsetPowerList) throws IOException {
+
+		File file = new File(fileName);
+
+		if (file.createNewFile()) {
+
+		} else {
+
+			// file already exists
+		}
+
+		OffsetDateTime odt = OffsetDateTime.ofInstant(Instant.now(), ourZoneId).withNano(0).withSecond(0);
+
+		long fromDay = odt.get(ChronoField.DAY_OF_YEAR);
+
+		String fromHHMM = odt.format(formatter24HourClock);
+
+		FileWriter fw = new FileWriter(file, false);
+
+		BufferedWriter bw = new BufferedWriter(fw);
+
+		String upTo = odt.plusSeconds(averageOffsetPowerList.size()).format(defaultDateTimeFormatter);
+
+		bw.write(fileName + " \"SmartPlug\" " + odt.format(defaultDateTimeFormatter) + " " + upTo);
+
+		bw.newLine();
+
+		int secsUsingPower = 0;
+
+		float accWattSeconds = 0f;
+
+		float wattSeconds;
+
+		int deferredSeconds = 0;
+
+		final int lastLine = averageOffsetPowerList.size() - 1;
+
+		for (int line = 0; line < lastLine + 1; line++) {
+
+			PowerDuration pd = averageOffsetPowerList.get(line);
+
+			Float power = +pd.getPower();
+
+			Integer secsDuration = pd.getSecsDuration();
+
+			if (power > 0) {
+
+				secsUsingPower += secsDuration;
+			}
+
+			Float nextPower = line < lastLine ? averageOffsetPowerList.get(1 + line).getPower() : -1f;
+
+			if (power.equals(nextPower)) {
+
+				deferredSeconds++;
+
+			} else {
+
+				Integer duration = secsDuration + deferredSeconds;
+
+				wattSeconds = power * duration;
+
+				accWattSeconds += wattSeconds;
+
+				bw.write(odt.format(defaultDateTimeFormatter) + "\t" + String.format("%7.1f", power) + "\twatts for\t"
+						+ String.format("%8d", duration) + "\tseconds\t" + String.format("%10.2f", wattSeconds)
+						+ " watt-seconds ( " + String.format("%12.2f", accWattSeconds) + " accumulated)");
+				bw.newLine();
+
+				deferredSeconds = 0;
+
+				odt = odt.plusSeconds(duration);
+			}
+		}
+
+		float kWhr = accWattSeconds / 3600 / 1000;
+
+		long toDay = odt.get(ChronoField.DAY_OF_YEAR);
+
+		String toHHMM = odt.format(formatter24HourClock);
+
+		bw.write((toDay - fromDay + 1) + " day(s) from: " + fromHHMM + " on day " + fromDay + " to " + toHHMM
+				+ " on day " + toDay + " " + String.format("%8.3f", kWhr) + " kWhr consumed via SmartPlug ( "
+				+ secsUsingPower + " secs using power)");
+
+		bw.newLine();
+
+		bw.close();
+
+		fw.close();
 	}
 
 	private void processSample(List<SlotCost> pricesPerSlot, Integer sampleNumber, int accSeconds, float kWhr,
