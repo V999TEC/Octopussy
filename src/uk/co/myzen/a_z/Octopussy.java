@@ -700,8 +700,6 @@ public class Octopussy {
 
 			int accSeconds = 0;
 
-			float kWhr = 0;
-
 			List<PowerDuration> offsetPowerList = new ArrayList<PowerDuration>();
 
 			File profileName = new File(properties.getProperty("sample" + String.valueOf(sampleNumber)));
@@ -745,7 +743,7 @@ public class Octopussy {
 
 						// assume last significant line for this device
 
-						kWhr = Float.parseFloat(line.substring(pos - 10, pos).trim());
+						Float.parseFloat(line.substring(pos - 10, pos).trim());
 
 						break;
 					}
@@ -836,15 +834,15 @@ public class Octopussy {
 
 			int secondsInList = averageOffsetPowerList.size();
 
-			float accWatts = 0;
+//			float accWatts = 0;
 
-			float accWattSeconds = 0;
+//			float accWattSeconds = 0;
 
-			int seconds = 0;
+//			int seconds = 0;
 
 			for (int s = 0; s < secondsInList; s++) {
 
-				seconds++;
+//				seconds++;
 
 				PowerDuration pdMerge = averageOffsetPowerList.get(s);
 
@@ -854,7 +852,7 @@ public class Octopussy {
 
 				pdMerge.setPower(avWatts);
 
-				accWatts += power;
+//				accWatts += power;
 
 				averageOffsetPowerList.set(s, pdMerge);
 
@@ -862,10 +860,10 @@ public class Octopussy {
 
 					// next entry is different power level
 
-					accWattSeconds += (accWatts * seconds);
+//					accWattSeconds += (accWatts * seconds);
 
-					accWatts = 0;
-					seconds = 0;
+//					accWatts = 0;
+//					seconds = 0;
 				}
 			}
 
@@ -1136,8 +1134,8 @@ public class Octopussy {
 
 		} else {
 
-			LocalDateTime rangeLimitFrom = LocalDateTime.ofInstant(Instant.ofEpochSecond(startEpochSecond), ourZoneId);
-			LocalDateTime rangeLimitTo = LocalDateTime.ofInstant(Instant.ofEpochSecond(stopEpochSecond), ourZoneId);
+//			LocalDateTime rangeLimitFrom = LocalDateTime.ofInstant(Instant.ofEpochSecond(startEpochSecond), ourZoneId);
+//			LocalDateTime rangeLimitTo = LocalDateTime.ofInstant(Instant.ofEpochSecond(stopEpochSecond), ourZoneId);
 
 //			System.out.println("\n" + String.format("%30s", name) + " : " + hours + " hours " + mins + " mins " + secs
 //					+ " secs & " + String.format("%6.3f", kWhr) + " kWhr consumed. Assessing costs between "
@@ -3169,7 +3167,7 @@ public class Octopussy {
 
 		// Add history data for any non-null consumptions
 
-		int tallyHistory = 0;
+//		int tallyHistory = 0;
 
 		for (Long key : history.keySet()) {
 
@@ -3194,7 +3192,7 @@ public class Octopussy {
 				continue;
 			}
 
-			tallyHistory++;
+//			tallyHistory++;
 
 			// assume history up to someDaysAgo has consumption & price available
 
