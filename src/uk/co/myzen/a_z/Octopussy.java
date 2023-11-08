@@ -798,13 +798,14 @@ public class Octopussy {
 				// now deduce the best time to start this device based on the sampled energy
 				// profile
 
-				processSample(pricesPerSlot, sampleNumber, accSeconds, kWhr, profileName.getName(), offsetPowerList);
+				processSample(pricesPerSlot, sampleNumber, accSeconds, profileName.getName(), offsetPowerList);
 
-			} else {
-
-				System.out.println("sample" + sampleNumber + " is part of group" + group + " and "
-						+ profileName.getName() + " will be combined with other sample(s) before cost assessment");
 			}
+//			else {
+//
+//				System.out.println("sample" + sampleNumber + " is part of group" + group + " and "
+//						+ profileName.getName() + " will be combined with other sample(s) before cost assessment");
+//			}
 
 			sampleNumber++;
 		}
@@ -868,9 +869,7 @@ public class Octopussy {
 				}
 			}
 
-			float kWhrAverage = accWattSeconds / 1000 / 3600 / sampleSize;
-
-			processSample(pricesPerSlot, -1, secondsInList, kWhrAverage, "group" + groupIndex, averageOffsetPowerList);
+			processSample(pricesPerSlot, -1, secondsInList, "group" + groupIndex, averageOffsetPowerList);
 
 			try {
 
@@ -897,13 +896,6 @@ public class Octopussy {
 			Integer duration = pd.getSecsDuration();
 
 			Float power = pd.getPower();
-
-			// if we are going to spread the power over the duration we must divide it
-
-			if (duration > 0) {
-
-				power = power / duration;
-			}
 
 			for (int d = 0; d < duration.intValue(); d++) {
 
@@ -940,6 +932,83 @@ public class Octopussy {
 		}
 
 		return averageOffsetPowerList;
+	}
+
+	private void dumpPowerList(String fileName, List<PowerDuration> offsetPowerList) throws IOException {
+
+		File file = new File(fileName);
+
+		if (file.createNewFile()) {
+
+		} else {
+
+			// file already exists
+		}
+
+		OffsetDateTime odt = OffsetDateTime.ofInstant(Instant.now(), ourZoneId).withNano(0).withSecond(0);
+
+		long fromDay = odt.get(ChronoField.DAY_OF_YEAR);
+
+		String fromHHMM = odt.format(formatter24HourClock);
+
+		FileWriter fw = new FileWriter(file, false);
+
+		BufferedWriter bw = new BufferedWriter(fw);
+
+		String upTo = odt.plusSeconds(offsetPowerList.size()).format(defaultDateTimeFormatter);
+
+		bw.write(fileName + " \"SmartPlug\" " + odt.format(defaultDateTimeFormatter) + " " + upTo);
+
+		bw.newLine();
+
+		int secsUsingPower = 0;
+
+		float accWattSeconds = 0f;
+
+		float wattSeconds;
+
+		final int lastLine = offsetPowerList.size() - 1;
+
+		for (int line = 0; line < lastLine + 1; line++) {
+
+			PowerDuration pd = offsetPowerList.get(line);
+
+			Float power = pd.getPower();
+
+			Integer secsDuration = pd.getSecsDuration();
+
+			if (power > 0) {
+
+				secsUsingPower += secsDuration;
+			}
+
+			wattSeconds = power * secsDuration;
+
+			accWattSeconds += wattSeconds;
+
+			bw.write(odt.format(defaultDateTimeFormatter) + "\t" + String.format("%7.1f", power) + "\twatts for\t"
+					+ String.format("%8d", secsDuration) + "\tseconds\t" + String.format("%10.2f", wattSeconds)
+					+ " watt-seconds ( " + String.format("%12.2f", accWattSeconds) + " accumulated)");
+			bw.newLine();
+
+			odt = odt.plusSeconds(secsDuration);
+		}
+
+		float kWhr = accWattSeconds / 3600 / 1000;
+
+		long toDay = odt.get(ChronoField.DAY_OF_YEAR);
+
+		String toHHMM = odt.format(formatter24HourClock);
+
+		bw.write((toDay - fromDay + 1) + " day(s) from: " + fromHHMM + " on day " + fromDay + " to " + toHHMM
+				+ " on day " + toDay + " " + String.format("%8.3f", kWhr) + " kWhr consumed via SmartPlug ( "
+				+ secsUsingPower + " secs using power)");
+
+		bw.newLine();
+
+		bw.close();
+
+		fw.close();
 	}
 
 	private void compressPowerList(String fileName, List<PowerDuration> averageOffsetPowerList) throws IOException {
@@ -1002,8 +1071,6 @@ public class Octopussy {
 
 				Integer duration = secsDuration + deferredSeconds;
 
-				power = power * duration;
-
 				wattSeconds = power * duration;
 
 				accWattSeconds += wattSeconds;
@@ -1036,8 +1103,8 @@ public class Octopussy {
 		fw.close();
 	}
 
-	private void processSample(List<SlotCost> pricesPerSlot, Integer sampleNumber, int accSeconds, float kWhr,
-			String name, List<PowerDuration> offsetPowerList) {
+	private void processSample(List<SlotCost> pricesPerSlot, Integer sampleNumber, int accSeconds, String name,
+			List<PowerDuration> offsetPowerList) {
 
 		int lastSlot = pricesPerSlot.size() - 1;
 
@@ -1137,15 +1204,27 @@ public class Octopussy {
 
 			long epochTime = timeOfLowestCost.toEpochSecond(ZoneOffset.UTC);
 
-			List<PowerDuration> expandedOffsetPowerList = expandMergePowerList(new ArrayList<PowerDuration>(),
-					offsetPowerList, epochTime);
+			List<PowerDuration> expandedOffsetPowerList;
 
-			// the list just created will have 1 entry per second based at the start time
-			// thus the number of entries in list will give an indication of time elapsed
+			if (offsetPowerList.size() == accSeconds) {
 
-			int secsRemaining = expandedOffsetPowerList.size();
+				// we know for sure the supplied powerList is already 1 second per entry
+				// so we do not need to expand it
 
-			List<Float> accumulatedWattsSeconds = new ArrayList<Float>(secsRemaining);
+				expandedOffsetPowerList = offsetPowerList;
+
+			} else {
+
+				expandedOffsetPowerList = expandMergePowerList(new ArrayList<PowerDuration>(), offsetPowerList,
+						epochTime);
+			}
+
+			// expandedOffsetPowerList will have 1 entry per second based at the start time
+			// thus the number of entries in list will infer time elapsed
+
+			int elapsedSecs = expandedOffsetPowerList.size();
+
+			List<Float> accumulatedWattsSeconds = new ArrayList<Float>(elapsedSecs);
 
 			Float aws = 0f;
 
@@ -1165,11 +1244,15 @@ public class Octopussy {
 				}
 			}
 
-			float equivalentWatts = accumulatedWattsSeconds.get(secsRemaining - 1) / secsRemaining;
+			float wattSeconds = accumulatedWattsSeconds.get(elapsedSecs - 1);
+
+			float equivalentWatts = wattSeconds / elapsedSecs;
+
+			float kWhr = wattSeconds / 3600 / 1000;
 
 			System.out.println("\n" + String.format("%30s", name) + " : " + hours + " hours " + mins + " mins " + secs
 					+ " secs & " + String.format("%6.3f", kWhr) + " kWhr consumed equivalent to "
-					+ String.format("%4.1f", equivalentWatts) + " watts averaged over " + secsRemaining + " secs");
+					+ String.format("%4.1f", equivalentWatts) + " watts averaged over " + elapsedSecs + " secs");
 
 //					Assessing costs between "
 //					+ rangeLimitFrom.format(formatterDayHourMinute) + " and "
@@ -1181,7 +1264,7 @@ public class Octopussy {
 			System.out.println("\t" + timeOfLowest30MinuteGranularity.format(formatterDayHourMinute) + "\t"
 					+ String.format("%5.2f", lowestCost30MinuteGranularity) + " p");
 
-			long epochTimeLimit = epochTime + secsRemaining;
+			long epochTimeLimit = epochTime + elapsedSecs;
 
 			StringBuffer sbSlotPrices = new StringBuffer();
 			StringBuffer sbSlotSeconds = new StringBuffer();
@@ -1196,27 +1279,28 @@ public class Octopussy {
 
 				Float importPrice = matchingSlot.getImportPrice();
 
-				sbSlotPrices.append(String.format("%5s", importPrice));
-				sbSlotPrices.append("p ");
+				sbSlotPrices.append(String.format("%6s", importPrice));
 
 				Integer secsRemainingInSlot = matchingSlot.getSecsRemaingInSlot();
 
-				if (secsRemaining <= secsRemainingInSlot) {
+				if (elapsedSecs <= secsRemainingInSlot) {
 
 					// final slot
 
-					stopIndex += secsRemaining;
+					stopIndex += elapsedSecs;
 
 					float wattsPerSlot = accumulatedWattsSeconds.get(stopIndex - 1)
 							- accumulatedWattsSeconds.get(startIndex);
 
-					String text = String.format("%5.1f", wattsPerSlot / secsRemaining);
+					String text = String.format("%6.1f", wattsPerSlot / elapsedSecs);
 
 					sbSlotWatts.append(text);
 					sbSlotWatts.append('w');
 
-					sbSlotSeconds.append(String.format("%5d", secsRemaining));
+					sbSlotSeconds.append(String.format("%6d", elapsedSecs));
 					sbSlotSeconds.append('s');
+
+					sbSlotPrices.append('p');
 
 				} else {
 					// will loop again
@@ -1226,22 +1310,22 @@ public class Octopussy {
 					float wattsPerSlot = accumulatedWattsSeconds.get(stopIndex - 1)
 							- accumulatedWattsSeconds.get(startIndex);
 
-					String text = String.format("%5.1f", wattsPerSlot / secsRemainingInSlot);
+					String text = String.format("%6.1f", wattsPerSlot / secsRemainingInSlot);
 
 					sbSlotWatts.append(text);
-					sbSlotWatts.append("w / ");
+					sbSlotWatts.append("w /");
 
-					sbSlotSeconds.append(String.format("%5d", secsRemainingInSlot));
-					sbSlotSeconds.append("s / ");
+					sbSlotSeconds.append(String.format("%6d", secsRemainingInSlot));
+					sbSlotSeconds.append("s /");
 
-					sbSlotPrices.append("/ ");
+					sbSlotPrices.append("p /");
 				}
 
 				startIndex = stopIndex;
 
 				epochTime += secsRemainingInSlot;
 
-				secsRemaining -= secsRemainingInSlot; // could go negative
+				elapsedSecs -= secsRemainingInSlot; // could go negative
 
 			} while (epochTime < epochTimeLimit);
 
