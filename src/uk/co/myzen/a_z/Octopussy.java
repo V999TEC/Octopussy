@@ -410,13 +410,6 @@ public class Octopussy {
 				agileResultsImport.addAll(pageAgileResults);
 			}
 
-//			if (extra) {
-//
-//				System.out.println("\nPeriods of unit price import data obtained: " + v1AgileFlex.getCount() + "\t"
-//						+ agileResultsImport.get(agileResultsImport.size() - 1).getValidFrom() + "\t"
-//						+ agileResultsImport.get(0).getValidTo());
-//			}
-
 			ArrayList<Agile> agileResultsExport = null; // only populated if export=true in octopussy.properties
 
 			if (export) {
@@ -424,12 +417,6 @@ public class Octopussy {
 				v1AgileFlex = instance.getV1AgileFlexExport(48 * howManyDaysHistory, beginRecentPeriod, null);
 
 				agileResultsExport = v1AgileFlex.getAgileResults();
-
-//				if (extra) {
-//					System.out.println("\nPeriods of unit price export data obtained: " + v1AgileFlex.getCount() + "\t"
-//							+ agileResultsExport.get(agileResultsExport.size() - 1).getValidFrom() + "\t"
-//							+ agileResultsExport.get(0).getValidTo());
-//				}
 			}
 
 			Map<LocalDateTime, ImportExportData> importExportPriceMap = instance.createPriceMap(agileResultsImport,
@@ -797,13 +784,7 @@ public class Octopussy {
 				// profile
 
 				processSample(pricesPerSlot, sampleNumber, accSeconds, profileName.getName(), offsetPowerList);
-
 			}
-//			else {
-//
-//				System.out.println("sample" + sampleNumber + " is part of group" + group + " and "
-//						+ profileName.getName() + " will be combined with other sample(s) before cost assessment");
-//			}
 
 			sampleNumber++;
 		}
@@ -834,15 +815,7 @@ public class Octopussy {
 
 			int secondsInList = averageOffsetPowerList.size();
 
-//			float accWatts = 0;
-
-//			float accWattSeconds = 0;
-
-//			int seconds = 0;
-
 			for (int s = 0; s < secondsInList; s++) {
-
-//				seconds++;
 
 				PowerDuration pdMerge = averageOffsetPowerList.get(s);
 
@@ -852,19 +825,7 @@ public class Octopussy {
 
 				pdMerge.setPower(avWatts);
 
-//				accWatts += power;
-
 				averageOffsetPowerList.set(s, pdMerge);
-
-				if ((s + 1) == secondsInList || power != averageOffsetPowerList.get(1 + s).getPower()) {
-
-					// next entry is different power level
-
-//					accWattSeconds += (accWatts * seconds);
-
-//					accWatts = 0;
-//					seconds = 0;
-				}
 			}
 
 			processSample(pricesPerSlot, -1, secondsInList, "group" + groupIndex, averageOffsetPowerList);
@@ -1134,14 +1095,6 @@ public class Octopussy {
 
 		} else {
 
-//			LocalDateTime rangeLimitFrom = LocalDateTime.ofInstant(Instant.ofEpochSecond(startEpochSecond), ourZoneId);
-//			LocalDateTime rangeLimitTo = LocalDateTime.ofInstant(Instant.ofEpochSecond(stopEpochSecond), ourZoneId);
-
-//			System.out.println("\n" + String.format("%30s", name) + " : " + hours + " hours " + mins + " mins " + secs
-//					+ " secs & " + String.format("%6.3f", kWhr) + " kWhr consumed. Assessing costs between "
-//					+ rangeLimitFrom.format(formatterDayHourMinute) + " and "
-//					+ rangeLimitTo.format(formatterDayHourMinute));
-
 			Float highestCost = null;
 			Float lowestCost = null;
 			Float lowestCost30MinuteGranularity = null;
@@ -1194,12 +1147,6 @@ public class Octopussy {
 
 			}
 
-//			System.out.println("\t" + timeOfHighestCost.format(formatterDayHourMinute) + "\t"
-//					+ String.format("%5.2f", highestCost) + " p");
-//
-//			System.out.println("\t" + timeOfLowest30MinuteGranularity.format(formatterDayHourMinute) + "\t"
-//					+ String.format("%5.2f", lowestCost30MinuteGranularity) + " p");
-
 			long epochTime = timeOfLowestCost.toEpochSecond(ZoneOffset.UTC);
 
 			List<PowerDuration> expandedOffsetPowerList;
@@ -1251,10 +1198,6 @@ public class Octopussy {
 			System.out.println("\n" + String.format("%30s", name) + " : " + hours + " hours " + mins + " mins " + secs
 					+ " secs & " + String.format("%6.3f", kWhr) + " kWhr consumed equivalent to "
 					+ String.format("%4.1f", equivalentWatts) + " watts averaged over " + elapsedSecs + " secs");
-
-//					Assessing costs between "
-//					+ rangeLimitFrom.format(formatterDayHourMinute) + " and "
-//					+ rangeLimitTo.format(formatterDayHourMinute));
 
 			System.out.println("\t" + timeOfHighestCost.format(formatterDayHourMinute) + "\t"
 					+ String.format("%5.2f", highestCost) + " p");
@@ -1447,8 +1390,6 @@ public class Octopussy {
 
 			} while (true);
 		}
-
-//		System.out.println("accumulatedWattSeconds: " + accumulatedWattSeconds);
 
 		return accumulatedCost;
 	}
@@ -1859,11 +1800,6 @@ public class Octopussy {
 				String propertyKey = value.substring(1 + p, q);
 
 				value = value.substring(0, p) + properties.getProperty(propertyKey) + value.substring(1 + q);
-
-//				if (extra) {
-//
-//					System.err.println(key + "\t" + propertyKey + "\t" + value);
-//				}
 
 				properties.setProperty(key, value);
 			}
@@ -2527,7 +2463,6 @@ public class Octopussy {
 			long epochActualFrom = offsetDateTime.toEpochSecond();
 
 			float valueExcVat = agile.getValueExcVat();
-//			float valueIncVat = agile.getValueIncVat();
 
 			ConsumptionHistory consumptionLatest = new ConsumptionHistory();
 
@@ -2583,7 +2518,6 @@ public class Octopussy {
 				ZonedDateTime instant = ZonedDateTime.of(ldt, ZoneId.of("UTC"));
 				LocalDateTime actual = instant.withZoneSameInstant(ourZoneId).toLocalDateTime();
 
-//				float valueIncVat = agile.getValueIncVat();
 				float valueExcVat = agile.getValueExcVat();
 
 				ImportExportData importExportPrices = priceMap.get(actual);
@@ -2966,7 +2900,6 @@ public class Octopussy {
 
 			String clockHHMM = "";
 
-//			if (extended > 0)
 			{
 
 				Long epochSecond = slotCost.getEpochSecond();
@@ -3116,12 +3049,6 @@ public class Octopussy {
 
 			Float halfHourCharge = consumption * halfHourPrice;
 
-//			if (extra) {
-//
-//				System.out.println("\t" + intervalStart + "\t" + halfHourPrice + "\t* " + consumption + "\t="
-//						+ String.format("%10.6f", halfHourCharge) + " p");
-//			}
-
 			DayValues dayValues = null;
 
 			if (elecMapDaily.containsKey(key)) {
@@ -3167,8 +3094,6 @@ public class Octopussy {
 
 		// Add history data for any non-null consumptions
 
-//		int tallyHistory = 0;
-
 		for (Long key : history.keySet()) {
 
 			ConsumptionHistory value = history.get(key);
@@ -3192,8 +3117,6 @@ public class Octopussy {
 				continue;
 			}
 
-//			tallyHistory++;
-
 			// assume history up to someDaysAgo has consumption & price available
 
 			V1PeriodConsumption entry = new V1PeriodConsumption();
@@ -3213,26 +3136,7 @@ public class Octopussy {
 			}
 
 			periodResults.add(entry);
-
-//			if (extra) {
-//
-//				Float halfHourCharge = consumption * halfHourPrice;
-//
-//				String intervalStart = timestamp;
-//
-//				System.out.println("\t" + intervalStart + "\t" + halfHourPrice + "\t* " + consumption + "\t="
-//						+ String.format("%10.6f", halfHourCharge) + " p");
-//			}
-
 		}
-
-//		if (extra) {
-//
-//			System.out.println("\nLatest available consumption data obtained: " + count + " plus added from history: "
-//					+ tallyHistory
-//
-//					+ "\tRequired: " + 48 * howManyDaysHistory + " ( = " + howManyDaysHistory + " day(s) )");
-//		}
 
 		return periodResults;
 
