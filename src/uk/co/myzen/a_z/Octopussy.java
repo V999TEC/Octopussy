@@ -1097,11 +1097,11 @@ public class Octopussy {
 
 			Float highestCost = null;
 			Float lowestCost = null;
-			Float lowestCost30MinuteGranularity = null;
+//			Float lowestCost30MinuteGranularity = null;
 
 			LocalDateTime timeOfHighestCost = null;
 			LocalDateTime timeOfLowestCost = null;
-			LocalDateTime timeOfLowest30MinuteGranularity = null;
+//			LocalDateTime timeOfLowest30MinuteGranularity = null;
 
 			for (long epochSecond = startEpochSecond; epochSecond < stopEpochSecond; epochSecond += 60) {
 
@@ -1121,15 +1121,15 @@ public class Octopussy {
 					continue;
 				}
 
-				if (0 == epochSecond % 1800) {
-
-					if (null == lowestCost30MinuteGranularity || cost < lowestCost30MinuteGranularity) {
-
-						lowestCost30MinuteGranularity = cost;
-
-						timeOfLowest30MinuteGranularity = LocalDateTime.ofInstant(instant, ourZoneId);
-					}
-				}
+//				if (0 == epochSecond % 1800) {
+//
+//					if (null == lowestCost30MinuteGranularity || cost < lowestCost30MinuteGranularity) {
+//
+//						lowestCost30MinuteGranularity = cost;
+//
+//						timeOfLowest30MinuteGranularity = LocalDateTime.ofInstant(instant, ourZoneId);
+//					}
+//				}
 
 				if (null == lowestCost || cost < lowestCost) {
 
@@ -1202,8 +1202,8 @@ public class Octopussy {
 			System.out.println("\t" + timeOfHighestCost.format(formatterDayHourMinute) + "\t"
 					+ String.format("%5.2f", highestCost) + " p");
 
-			System.out.println("\t" + timeOfLowest30MinuteGranularity.format(formatterDayHourMinute) + "\t"
-					+ String.format("%5.2f", lowestCost30MinuteGranularity) + " p");
+//			System.out.println("\t" + timeOfLowest30MinuteGranularity.format(formatterDayHourMinute) + "\t"
+//					+ String.format("%5.2f", lowestCost30MinuteGranularity) + " p");
 
 			long epochTimeLimit = epochTime + elapsedSecs;
 
