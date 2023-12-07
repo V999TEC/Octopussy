@@ -2623,18 +2623,20 @@ public class Octopussy {
 			float standardCharge = Float.valueOf(properties.getProperty(KEY_FLEXIBLE_ELECTRICITY_STANDING,
 					DEFAULT_FLEXIBLE_ELECTRICITY_STANDING_PROPERTY));
 
-			float difference = (standardPrice + standardCharge) - (agilePrice + agileCharge);
+			float agileCost = agilePrice + agileCharge;
+
+			float difference = (standardPrice + standardCharge) - agileCost;
 
 			float lowestPrice = dayValues.getLowestPrice();
 
 			float dailyAverageUnitPrice = agilePrice / consumption;
 
-			System.out.println(dayValues.getDayOfWeek() + (lowestPrice < plunge ? " * " : "   ") + key
-					+ (lowestPrice < plunge ? String.format("%6.2f", lowestPrice) + "p " : "        ")
-					+ String.format("%7.3f", consumption) + " kWhr  Agile: " + String.format("%8.4f", agilePrice)
-					+ "p +" + agileCharge + "p (X: " + String.format("%8.4f", standardPrice) + "p +" + standardCharge
-					+ "p)  saving: £" + String.format("%5.2f", (difference / 100)) + "  @ "
-					+ String.format("%.2f", dailyAverageUnitPrice) + "p per unit");
+			System.out.println(dayValues.getDayOfWeek() + (lowestPrice < plunge ? " * " : "   ") + key + "  £"
+					+ String.format("%5.2f", agileCost / 100) + " " + String.format("%7.3f", consumption)
+					+ " kWhr  Agile: " + String.format("%8.4f", agilePrice) + "p +" + agileCharge + "p (X: "
+					+ String.format("%8.4f", standardPrice) + "p +" + standardCharge + "p)  saving: £"
+					+ String.format("%5.2f", (difference / 100)) + "  @ " + String.format("%.2f", dailyAverageUnitPrice)
+					+ "p per unit");
 
 			accumulateDifference += difference;
 
@@ -2656,7 +2658,7 @@ public class Octopussy {
 		System.out.println("\nOver " + countDays + " days, using " + String.format("%.3f", accumulatePower)
 				+ " kWhr, Agile has saved £" + pounds2DP + " compared to the " + flatRate + "p (X) flat rate tariff");
 		System.out.println("Average daily saving: £" + averagePounds2DP + " Recent average cost per unit (A): "
-				+ averageCostPerUnit + "p and daily power usage: " + averagePower + " kWhr");
+				+ averageCostPerUnit + "p and daily grid import: " + averagePower + " kWhr");
 
 		return unitCostAverage.intValue();
 	}
