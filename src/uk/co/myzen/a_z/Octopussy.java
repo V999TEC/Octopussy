@@ -2655,7 +2655,7 @@ public class Octopussy {
 
 		String averagePower = String.format("%.3f", accumulatePower / countDays);
 
-		System.out.println("\nOver " + countDays + " days, using " + String.format("%.3f", accumulatePower)
+		System.out.println("\nOver " + countDays + " days, importing " + String.format("%.3f", accumulatePower)
 				+ " kWhr, Agile has saved £" + pounds2DP + " compared to the " + flatRate + "p (X) flat rate tariff");
 		System.out.println("Average daily saving: £" + averagePounds2DP + " Recent average cost per unit (A): "
 				+ averageCostPerUnit + "p and daily grid import: " + averagePower + " kWhr");
