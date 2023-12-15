@@ -107,6 +107,7 @@ public class Octopussy {
 	private final static String DEFAULT_POSTCODE_PROPERTY = "?";
 	private final static String DEFAULT_REGION_PROPERTY = "H";
 	private final static String DEFAULT_EXTRA_PROPERTY = "false";
+	private final static String DEFAULT_CHECK_PROPERTY = "false";
 	private final static String DEFAULT_ELECTRICTY_MPRN_PROPERTY = "200001010163";
 	private final static String DEFAULT_ELECTRICTY_SN_PROPERTY = "21L010101";
 
@@ -174,7 +175,9 @@ public class Octopussy {
 	private final static String KEY_DAY_FROM = "day.from";
 	private final static String KEY_DAY_TO = "day.to";
 
+	private final static String KEY_CHECK = "check";
 	private final static String KEY_EXTRA = "extra";
+
 	private final static String KEY_REFERRAL = "referral";
 
 	private final static String[] defaultPropertyKeys = { KEY_APIKEY, "#", KEY_BASE_URL, "#", KEY_ELECTRICITY_MPRN,
@@ -184,7 +187,7 @@ public class Octopussy {
 			KEY_IMPORT_PRODUCT_CODE, KEY_TARIFF_CODE, KEY_TARIFF_URL, KEY_REGION, KEY_POSTCODE, KEY_ZONE_ID,
 			KEY_HISTORY, "#", KEY_EXPORT_PRODUCT_CODE, KEY_EXPORT_TARIFF_CODE, KEY_EXPORT_TARIFF_URL, KEY_EXPORT, "#",
 			KEY_DAYS, KEY_PLUNGE, KEY_TARGET, KEY_WIDTH, KEY_ANSI, KEY_COLOUR, KEY_COLOR, "#", KEY_YEARLY, KEY_MONTHLY,
-			KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO, "#", KEY_EXTRA, KEY_REFERRAL };
+			KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO, "#", KEY_CHECK, KEY_EXTRA, "#", KEY_REFERRAL };
 
 	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd pph:mm a");
 
@@ -212,7 +215,8 @@ public class Octopussy {
 
 	private static boolean export;
 
-	private static boolean extra = false; // overridden by extra=true|false in properties
+	private static String extra = "false"; // overridden by extra=value in properties
+	private static String check = "false"; // overridden by check=value in properties
 
 	private static boolean usingExternalPropertyFile = false;
 
@@ -1783,7 +1787,8 @@ public class Octopussy {
 			}
 		}
 
-		extra = Boolean.valueOf(properties.getProperty(KEY_EXTRA, DEFAULT_EXTRA_PROPERTY).trim());
+		extra = properties.getProperty(KEY_EXTRA, DEFAULT_EXTRA_PROPERTY).trim();
+		check = properties.getProperty(KEY_CHECK, DEFAULT_CHECK_PROPERTY).trim();
 
 		// expand properties substituting $key$ values
 
@@ -2357,6 +2362,31 @@ public class Octopussy {
 		System.out.println(
 				"\nUpcoming best " + (ansi ? ANSI_COLOUR_LO + "import" + ANSI_RESET : "import") + " price periods:");
 
+		// default values for %1 %2 %3 when extra=java -jar plugs.jar
+		// ./SwindonIcarus.properties inverter setting A %1 %2 %3
+		String from = "01:30";
+
+		String to = "04:00";
+
+		String power = "3680";
+
+		if (!"false".equalsIgnoreCase(check)) {
+
+			String[] cmdarray = check.split(" ");
+
+			String value = exec(cmdarray);
+
+			int beginIndex = value.indexOf("\"value\" : \"") + 11;
+			int endIndex = value.indexOf("\"", beginIndex);
+
+			to = value.substring(beginIndex, endIndex);
+		}
+
+		// assume extra contains a cmdarray to execute in a separate process
+		// java -jar plugs.jar ./SwindonIcarus.properties inverter setting A %1 %2 %3
+
+		// substitute from, to and power for %1,%2 and %3 respectively
+
 		ArrayList<Long> bestStartTime = new ArrayList<Long>();
 
 		int widestPeriod = 1 + extended;
@@ -2435,10 +2465,103 @@ public class Octopussy {
 					+ (0 == minutes ? "      " : String.format("%2d", minutes) + " min") + " period from "
 					+ simpleTimeStamp + " to " + periodEndTime + "  has average price: "
 					+ String.format("%5.2f", average) + "p");
+
+			if (5 == period) { // Only 3 hour interval considered ( =6 half-slot slots)
+
+				// HH:mm
+
+				from = ldt.minusMinutes(((1 + period) * 30) - 1).format(formatter24HourClock);
+
+				if (0 != to.compareTo(periodEndTime) && (ldt.getHour() < 6 || ldt.getHour() > 22)) {
+
+					to = periodEndTime;
+				} else {
+
+					power = null; // disable the setting of revised schedule
+				}
+			}
+		}
+
+		if (!"false".equalsIgnoreCase(extra) && null != power && power.length() > 3 && Integer.parseInt(power) > 999) {
+
+			// assume extra contains a cmdarray to execute in a separate process
+			// java -jar plugs.jar ./SwindonIcarus.properties inverter setting A %1 %2 %3
+
+			// substitute from, to and power for %1,%2 and %3 respectively
+
+			String[] cmdarray = extra.split(" ");
+
+			for (int n = 0; n < cmdarray.length; n++) {
+
+				if ("%1".equalsIgnoreCase(cmdarray[n])) {
+
+					cmdarray[n] = from;
+
+				} else if ("%2".equalsIgnoreCase(cmdarray[n])) {
+
+					cmdarray[n] = to;
+
+				} else if ("%3".equalsIgnoreCase(cmdarray[n])) {
+
+					cmdarray[n] = power;
+				}
+
+				System.out.println("param[" + n + "]=" + cmdarray[n]);
+			}
+
+			exec(cmdarray);
 		}
 
 		return bestStartTime;
 
+	}
+
+	private String exec(String[] cmdarray) {
+
+		Process process;
+
+		String result = null;
+
+		try {
+
+			process = Runtime.getRuntime().exec(cmdarray);
+
+			InputStream inputStream = process.getInputStream();
+			InputStreamReader isr = new InputStreamReader(inputStream);
+
+			int n1;
+			char[] c1 = new char[1024];
+			StringBuffer stableOutput = new StringBuffer();
+
+			while ((n1 = isr.read(c1)) > 0) {
+
+				stableOutput.append(c1, 0, n1);
+			}
+
+			result = stableOutput.toString();
+
+//			OutputStream outputStream = process.getOutputStream();
+
+			InputStream errorStream = process.getErrorStream();
+			InputStreamReader esr = new InputStreamReader(errorStream);
+
+			int n2;
+			char[] c2 = new char[1024];
+			StringBuffer stableError = new StringBuffer();
+
+			while ((n2 = esr.read(c2)) > 0) {
+
+				stableError.append(c2, 0, n2);
+			}
+
+			System.err.println(stableError.toString());
+
+		} catch (IOException e) {
+
+			e.printStackTrace();
+		}
+
+		return result;
 	}
 
 	private Map<LocalDateTime, ImportExportData> createPriceMap(ArrayList<Agile> agileResultsImport,
