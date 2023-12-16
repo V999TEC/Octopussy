@@ -2364,10 +2364,9 @@ public class Octopussy {
 
 		// default values for %1 %2 %3 when extra=java -jar plugs.jar
 		// ./SwindonIcarus.properties inverter setting A %1 %2 %3
+
 		String from = "01:30";
-
 		String to = "04:00";
-
 		String power = "3680";
 
 		if (!"false".equalsIgnoreCase(check)) {
@@ -2468,21 +2467,32 @@ public class Octopussy {
 
 			if (5 == period) { // Only 3 hour interval considered ( =6 half-slot slots)
 
-				// HH:mm
+				// is the current time suitable for checking the next day's price schedule
+				// approx > 16:00 the new prices are published
 
-				from = ldt.minusMinutes(((1 + period) * 30) - 1).format(formatter24HourClock);
+				Instant instantRangeStart = Instant.ofEpochSecond(pricesPerSlot.get(0).getEpochSecond());
 
-				if (0 != to.compareTo(periodEndTime) && (ldt.getHour() < 6 || ldt.getHour() > 22)) {
+				LocalDateTime ldtRangeStart = LocalDateTime.ofInstant(instantRangeStart, ourZoneId);
 
-					to = periodEndTime;
+				if (ldtRangeStart.getHour() < 17) {
+
+					power = null;
+
 				} else {
 
-					power = null; // disable the setting of revised schedule
+					// HH:mm
+
+					if (0 != periodEndTime.compareTo(to)) {
+
+						to = periodEndTime;
+
+						from = ldt.minusMinutes(((1 + period) * 30) - 1).format(formatter24HourClock);
+					}
 				}
 			}
 		}
 
-		if (!"false".equalsIgnoreCase(extra) && null != power && power.length() > 3 && Integer.parseInt(power) > 999) {
+		if (!"false".equalsIgnoreCase(extra) && null != power) {
 
 			// assume extra contains a cmdarray to execute in a separate process
 			// java -jar plugs.jar ./SwindonIcarus.properties inverter setting A %1 %2 %3
