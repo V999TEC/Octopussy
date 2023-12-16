@@ -2362,24 +2362,11 @@ public class Octopussy {
 		System.out.println(
 				"\nUpcoming best " + (ansi ? ANSI_COLOUR_LO + "import" + ANSI_RESET : "import") + " price periods:");
 
-		// default values for %1 %2 %3 when extra=java -jar plugs.jar
-		// ./SwindonIcarus.properties inverter setting A %1 %2 %3
+		// by default assume a 3 hour period from 1:30 AM
 
 		String from = "01:30";
-		String to = "04:00";
+		String to = "04:29";
 		String power = "3680";
-
-		if (!"false".equalsIgnoreCase(check)) {
-
-			String[] cmdarray = check.split(" ");
-
-			String value = exec(cmdarray);
-
-			int beginIndex = value.indexOf("\"value\" : \"") + 11;
-			int endIndex = value.indexOf("\"", beginIndex);
-
-			to = value.substring(beginIndex, endIndex);
-		}
 
 		// assume extra contains a cmdarray to execute in a separate process
 		// java -jar plugs.jar ./SwindonIcarus.properties inverter setting A %1 %2 %3
@@ -2467,22 +2454,41 @@ public class Octopussy {
 
 			if (5 == period) { // Only 3 hour interval considered ( =6 half-slot slots)
 
-				// is the current time suitable for checking the next day's price schedule
-				// approx > 16:00 the new prices are published
-
 				Instant instantRangeStart = Instant.ofEpochSecond(pricesPerSlot.get(0).getEpochSecond());
 
 				LocalDateTime ldtRangeStart = LocalDateTime.ofInstant(instantRangeStart, ourZoneId);
 
-				if (ldtRangeStart.getHour() < 17) {
+				// between 5pm and 6pm reset the from/to times at the inverter
+
+				if (ldtRangeStart.getHour() < 17 || ldtRangeStart.getHour() > 18) {
 
 					power = null;
 
 				} else {
 
+					// avoid setting the from/to times at the inverter if no change
+
+					if (!"false".equalsIgnoreCase(check)) {
+
+						// what is the current 'to' time in the inverter?
+
+						String[] cmdarray = check.split(" ");
+
+						String value = exec(cmdarray);
+
+						int beginIndex = value.indexOf("\"value\" : \"") + 11;
+						int endIndex = value.indexOf("\"", beginIndex);
+
+						to = value.substring(beginIndex, endIndex);
+					}
+
 					// HH:mm
 
-					if (0 != periodEndTime.compareTo(to)) {
+					if (0 == periodEndTime.compareTo(to)) {
+
+						power = null;
+
+					} else {
 
 						to = periodEndTime;
 
