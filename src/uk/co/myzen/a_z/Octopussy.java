@@ -2366,7 +2366,11 @@ public class Octopussy {
 
 		String from = "01:30";
 		String to = "04:29";
-		String power = "3680";
+		String power = null;
+
+		Instant instantRangeStart = Instant.ofEpochSecond(pricesPerSlot.get(0).getEpochSecond());
+
+		LocalDateTime ldtRangeStart = LocalDateTime.ofInstant(instantRangeStart, ourZoneId);
 
 		// assume extra contains a cmdarray to execute in a separate process
 		// java -jar plugs.jar ./SwindonIcarus.properties inverter setting A %1 %2 %3
@@ -2439,6 +2443,8 @@ public class Octopussy {
 
 			String periodEndTime = ldt.format(formatter24HourClock);
 
+			String periodStartTime = ldt.minusMinutes(((1 + period) * 30) - 1).format(formatter24HourClock);
+
 			float average = optimumAcc / (period + 1); // the number of 30 minute periods in the slot
 
 			int secondsInSlot = 1800 * (period + 1);
@@ -2452,19 +2458,47 @@ public class Octopussy {
 					+ simpleTimeStamp + " to " + periodEndTime + "  has average price: "
 					+ String.format("%5.2f", average) + "p");
 
-			if (5 == period) { // Only 3 hour interval considered ( =6 half-slot slots)
+			if (0 == period) { // best half half-hour slot)
 
-				Instant instantRangeStart = Instant.ofEpochSecond(pricesPerSlot.get(0).getEpochSecond());
+				// is this 'now' i.e, periodStartTime =
+				// ldtRangeStart.format(formatter24HourClock)
 
-				LocalDateTime ldtRangeStart = LocalDateTime.ofInstant(instantRangeStart, ourZoneId);
+				if (0 == periodStartTime.compareTo(ldtRangeStart.format(formatter24HourClock))) {
 
-				// between 5pm and 6pm reset the from/to times at the inverter
+					if (ldtRangeStart.getHour() > 10 && ldtRangeStart.getHour() < 16) {
 
-				if (ldtRangeStart.getHour() < 17 || ldtRangeStart.getHour() > 18) {
+						// avoid setting the from/to times at the inverter if no change
 
-					power = null;
+						if (!"false".equalsIgnoreCase(check)) {
 
-				} else {
+							// what is the current 'to' time in the inverter?
+
+							String[] cmdarray = check.split(" ");
+
+							String value = exec(cmdarray);
+
+							int beginIndex = value.indexOf("\"value\" : \"") + 11;
+							int endIndex = value.indexOf("\"", beginIndex);
+
+							to = value.substring(beginIndex, endIndex);
+						}
+
+						// HH:mm
+
+						if (0 != periodEndTime.compareTo(to)) {
+
+							from = periodStartTime;
+							to = periodEndTime;
+							power = "6000";
+						} // else power remains null
+					}
+				}
+
+			} else if (5 == period && null == power) { // best 3 hour interval considered ( =6 half-slot slots)
+
+				// between 5pm and 8pm reset the from/to times at the inverter
+
+				if (ldtRangeStart.getHour() > 16 && ldtRangeStart.getHour() < 20) {
 
 					// avoid setting the from/to times at the inverter if no change
 
@@ -2484,16 +2518,12 @@ public class Octopussy {
 
 					// HH:mm
 
-					if (0 == periodEndTime.compareTo(to)) {
+					if (0 != periodEndTime.compareTo(to)) {
 
-						power = null;
-
-					} else {
-
+						from = periodStartTime;
 						to = periodEndTime;
-
-						from = ldt.minusMinutes(((1 + period) * 30) - 1).format(formatter24HourClock);
-					}
+						power = "3680";
+					} // else power remains null
 				}
 			}
 		}
