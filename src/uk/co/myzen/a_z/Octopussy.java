@@ -106,8 +106,10 @@ public class Octopussy {
 	private final static String DEFAULT_AGILE_ELECTRICITY_STANDING_PROPERTY = "42.7665";
 	private final static String DEFAULT_POSTCODE_PROPERTY = "?";
 	private final static String DEFAULT_REGION_PROPERTY = "H";
-	private final static String DEFAULT_EXTRA_PROPERTY = "false";
 	private final static String DEFAULT_CHECK_PROPERTY = "false";
+	private final static String DEFAULT_EXTRA_PROPERTY = "false";
+	private final static String DEFAULT_EXTRA2_PROPERTY = "false";
+
 	private final static String DEFAULT_ELECTRICTY_MPRN_PROPERTY = "200001010163";
 	private final static String DEFAULT_ELECTRICTY_SN_PROPERTY = "21L010101";
 
@@ -177,6 +179,7 @@ public class Octopussy {
 
 	private final static String KEY_CHECK = "check";
 	private final static String KEY_EXTRA = "extra";
+	private final static String KEY_EXTRA2 = "extra2";
 
 	private final static String KEY_REFERRAL = "referral";
 
@@ -187,7 +190,7 @@ public class Octopussy {
 			KEY_IMPORT_PRODUCT_CODE, KEY_TARIFF_CODE, KEY_TARIFF_URL, KEY_REGION, KEY_POSTCODE, KEY_ZONE_ID,
 			KEY_HISTORY, "#", KEY_EXPORT_PRODUCT_CODE, KEY_EXPORT_TARIFF_CODE, KEY_EXPORT_TARIFF_URL, KEY_EXPORT, "#",
 			KEY_DAYS, KEY_PLUNGE, KEY_TARGET, KEY_WIDTH, KEY_ANSI, KEY_COLOUR, KEY_COLOR, "#", KEY_YEARLY, KEY_MONTHLY,
-			KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO, "#", KEY_CHECK, KEY_EXTRA, "#", KEY_REFERRAL };
+			KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO, "#", KEY_CHECK, KEY_EXTRA, KEY_EXTRA2, "#", KEY_REFERRAL };
 
 	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd pph:mm a");
 
@@ -215,8 +218,9 @@ public class Octopussy {
 
 	private static boolean export;
 
-	private static String extra = "false"; // overridden by extra=value in properties
-	private static String check = "false"; // overridden by check=value in properties
+	private static String check = DEFAULT_CHECK_PROPERTY; // overridden by check=value in properties
+	private static String extra = DEFAULT_EXTRA_PROPERTY; // overridden by extra=value in properties
+	private static String extra2 = DEFAULT_EXTRA2_PROPERTY; // overridden by extra2=value in properties
 
 	private static boolean usingExternalPropertyFile = false;
 
@@ -1787,8 +1791,9 @@ public class Octopussy {
 			}
 		}
 
-		extra = properties.getProperty(KEY_EXTRA, DEFAULT_EXTRA_PROPERTY).trim();
 		check = properties.getProperty(KEY_CHECK, DEFAULT_CHECK_PROPERTY).trim();
+		extra = properties.getProperty(KEY_EXTRA, DEFAULT_EXTRA_PROPERTY).trim();
+		extra2 = properties.getProperty(KEY_EXTRA2, DEFAULT_EXTRA2_PROPERTY).trim();
 
 		// expand properties substituting $key$ values
 
@@ -2362,20 +2367,13 @@ public class Octopussy {
 		System.out.println(
 				"\nUpcoming best " + (ansi ? ANSI_COLOUR_LO + "import" + ANSI_RESET : "import") + " price periods:");
 
-		// by default assume a 3 hour period from 1:30 AM
-
-		String from = "01:30";
-		String to = "04:29";
-		String power = null;
-
 		Instant instantRangeStart = Instant.ofEpochSecond(pricesPerSlot.get(0).getEpochSecond());
 
 		LocalDateTime ldtRangeStart = LocalDateTime.ofInstant(instantRangeStart, ourZoneId);
 
-		// assume extra contains a cmdarray to execute in a separate process
-		// java -jar plugs.jar ./SwindonIcarus.properties inverter setting A %1 %2 %3
-
-		// substitute from, to and power for %1,%2 and %3 respectively
+		String from = "";
+		String to = "";
+		String power = null;
 
 		ArrayList<Long> bestStartTime = new ArrayList<Long>();
 
@@ -2460,102 +2458,112 @@ public class Octopussy {
 
 			if (0 == period) { // best half half-hour slot)
 
-				// is this 'now' i.e, periodStartTime =
-				// ldtRangeStart.format(formatter24HourClock)
+				// is this 'now' i.e., the current 30-min slot is the cheapest until schedule
+				// change
 
 				if (0 == periodStartTime.compareTo(ldtRangeStart.format(formatter24HourClock))) {
 
-					if (ldtRangeStart.getHour() > 10 && ldtRangeStart.getHour() < 16) {
+					// only do a top-up between 8 am and 2:59 pm
 
-						// avoid setting the from/to times at the inverter if no change
-
-						if (!"false".equalsIgnoreCase(check)) {
-
-							// what is the current 'to' time in the inverter?
-
-							String[] cmdarray = check.split(" ");
-
-							String value = exec(cmdarray);
-
-							int beginIndex = value.indexOf("\"value\" : \"") + 11;
-							int endIndex = value.indexOf("\"", beginIndex);
-
-							to = value.substring(beginIndex, endIndex);
-						}
-
-						// HH:mm
-
-						if (0 != periodEndTime.compareTo(to)) {
-
-							from = periodStartTime;
-							to = periodEndTime;
-							power = "6000";
-						} // else power remains null
-					}
-				}
-
-			} else if (5 == period && null == power) { // best 3 hour interval considered ( =6 half-slot slots)
-
-				// between 5pm and 8pm reset the from/to times at the inverter
-
-				if (ldtRangeStart.getHour() > 16 && ldtRangeStart.getHour() < 20) {
-
-					// avoid setting the from/to times at the inverter if no change
-
-					if (!"false".equalsIgnoreCase(check)) {
-
-						// what is the current 'to' time in the inverter?
-
-						String[] cmdarray = check.split(" ");
-
-						String value = exec(cmdarray);
-
-						int beginIndex = value.indexOf("\"value\" : \"") + 11;
-						int endIndex = value.indexOf("\"", beginIndex);
-
-						to = value.substring(beginIndex, endIndex);
-					}
-
-					// HH:mm
-
-					if (0 != periodEndTime.compareTo(to)) {
+					if (ldtRangeStart.getHour() > 7 && ldtRangeStart.getHour() < 15) {
 
 						from = periodStartTime;
 						to = periodEndTime;
-						power = "3680";
-					} // else power remains null
+						power = "6000"; // top-up battery with 3 units of power (in 30 min slot)
+
+					}
+				}
+
+			} else if (3 == period) {
+
+				// only do a top-up between 8 pm to 11:59 pm
+
+				if (ldtRangeStart.getHour() > 19 && ldtRangeStart.getHour() < 24) {
+
+					from = periodStartTime;
+					to = periodEndTime;
+					power = "4000"; // top-up battery with 8 units of power (in 120 min slot)
+				}
+
+			} else if (5 == period) { // best 3 hour interval considered ( =6 half-slot slots)
+
+				// only do this between midnight & 7:59 am
+
+				if (ldtRangeStart.getHour() < 9) {
+
+					from = periodStartTime;
+					to = periodEndTime;
+					power = "3680"; // top-up battery with up to 11 units of power (in 180 min slot)
 				}
 			}
 		}
 
-		if (!"false".equalsIgnoreCase(extra) && null != power) {
+		// at 3pm always do a top-up to tied us over the critical
+		// (and relatively expensive) 4pm to 7pm period
 
-			// assume extra contains a cmdarray to execute in a separate process
-			// java -jar plugs.jar ./SwindonIcarus.properties inverter setting A %1 %2 %3
+		if (15 == ldtRangeStart.getHour()) {
 
-			// substitute from, to and power for %1,%2 and %3 respectively
+			from = "15:00";
+			to = "15:59";
+			power = "4000"; // top-up battery with 4 units of power (in 60 min slot)
+		}
 
-			String[] cmdarray = extra.split(" ");
+		if (null != power) { // assume a change to AC Charge 1 schedule
 
-			for (int n = 0; n < cmdarray.length; n++) {
+			// assume from, to & power have been set appropriately
 
-				if ("%1".equalsIgnoreCase(cmdarray[n])) {
+			// avoid setting the from/to times at the inverter if no change to previous
+			// values
 
-					cmdarray[n] = from;
+			boolean assumeChangeRequired = true;
 
-				} else if ("%2".equalsIgnoreCase(cmdarray[n])) {
+			if (!"false".equalsIgnoreCase(check)) {
 
-					cmdarray[n] = to;
+				// what is the current 'to' time in the inverter?
 
-				} else if ("%3".equalsIgnoreCase(cmdarray[n])) {
+				String[] cmdarray = check.split(" ");
 
-					cmdarray[n] = power;
-				}
+				String value = exec(cmdarray);
 
-				System.out.println("param[" + n + "]=" + cmdarray[n]);
+				int beginIndex = value.indexOf("\"value\" : \"") + 11;
+				int endIndex = value.indexOf("\"", beginIndex);
+
+				String currentTo = value.substring(beginIndex, endIndex);
+
+				assumeChangeRequired = (0 != currentTo.compareTo(to));
 			}
 
-			exec(cmdarray);
+			// HH:mm
+
+			if (assumeChangeRequired) {
+
+				// assume extra contains a cmdarray to execute in a separate process
+				// java -jar plugs.jar ./SwindonIcarus.properties inverter setting A %1 %2 %3
+
+				// substitute from, to and power for %1,%2 and %3 respectively
+
+				String[] cmdarray = extra.split(" ");
+
+				for (int n = 0; n < cmdarray.length; n++) {
+
+					if ("%1".equalsIgnoreCase(cmdarray[n])) {
+
+						cmdarray[n] = from;
+
+					} else if ("%2".equalsIgnoreCase(cmdarray[n])) {
+
+						cmdarray[n] = to;
+
+					} else if ("%3".equalsIgnoreCase(cmdarray[n])) {
+
+						cmdarray[n] = power;
+					}
+
+					System.out.println("param[" + n + "]=" + cmdarray[n]);
+				}
+
+				exec(cmdarray);
+			}
 		}
 
 		return bestStartTime;
@@ -2914,7 +2922,7 @@ public class Octopussy {
 
 			if (importValueIncVat <= plunge) {
 
-				sb1.append(" <--- PLUNGE BELOW " + plunge + "p !!!");
+				sb1.append("<--- PLUNGE <= " + plunge + "p");
 				n = sb1.length();
 
 			} else {
