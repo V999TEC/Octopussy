@@ -26,6 +26,7 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoField;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
@@ -109,6 +110,9 @@ public class Octopussy {
 	private final static String DEFAULT_CHECK_PROPERTY = "false";
 	private final static String DEFAULT_EXTRA_PROPERTY = "false";
 	private final static String DEFAULT_EXTRA2_PROPERTY = "false";
+	private final static String DEFAULT_EXTRA3_PROPERTY = "false";
+	private final static String DEFAULT_EXTRA4_PROPERTY = "false";
+	private final static String DEFAULT_EXTRA5_PROPERTY = "false";
 
 	private final static String DEFAULT_ELECTRICTY_MPRN_PROPERTY = "200001010163";
 	private final static String DEFAULT_ELECTRICTY_SN_PROPERTY = "21L010101";
@@ -180,6 +184,9 @@ public class Octopussy {
 	private final static String KEY_CHECK = "check";
 	private final static String KEY_EXTRA = "extra";
 	private final static String KEY_EXTRA2 = "extra2";
+	private final static String KEY_EXTRA3 = "extra3";
+	private final static String KEY_EXTRA4 = "extra4";
+	private final static String KEY_EXTRA5 = "extra5";
 
 	private final static String KEY_REFERRAL = "referral";
 
@@ -190,7 +197,8 @@ public class Octopussy {
 			KEY_IMPORT_PRODUCT_CODE, KEY_TARIFF_CODE, KEY_TARIFF_URL, KEY_REGION, KEY_POSTCODE, KEY_ZONE_ID,
 			KEY_HISTORY, "#", KEY_EXPORT_PRODUCT_CODE, KEY_EXPORT_TARIFF_CODE, KEY_EXPORT_TARIFF_URL, KEY_EXPORT, "#",
 			KEY_DAYS, KEY_PLUNGE, KEY_TARGET, KEY_WIDTH, KEY_ANSI, KEY_COLOUR, KEY_COLOR, "#", KEY_YEARLY, KEY_MONTHLY,
-			KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO, "#", KEY_CHECK, KEY_EXTRA, KEY_EXTRA2, "#", KEY_REFERRAL };
+			KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO, "#", KEY_CHECK, KEY_EXTRA, KEY_EXTRA2, KEY_EXTRA3,
+			KEY_EXTRA4, KEY_EXTRA5, "#", KEY_REFERRAL };
 
 	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd pph:mm a");
 
@@ -219,8 +227,9 @@ public class Octopussy {
 	private static boolean export;
 
 	private static String check = DEFAULT_CHECK_PROPERTY; // overridden by check=value in properties
-	private static String extra = DEFAULT_EXTRA_PROPERTY; // overridden by extra=value in properties
-	private static String extra2 = DEFAULT_EXTRA2_PROPERTY; // overridden by extra2=value in properties
+
+	private static String[] extra = { DEFAULT_EXTRA_PROPERTY, DEFAULT_EXTRA2_PROPERTY, DEFAULT_EXTRA3_PROPERTY,
+			DEFAULT_EXTRA4_PROPERTY, DEFAULT_EXTRA5_PROPERTY };
 
 	private static boolean usingExternalPropertyFile = false;
 
@@ -380,8 +389,17 @@ public class Octopussy {
 
 			int howManyDaysHistory = Integer.valueOf(properties.getProperty(KEY_DAYS, DEFAULT_DAYS_PROPERTY).trim());
 
-			ZonedDateTime timeRecent = ourTimeNow.withDayOfYear(dayOfYearToday - howManyDaysHistory).withHour(00)
-					.withMinute(00).withSecond(00).withNano(0);
+			ZonedDateTime timeRecent;
+
+			if (dayOfYearToday < howManyDaysHistory) {
+
+				timeRecent = ourTimeNow.minusDays(howManyDaysHistory).withHour(00).withMinute(00).withSecond(00)
+						.withNano(0);
+			} else {
+
+				timeRecent = ourTimeNow.withDayOfYear(dayOfYearToday - howManyDaysHistory).withHour(00).withMinute(00)
+						.withSecond(00).withNano(0);
+			}
 
 			// UTC is one hour behind BST in summer time
 
@@ -407,7 +425,7 @@ public class Octopussy {
 
 				// we don't yet have all the results - pause and then get the next page
 
-				Thread.sleep(1500); // this is just so we don't bombard the API provider
+				Thread.sleep(5000); // this is just so we don't bombard the API provider
 
 				page++;
 
@@ -462,7 +480,7 @@ public class Octopussy {
 
 				// we don't yet have all the results - pause and then get the next page
 
-				Thread.sleep(1500); // this is just so we don't bombard the API provider
+				Thread.sleep(5000); // this is just so we don't bombard the API provider
 
 				page++;
 
@@ -616,13 +634,25 @@ public class Octopussy {
 			//
 			//
 
+			String[] schedule = instance.readChargingSchedule();
+
+			//
+			//
+			//
+
+			schedule = instance.scheduleBatteryCharging(pricesPerSlot, schedule);
+
+			//
+			//
+			//
+
 			ArrayList<Long> bestImportTime = instance.upcomingImport(pricesPerSlot);
 
 			//
 			//
 			//
 
-			instance.showAnalysis(pricesPerSlot, averageUnitCost, bestImportTime, bestExportTime);
+			instance.showAnalysis(pricesPerSlot, averageUnitCost, bestImportTime, bestExportTime, schedule);
 
 			//
 			//
@@ -646,6 +676,35 @@ public class Octopussy {
 
 			System.exit(-1);
 		}
+	}
+
+	private String[] readChargingSchedule() {
+
+		String[] result = new String[5];
+
+		String[] readEndTimesParameter = { "65", "103", "106", "109", "112" };
+
+		// avoid setting the from/to times at the inverter if no change to previous
+		// values for AC Charge 1 End Time
+
+		for (int s = 0; s < 5; s++) {
+
+			if ("false".equalsIgnoreCase(check)) {
+
+				result[s] = null;
+
+			} else {
+
+				// what is the current 'to' time in the inverter for Slot 1/2/3/4/5?
+
+				result[s] = execRead(check, readEndTimesParameter[s]);
+
+				// System.out.println("Charging Slot " + String.valueOf(1 + s) + " ends at " +
+				// result[s]);
+			}
+		}
+
+		return result;
 	}
 
 	private List<Set<Integer>> loadDeviceGroups() {
@@ -1792,8 +1851,12 @@ public class Octopussy {
 		}
 
 		check = properties.getProperty(KEY_CHECK, DEFAULT_CHECK_PROPERTY).trim();
-		extra = properties.getProperty(KEY_EXTRA, DEFAULT_EXTRA_PROPERTY).trim();
-		extra2 = properties.getProperty(KEY_EXTRA2, DEFAULT_EXTRA2_PROPERTY).trim();
+
+		extra[0] = properties.getProperty(KEY_EXTRA, DEFAULT_EXTRA_PROPERTY).trim();
+		extra[1] = properties.getProperty(KEY_EXTRA2, DEFAULT_EXTRA2_PROPERTY).trim();
+		extra[2] = properties.getProperty(KEY_EXTRA3, DEFAULT_EXTRA2_PROPERTY).trim();
+		extra[3] = properties.getProperty(KEY_EXTRA4, DEFAULT_EXTRA2_PROPERTY).trim();
+		extra[4] = properties.getProperty(KEY_EXTRA5, DEFAULT_EXTRA2_PROPERTY).trim();
 
 		// expand properties substituting $key$ values
 
@@ -2362,18 +2425,396 @@ public class Octopussy {
 		return bestStartTime;
 	}
 
-	private ArrayList<Long> upcomingImport(List<SlotCost> pricesPerSlot) {
+	private int[] findOptimalCostSlotToday(final int howMany, List<SlotCost> pricesPerSlot, String untilBefore12hr) {
 
-		System.out.println(
-				"\nUpcoming best " + (ansi ? ANSI_COLOUR_LO + "import" + ANSI_RESET : "import") + " price periods:");
+		int[] result = new int[howMany];
+
+		String simpleTimeStamp = pricesPerSlot.get(0).getSimpleTimeStamp();
+
+		String[] parts = simpleTimeStamp.split(" ");
+
+		String today = parts[0] + " " + parts[1] + " " + parts[2];
+
+		String time12hr = parts[parts.length - 2] + " " + parts[parts.length - 1];
+
+		List<Float> prices = new ArrayList<Float>();
+
+		int index = 0;
+
+		do {
+
+			simpleTimeStamp = pricesPerSlot.get(index).getSimpleTimeStamp();
+
+			parts = simpleTimeStamp.split(" ");
+
+			String testToday = parts[0] + " " + parts[1] + " " + parts[2];
+
+			time12hr = parts[parts.length - 2] + " " + parts[parts.length - 1];
+
+			if (0 != testToday.compareTo(today)) {
+
+				break;
+			}
+
+			if (0 == untilBefore12hr.compareTo(time12hr)) {
+				break;
+			}
+
+			prices.add(pricesPerSlot.get(index).getImportPrice());
+
+			index++;
+
+		} while (true);
+
+		Collections.sort(prices);
+
+		final int limit = prices.size();
+
+		List<Integer> timeIndex = new ArrayList<Integer>(limit);
+
+		for (index = 0; index < limit; index++) {
+
+			Float f = prices.get(index); // this is the next lowest price
+
+			// which time has this price (which we have not already stored in timeList)?
+
+			for (int i = 0; i < limit; i++) {
+
+				Float importPrice = pricesPerSlot.get(i).getImportPrice();
+
+				if (importPrice == f) {
+
+					if (timeIndex.contains(i)) {
+
+						continue; // iterate
+					}
+
+					timeIndex.add(Integer.valueOf(i));
+				}
+			}
+		}
+
+		for (int i = 0; i < limit; i++) {
+
+			Integer nextIndex = timeIndex.get(i);
+
+			if (i < howMany) {
+
+				result[i] = nextIndex.intValue();
+			}
+
+			System.out.println(pricesPerSlot.get(nextIndex).getSimpleTimeStamp() + "\t"
+					+ pricesPerSlot.get(nextIndex).getImportPrice() + "p" + (i < howMany ? "\t[" + i + "]" : ""));
+		}
+
+		return result;
+	}
+
+	private String[] scheduleBatteryCharging(List<SlotCost> pricesPerSlot, String[] currentTo) {
 
 		Instant instantRangeStart = Instant.ofEpochSecond(pricesPerSlot.get(0).getEpochSecond());
 
 		LocalDateTime ldtRangeStart = LocalDateTime.ofInstant(instantRangeStart, ourZoneId);
 
-		String from = "";
-		String to = "";
+		String rangeStartTime = ldtRangeStart.format(formatter24HourClock);
+
+		// we divide the day up into 4 parts
+
+		final String part1st = "00:00";
+		final String part2nd = "08:00";
+		final String part3rd = "12:00";
+		final String part4th = "18:00";
+
+		final String dayPartsEndAt24hr[] = { "07:59", "11:59", "17:59", "23:59" };
+
+		final String dayPartsEndBefore12hr[] = { "8:00 am", "12:00 pm", "6:00 pm", "12:00 am" };
+
+		final int slotsPerDayPart[] = { 5, 1, 2, 1 };
+
 		String power = null;
+
+		int[] slots;
+
+		switch (rangeStartTime) {
+
+		case part1st:
+
+			power = "2000";
+
+			// 5 cheapest slots from 00:00 up to 07:59
+			slots = findOptimalCostSlotToday(slotsPerDayPart[0], pricesPerSlot, dayPartsEndBefore12hr[0]);
+
+			break;
+
+		case part2nd:
+
+			power = "4000";
+
+			// cheapest slot from 08:00 up to 11:59
+			slots = findOptimalCostSlotToday(slotsPerDayPart[1], pricesPerSlot, dayPartsEndBefore12hr[1]);
+
+			break;
+
+		case part3rd:
+
+			power = "3680";
+
+			// 2 cheapest slots from 12:00 up to 17:59
+			slots = findOptimalCostSlotToday(slotsPerDayPart[2], pricesPerSlot, dayPartsEndBefore12hr[2]);
+
+			break;
+
+		case part4th: // new schedule of prices will have been published after 4pm
+
+			power = "5000";
+
+			// cheapest slot from 18:00 up to 23:59
+			slots = findOptimalCostSlotToday(slotsPerDayPart[3], pricesPerSlot, dayPartsEndBefore12hr[3]);
+
+			break;
+
+		default:
+			slots = new int[0];
+
+			// Examine currentTo to check there is at least one time in the current part of
+			// the day.
+			// eg if we are in range "09:30" to "09:59" then a schedule should have fired at
+			// 08:00 to set a time between 08:00 and 11:59
+
+			String from;
+
+			int p;
+
+			// what part of the day are we in?
+
+			if (rangeStartTime.compareTo(part2nd) >= 0) {
+
+				if (rangeStartTime.compareTo(part3rd) >= 0) {
+
+					if (rangeStartTime.compareTo(part4th) >= 0) {
+
+						p = 3;
+						from = part4th;
+
+					} else {
+
+						p = 2;
+						from = part3rd;
+					}
+
+				} else {
+
+					p = 1;
+					from = part2nd;
+				}
+
+			} else {
+
+				p = 0;
+				from = part1st;// inclusive
+			}
+
+			final String until = dayPartsEndAt24hr[p];
+
+			// was there a schedule within the part of day we are in?
+
+			boolean foundMatch = false;
+
+			for (int s = 0; s < currentTo.length; s++) {
+
+				if (currentTo[s].compareTo(from) > 0) {
+
+					if (currentTo[s].compareTo(until) <= 0) {
+
+						// we have a scheduled charge time in the current range
+
+						foundMatch = true;
+						break;
+					}
+				}
+			}
+
+			if (!foundMatch) {
+
+				// assume the previous scheduling update failed (typically due to inverter
+				// timeout) so try again
+
+				slots = findOptimalCostSlotToday(slotsPerDayPart[p], pricesPerSlot, dayPartsEndBefore12hr[p]);
+
+				power = "6000";
+			}
+
+			break;
+		}
+
+		if (null != power) { // assume a change to AC Charge s schedule
+
+			boolean changeToSchedule = false;
+
+			for (int s = 0; s < slots.length; s++) {
+
+				if (null != extra[s] && 0 != "false".compareTo(extra[s])) {
+
+					String updatedTo = execMacro(extra[s], pricesPerSlot.get(slots[s]), null, currentTo[s]); // null
+																												// implies
+																												// 100%
+																												// SoC
+					if (null != updatedTo) {
+
+						currentTo[s] = updatedTo;
+
+						changeToSchedule = true;
+					}
+				}
+			}
+
+			if (changeToSchedule) {
+
+				execWrite(check, "72", power);
+			}
+		}
+
+		return currentTo;
+	}
+
+	private String execRead(String template, String p1) {
+
+		String[] cmdarray = check.split(" ");
+
+		for (int n = 0; n < cmdarray.length; n++) {
+
+			if ("%1".equalsIgnoreCase(cmdarray[n])) {
+
+				cmdarray[n] = "read";
+			}
+
+			else if ("%2".equalsIgnoreCase(cmdarray[n])) {
+
+				cmdarray[n] = p1;
+			}
+
+			else if ("%3".equalsIgnoreCase(cmdarray[n])) {
+
+				cmdarray[n] = "";
+			}
+		}
+
+		String value = exec(cmdarray);
+
+		int beginIndex = value.indexOf("\"value\" : \"") + 11;
+		int endIndex = value.indexOf("\"", beginIndex);
+
+		String result = value.substring(beginIndex, endIndex);
+
+		if (result.length() < 5) { // assume error
+
+			result = "00:00";
+		}
+
+		return result;
+	}
+
+	private String execWrite(String template, String p1, String p2) {
+
+		String[] cmdarray = check.split(" ");
+
+		for (int n = 0; n < cmdarray.length; n++) {
+
+			if ("%1".equalsIgnoreCase(cmdarray[n])) {
+
+				cmdarray[n] = "write";
+			}
+
+			else if ("%2".equalsIgnoreCase(cmdarray[n])) {
+
+				cmdarray[n] = p1;
+			}
+
+			else if ("%3".equalsIgnoreCase(cmdarray[n])) {
+
+				cmdarray[n] = p2;
+			}
+		}
+
+		String value = exec(cmdarray);
+
+		int beginIndex = value.indexOf("\"value\" : \"") + 11;
+		int endIndex = value.indexOf("\"", beginIndex);
+
+		String result = value.substring(beginIndex, endIndex);
+
+		if (result.length() < 5) { // assume error
+
+			result = "00:00";
+		}
+
+		return result;
+	}
+
+	private String[] startAndFinishTimeOfSlotCost(SlotCost slotCost) {
+
+		Instant instantStart = Instant.ofEpochSecond(slotCost.getEpochSecond());
+
+		LocalDateTime ldtStart = LocalDateTime.ofInstant(instantStart, ourZoneId);
+
+		LocalDateTime ldtFinish = ldtStart.plusMinutes(29);
+
+		String[] result = new String[] { ldtStart.format(formatter24HourClock),
+				ldtFinish.format(formatter24HourClock) };
+
+		return result;
+	}
+
+	private String execMacro(String template, SlotCost slotCost, String soc, String currentTo) {
+
+		String[] period = startAndFinishTimeOfSlotCost(slotCost);
+
+		String from = period[0];
+		String to = period[1];
+
+		if (null == currentTo || 0 != to.compareTo(currentTo)) {
+
+			System.out.println(from + "\t" + to + "\t" + slotCost.getImportPrice() + "p");
+
+			// assume extra contains a cmdarray to execute in a separate process
+			// java -jar plugs.jar ./SwindonIcarus.properties inverter setting A %1 %2 %3
+
+			// substitute from, to and power for %1,%2 and %3 respectively
+
+			String[] cmdarray = template.split(" ");
+
+			for (int n = 0; n < cmdarray.length; n++) {
+
+				if ("%1".equalsIgnoreCase(cmdarray[n])) {
+
+					cmdarray[n] = from;
+
+				} else if ("%2".equalsIgnoreCase(cmdarray[n])) {
+
+					cmdarray[n] = to;
+
+				} else if ("%3".equalsIgnoreCase(cmdarray[n])) {
+
+					cmdarray[n] = null == soc ? "" : soc;
+				}
+
+				System.out.println("param[" + n + "]=" + cmdarray[n]);
+			}
+
+			exec(cmdarray);
+
+		} else {
+
+			to = null; // imply no action taken
+		}
+
+		return to;
+	}
+
+	private ArrayList<Long> upcomingImport(List<SlotCost> pricesPerSlot) {
+
+		System.out.println(
+				"\nUpcoming best " + (ansi ? ANSI_COLOUR_LO + "import" + ANSI_RESET : "import") + " price periods:");
 
 		ArrayList<Long> bestStartTime = new ArrayList<Long>();
 
@@ -2437,11 +2878,9 @@ public class Octopussy {
 
 			Instant instant = Instant.ofEpochSecond(-60 + epochSecond + (period + 1) * 1800);
 
-			LocalDateTime ldt = LocalDateTime.ofInstant(instant, ourZoneId);
+			LocalDateTime ldtEndTime = LocalDateTime.ofInstant(instant, ourZoneId);
 
-			String periodEndTime = ldt.format(formatter24HourClock);
-
-			String periodStartTime = ldt.minusMinutes(((1 + period) * 30) - 1).format(formatter24HourClock);
+			String periodEndTime = ldtEndTime.format(formatter24HourClock);
 
 			float average = optimumAcc / (period + 1); // the number of 30 minute periods in the slot
 
@@ -2456,118 +2895,9 @@ public class Octopussy {
 					+ simpleTimeStamp + " to " + periodEndTime + "  has average price: "
 					+ String.format("%5.2f", average) + "p");
 
-			if (0 == period) { // best half half-hour slot)
-
-				// is this 'now' i.e., the current 30-min slot is the cheapest until schedule
-				// change
-
-				if (0 == periodStartTime.compareTo(ldtRangeStart.format(formatter24HourClock))) {
-
-					// only do a top-up between 8 am and 2:59 pm
-
-					if (ldtRangeStart.getHour() > 7 && ldtRangeStart.getHour() < 15) {
-
-						from = periodStartTime;
-						to = periodEndTime;
-						power = "6000"; // top-up battery with 3 units of power (in 30 min slot)
-
-					}
-				}
-
-			} else if (3 == period) {
-
-				// only do a top-up between 8 pm to 11:59 pm
-
-				if (ldtRangeStart.getHour() > 19 && ldtRangeStart.getHour() < 24) {
-
-					from = periodStartTime;
-					to = periodEndTime;
-					power = "4000"; // top-up battery with 8 units of power (in 120 min slot)
-				}
-
-			} else if (5 == period) { // best 3 hour interval considered ( =6 half-slot slots)
-
-				// only do this between midnight & 7:59 am
-
-				if (ldtRangeStart.getHour() < 9) {
-
-					from = periodStartTime;
-					to = periodEndTime;
-					power = "3680"; // top-up battery with up to 11 units of power (in 180 min slot)
-				}
-			}
-		}
-
-		// at 3pm always do a top-up to tied us over the critical
-		// (and relatively expensive) 4pm to 7pm period
-
-		if (15 == ldtRangeStart.getHour()) {
-
-			from = "15:00";
-			to = "15:59";
-			power = "4000"; // top-up battery with 4 units of power (in 60 min slot)
-		}
-
-		if (null != power) { // assume a change to AC Charge 1 schedule
-
-			// assume from, to & power have been set appropriately
-
-			// avoid setting the from/to times at the inverter if no change to previous
-			// values
-
-			boolean assumeChangeRequired = true;
-
-			if (!"false".equalsIgnoreCase(check)) {
-
-				// what is the current 'to' time in the inverter?
-
-				String[] cmdarray = check.split(" ");
-
-				String value = exec(cmdarray);
-
-				int beginIndex = value.indexOf("\"value\" : \"") + 11;
-				int endIndex = value.indexOf("\"", beginIndex);
-
-				String currentTo = value.substring(beginIndex, endIndex);
-
-				assumeChangeRequired = (0 != currentTo.compareTo(to));
-			}
-
-			// HH:mm
-
-			if (assumeChangeRequired) {
-
-				// assume extra contains a cmdarray to execute in a separate process
-				// java -jar plugs.jar ./SwindonIcarus.properties inverter setting A %1 %2 %3
-
-				// substitute from, to and power for %1,%2 and %3 respectively
-
-				String[] cmdarray = extra.split(" ");
-
-				for (int n = 0; n < cmdarray.length; n++) {
-
-					if ("%1".equalsIgnoreCase(cmdarray[n])) {
-
-						cmdarray[n] = from;
-
-					} else if ("%2".equalsIgnoreCase(cmdarray[n])) {
-
-						cmdarray[n] = to;
-
-					} else if ("%3".equalsIgnoreCase(cmdarray[n])) {
-
-						cmdarray[n] = power;
-					}
-
-					System.out.println("param[" + n + "]=" + cmdarray[n]);
-				}
-
-				exec(cmdarray);
-			}
 		}
 
 		return bestStartTime;
-
 	}
 
 	private String exec(String[] cmdarray) {
@@ -2585,30 +2915,28 @@ public class Octopussy {
 
 			int n1;
 			char[] c1 = new char[1024];
-			StringBuffer stableOutput = new StringBuffer();
+			StringBuffer sbOutput = new StringBuffer();
 
 			while ((n1 = isr.read(c1)) > 0) {
 
-				stableOutput.append(c1, 0, n1);
+				sbOutput.append(c1, 0, n1);
 			}
 
-			result = stableOutput.toString();
-
-//			OutputStream outputStream = process.getOutputStream();
+			result = sbOutput.toString();
 
 			InputStream errorStream = process.getErrorStream();
 			InputStreamReader esr = new InputStreamReader(errorStream);
 
 			int n2;
 			char[] c2 = new char[1024];
-			StringBuffer stableError = new StringBuffer();
+			StringBuffer sbError = new StringBuffer();
 
 			while ((n2 = esr.read(c2)) > 0) {
 
-				stableError.append(c2, 0, n2);
+				sbError.append(c2, 0, n2);
 			}
 
-			System.err.println(stableError.toString());
+			System.err.println(sbError.toString());
 
 		} catch (IOException e) {
 
@@ -2841,7 +3169,9 @@ public class Octopussy {
 	}
 
 	private void showAnalysis(List<SlotCost> pricesPerSlot, int averageUnitCost, ArrayList<Long> bestImportTime,
-			ArrayList<Long> bestExportTime) {
+			ArrayList<Long> bestExportTime, String[] schedule) {
+
+		// schedule gives the end times of up to 5 slots
 
 		int maxWidth = 0;
 
@@ -2905,6 +3235,10 @@ public class Octopussy {
 		for (int index = 0; index < pricesPerSlot.size(); index++) {
 
 			SlotCost slotCost = pricesPerSlot.get(index);
+
+			String[] period = startAndFinishTimeOfSlotCost(slotCost);
+
+			String to = period[1];
 
 			Float importValueIncVat = slotCost.getImportPrice();
 
@@ -3032,17 +3366,17 @@ public class Octopussy {
 
 						if (ansi) {
 
+							slotEpoch = slotCost.getEpochSecond();
+
 							if (export) {
 
 								long bestExportPeriodStartsAt = bestExportTime.get(i); // inclusive
 								long bestExportPeriodEndBefore = (i + 1) * 1800 + bestExportPeriodStartsAt; // exclusive
 
-								slotEpoch = slotCost.getEpochSecond();
-
 								if (slotEpoch >= bestExportPeriodStartsAt && slotEpoch < bestExportPeriodEndBefore) {
 
-									sb3.append(ANSI_COLOR_HI);
-									flagTimeGoodForImportOrExport = Boolean.FALSE;
+									sb3.append(ANSI_COLOR_HI); // eg RED
+									flagTimeGoodForImportOrExport = Boolean.TRUE;
 								}
 							}
 
@@ -3051,11 +3385,9 @@ public class Octopussy {
 								long bestImportPeriodStartsAt = bestImportTime.get(i); // inclusive
 								long bestImportPeriodEndBefore = (i + 1) * 1800 + bestImportPeriodStartsAt; // exclusive
 
-								slotEpoch = slotCost.getEpochSecond();
-
 								if (slotEpoch >= bestImportPeriodStartsAt && slotEpoch < bestImportPeriodEndBefore) {
 
-									sb3.append(ANSI_COLOUR_LO);
+									sb3.append(ANSI_COLOUR_LO); // eg GREEN
 									flagTimeGoodForImportOrExport = Boolean.TRUE;
 								}
 							}
@@ -3097,10 +3429,22 @@ public class Octopussy {
 							+ (ansi & bestExport ? ANSI_RESET : "")
 					: "\t";
 
-			System.out.println(optionalExport + slotCost.getSimpleTimeStamp() + "  " + (cheapestImport ? "!" : " ")
-					+ (lessThanAverage ? "!" : " ") + "  " + String.format("%5.2f", importValueIncVat) + "p  "
-					+ (ansi & cheapestImport ? ANSI_COLOUR_LO : "") + asterisks
-					+ (ansi & cheapestImport ? ANSI_RESET : "") + padding + prices + clockHHMM);
+			String chargeSlot = null;
+
+			for (int s = 0; s < schedule.length; s++) {
+
+				if (0 == to.compareTo(schedule[s])) {
+
+					chargeSlot = "S" + String.valueOf(1 + s);
+					break;
+				}
+			}
+
+			System.out.println(optionalExport + slotCost.getSimpleTimeStamp() + "  "
+					+ (null == chargeSlot ? (cheapestImport ? "!" : " ") + (lessThanAverage ? "!" : " ") : chargeSlot)
+					+ "  " + String.format("%5.2f", importValueIncVat) + "p  "
+					+ (ansi && cheapestImport ? ANSI_COLOUR_LO : "") + asterisks
+					+ (ansi && cheapestImport ? ANSI_RESET : "") + padding + prices + clockHHMM);
 		}
 
 	}
