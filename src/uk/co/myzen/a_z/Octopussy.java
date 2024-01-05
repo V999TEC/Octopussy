@@ -2627,7 +2627,7 @@ public class Octopussy {
 
 		// what part of the day are we in?
 
-		for (; p < numberOfParts; p++) {
+		for (; p < numberOfParts - 1; p++) {
 
 			if (rangeStartTime.compareTo(parts.get(1 + p)) < 0) {
 
