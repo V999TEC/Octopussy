@@ -204,6 +204,8 @@ public class Octopussy {
 
 	private final static DateTimeFormatter formatter24HourClock = DateTimeFormatter.ofPattern("HH:mm");
 
+	private final static DateTimeFormatter formatter12HourClock = DateTimeFormatter.ofPattern("h:mm a");
+
 	private final static DateTimeFormatter formatterDayHourMinute = DateTimeFormatter.ofPattern("E HH:mm");
 
 	private final static DateTimeFormatter formatterDayHourMinuteSecond = DateTimeFormatter.ofPattern("E HH:mm:ss");
@@ -699,7 +701,7 @@ public class Octopussy {
 
 				result[s] = execRead(check, readEndTimesParameter[s]);
 
-				// System.out.println("Charging Slot " + String.valueOf(1 + s) + " ends at " +
+				// System.err.println("Charging Slot " + String.valueOf(1 + s) + " ends at " +
 				// result[s]);
 			}
 		}
@@ -1164,11 +1166,9 @@ public class Octopussy {
 
 			Float highestCost = null;
 			Float lowestCost = null;
-//			Float lowestCost30MinuteGranularity = null;
 
 			LocalDateTime timeOfHighestCost = null;
 			LocalDateTime timeOfLowestCost = null;
-//			LocalDateTime timeOfLowest30MinuteGranularity = null;
 
 			for (long epochSecond = startEpochSecond; epochSecond < stopEpochSecond; epochSecond += 60) {
 
@@ -1187,16 +1187,6 @@ public class Octopussy {
 
 					continue;
 				}
-
-//				if (0 == epochSecond % 1800) {
-//
-//					if (null == lowestCost30MinuteGranularity || cost < lowestCost30MinuteGranularity) {
-//
-//						lowestCost30MinuteGranularity = cost;
-//
-//						timeOfLowest30MinuteGranularity = LocalDateTime.ofInstant(instant, ourZoneId);
-//					}
-//				}
 
 				if (null == lowestCost || cost < lowestCost) {
 
@@ -1268,9 +1258,6 @@ public class Octopussy {
 
 			System.out.println("\t" + timeOfHighestCost.format(formatterDayHourMinute) + "\t"
 					+ String.format("%5.2f", highestCost) + " p");
-
-//			System.out.println("\t" + timeOfLowest30MinuteGranularity.format(formatterDayHourMinute) + "\t"
-//					+ String.format("%5.2f", lowestCost30MinuteGranularity) + " p");
 
 			long epochTimeLimit = epochTime + elapsedSecs;
 
@@ -2427,87 +2414,120 @@ public class Octopussy {
 
 	private int[] findOptimalCostSlotToday(final int howMany, List<SlotCost> pricesPerSlot, String untilBefore12hr) {
 
-		int[] result = new int[howMany];
+		int[] result = new int[howMany > -1 ? howMany : 0];
 
-		String simpleTimeStamp = pricesPerSlot.get(0).getSimpleTimeStamp();
+		if (howMany > 0) {
 
-		String[] parts = simpleTimeStamp.split(" ");
+			String simpleTimeStamp = pricesPerSlot.get(0).getSimpleTimeStamp();
 
-		String today = parts[0] + " " + parts[1] + " " + parts[2];
+			String[] parts = simpleTimeStamp.split(" ");
 
-		String time12hr = parts[parts.length - 2] + " " + parts[parts.length - 1];
+			String today = parts[0] + " " + parts[1] + " " + parts[2];
 
-		List<Float> prices = new ArrayList<Float>();
+			String time12hr = parts[parts.length - 2] + " " + parts[parts.length - 1];
 
-		int index = 0;
+			List<Float> prices = new ArrayList<Float>();
 
-		do {
+			int index = 0;
 
-			simpleTimeStamp = pricesPerSlot.get(index).getSimpleTimeStamp();
+			do {
 
-			parts = simpleTimeStamp.split(" ");
+				simpleTimeStamp = pricesPerSlot.get(index).getSimpleTimeStamp();
 
-			String testToday = parts[0] + " " + parts[1] + " " + parts[2];
+				parts = simpleTimeStamp.split(" ");
 
-			time12hr = parts[parts.length - 2] + " " + parts[parts.length - 1];
+				String testToday = parts[0] + " " + parts[1] + " " + parts[2];
 
-			if (0 != testToday.compareTo(today)) {
+				time12hr = parts[parts.length - 2] + " " + parts[parts.length - 1];
 
-				break;
+				if (0 != testToday.compareTo(today)) {
+
+					break;
+				}
+
+				if (0 == untilBefore12hr.compareTo(time12hr)) {
+					break;
+				}
+
+				prices.add(pricesPerSlot.get(index).getImportPrice());
+
+				index++;
+
+			} while (true);
+
+			Collections.sort(prices);
+
+			final int limit = prices.size();
+
+			List<Integer> timeIndex = new ArrayList<Integer>(limit);
+
+			for (index = 0; index < limit; index++) {
+
+				Float f = prices.get(index); // this is the next lowest price
+
+				// which time has this price (which we have not already stored in timeList)?
+
+				for (int i = 0; i < limit; i++) {
+
+					Float importPrice = pricesPerSlot.get(i).getImportPrice();
+
+					if (importPrice == f) {
+
+						if (timeIndex.contains(i)) {
+
+							continue; // iterate
+						}
+
+						timeIndex.add(Integer.valueOf(i));
+					}
+				}
 			}
-
-			if (0 == untilBefore12hr.compareTo(time12hr)) {
-				break;
-			}
-
-			prices.add(pricesPerSlot.get(index).getImportPrice());
-
-			index++;
-
-		} while (true);
-
-		Collections.sort(prices);
-
-		final int limit = prices.size();
-
-		List<Integer> timeIndex = new ArrayList<Integer>(limit);
-
-		for (index = 0; index < limit; index++) {
-
-			Float f = prices.get(index); // this is the next lowest price
-
-			// which time has this price (which we have not already stored in timeList)?
 
 			for (int i = 0; i < limit; i++) {
 
-				Float importPrice = pricesPerSlot.get(i).getImportPrice();
+				Integer nextIndex = timeIndex.get(i);
 
-				if (importPrice == f) {
+				if (i < howMany) {
 
-					if (timeIndex.contains(i)) {
-
-						continue; // iterate
-					}
-
-					timeIndex.add(Integer.valueOf(i));
+					result[i] = nextIndex.intValue();
 				}
+
+				System.out.println(pricesPerSlot.get(nextIndex).getSimpleTimeStamp() + "\t"
+						+ pricesPerSlot.get(nextIndex).getImportPrice() + "p" + (i < howMany ? "\t[" + i + "]" : ""));
 			}
-		}
-
-		for (int i = 0; i < limit; i++) {
-
-			Integer nextIndex = timeIndex.get(i);
-
-			if (i < howMany) {
-
-				result[i] = nextIndex.intValue();
-			}
-
-			System.out.println(pricesPerSlot.get(nextIndex).getSimpleTimeStamp() + "\t"
-					+ pricesPerSlot.get(nextIndex).getImportPrice() + "p" + (i < howMany ? "\t[" + i + "]" : ""));
 		}
 
 		return result;
+	}
+
+	private static String convertHHmmMinus1Minute(String hhmm) {
+
+		LocalDateTime ldtAdjusted = convertHHmm(hhmm).minusMinutes(1L);
+
+		return ldtAdjusted.format(formatter24HourClock);
+	}
+
+	private static String convertHHmmTo12Hr(String hhmm) {
+
+		LocalDateTime ldtAdjusted = convertHHmm(hhmm);
+
+		return ldtAdjusted.format(formatter12HourClock);
+	}
+
+	private static LocalDateTime convertHHmm(String hhmm) {
+
+		String hh = hhmm.substring(0, 2);
+
+		String mm = hhmm.substring(3);
+
+		Instant now = Instant.now();
+
+		LocalDateTime ldt = LocalDateTime.ofInstant(now, ourZoneId);
+
+		LocalDateTime ldtAdjusted = ldt.withHour(Integer.parseInt(hh)).withMinute(Integer.parseInt(mm)).withSecond(0)
+				.withNano(0);
+
+		return ldtAdjusted;
 	}
 
 	private String[] scheduleBatteryCharging(List<SlotCost> pricesPerSlot, String[] currentTo) {
@@ -2518,101 +2538,123 @@ public class Octopussy {
 
 		String rangeStartTime = ldtRangeStart.format(formatter24HourClock);
 
-		// we divide the day up into 4 parts
+		// BY convention we divide the day up into 4 parts - each is 24hr time HH:mm
+		// EG 00:00, 08:00, 12:00, 18:00
+		// However we will allow 0 to N parts with start times as HH:mm stored in
+		// parts[N]
+		// the times must be ascending and unique.
 
-		final String part1st = "00:00";
-		final String part2nd = "08:00";
-		final String part3rd = "12:00";
-		final String part4th = "18:00";
+		int partNumber = 1;
 
-		final String dayPartsEndAt24hr[] = { "07:59", "11:59", "17:59", "23:59" };
+		String key = "part1";
 
-		final String dayPartsEndBefore12hr[] = { "8:00 am", "12:00 pm", "6:00 pm", "12:00 am" };
+		LocalDateTime ldtPrevious = LocalDateTime.of(2024, 1, 1, 0, 0); // 2024-01-01T00:00
 
-		final int slotsPerDayPart[] = { 5, 1, 2, 1 };
+		List<String> parts = new ArrayList<String>();
 
-		String power = null;
+		while (properties.containsKey(key)) {
+
+			String value = properties.getProperty(key);
+
+			if (parts.contains(value)) {
+
+				System.err.println("Invalid part value\t" + key + ":" + value);
+				parts.clear();
+				break;
+			}
+
+			LocalDateTime ldt = convertHHmm(value);
+
+			if (ldt.compareTo(ldtPrevious) <= 0) {
+
+				System.err.println("Invalid part value\t" + key + ":" + value + " needs to be > previous values");
+				parts.clear();
+				break;
+			}
+
+			parts.add(value);
+
+//			String powerKey = "power"+String.valueOf(partNumber);
+//			
+//			powers
+
+			key = "part" + String.valueOf(++partNumber);
+		}
+
+		final int numberOfParts = parts.size();
+
+		final String dayPartsEndAt24hr[] = new String[numberOfParts];
+
+		final String dayPartsEndBefore12hr[] = new String[numberOfParts];
+
+		final int slotsPerDayPart[] = new int[numberOfParts];
+
+		final int powers[] = new int[numberOfParts];
+
+		float units = 0;
+
+		System.out.println("Configured charging schedule as follows:");
+
+		for (int n = 0; n < numberOfParts; n++) {
+
+			String partsKey = (n == numberOfParts - 1) ? parts.get(0) : parts.get(1 + n);
+
+			dayPartsEndBefore12hr[n] = convertHHmmTo12Hr(partsKey);
+
+			dayPartsEndAt24hr[n] = convertHHmmMinus1Minute(partsKey);
+
+			slotsPerDayPart[n] = Integer.valueOf(properties.getProperty("slots" + String.valueOf(1 + n)));
+
+			String powerKey = "power" + String.valueOf(1 + n);
+
+			powers[n] = Integer.valueOf(properties.getProperty(powerKey));
+
+			System.out.println(parts.get(n) + " to " + dayPartsEndAt24hr[n] + "\t" + slotsPerDayPart[n]
+					+ " half-hour slot(s) @ " + powers[n] + " watts");
+
+			units += (+powers[n] * slotsPerDayPart[n]);
+		}
+
+		units = units / 2000;
+
+		System.out.println("Probable import of around " + units + " kWhr");
 
 		int[] slots;
 
-		switch (rangeStartTime) {
+		String from;
 
-		case part1st:
+		int p = 0;
 
-			power = "2000";
+		// what part of the day are we in?
 
-			// 5 cheapest slots from 00:00 up to 07:59
-			slots = findOptimalCostSlotToday(slotsPerDayPart[0], pricesPerSlot, dayPartsEndBefore12hr[0]);
+		for (; p < numberOfParts; p++) {
 
-			break;
+			if (rangeStartTime.compareTo(parts.get(1 + p)) < 0) {
 
-		case part2nd:
+				break;
+			}
+		}
 
-			power = "4000";
+		from = parts.get(p);
 
-			// cheapest slot from 08:00 up to 11:59
-			slots = findOptimalCostSlotToday(slotsPerDayPart[1], pricesPerSlot, dayPartsEndBefore12hr[1]);
+		String power = null;
 
-			break;
+		for (int n = 0; n < numberOfParts; n++) {
 
-		case part3rd:
+			if (0 == rangeStartTime.compareTo(parts.get(n))) {
 
-			power = "3680";
+				power = properties.getProperty("power" + String.valueOf(1 + n));
+				break;
+			}
+		}
 
-			// 2 cheapest slots from 12:00 up to 17:59
-			slots = findOptimalCostSlotToday(slotsPerDayPart[2], pricesPerSlot, dayPartsEndBefore12hr[2]);
+		if (null == power) {
 
-			break;
-
-		case part4th: // new schedule of prices will have been published after 4pm
-
-			power = "5000";
-
-			// cheapest slot from 18:00 up to 23:59
-			slots = findOptimalCostSlotToday(slotsPerDayPart[3], pricesPerSlot, dayPartsEndBefore12hr[3]);
-
-			break;
-
-		default:
 			slots = new int[0];
 
 			// Examine currentTo to check there is at least one time in the current part of
-			// the day.
-			// eg if we are in range "09:30" to "09:59" then a schedule should have fired at
-			// 08:00 to set a time between 08:00 and 11:59
-
-			String from;
-
-			int p;
-
-			// what part of the day are we in?
-
-			if (rangeStartTime.compareTo(part2nd) >= 0) {
-
-				if (rangeStartTime.compareTo(part3rd) >= 0) {
-
-					if (rangeStartTime.compareTo(part4th) >= 0) {
-
-						p = 3;
-						from = part4th;
-
-					} else {
-
-						p = 2;
-						from = part3rd;
-					}
-
-				} else {
-
-					p = 1;
-					from = part2nd;
-				}
-
-			} else {
-
-				p = 0;
-				from = part1st;// inclusive
-			}
+			// the day. EG: if we are in range "09:30" to "09:59" then a schedule
+			// should have fired at 08:00 to set a time between 08:00 and 11:59
 
 			final String until = dayPartsEndAt24hr[p];
 
@@ -2639,15 +2681,13 @@ public class Octopussy {
 				// assume the previous scheduling update failed (typically due to inverter
 				// timeout) so try again
 
-				slots = findOptimalCostSlotToday(slotsPerDayPart[p], pricesPerSlot, dayPartsEndBefore12hr[p]);
-
 				power = "6000";
 			}
-
-			break;
 		}
 
 		if (null != power) { // assume a change to AC Charge s schedule
+
+			slots = findOptimalCostSlotToday(slotsPerDayPart[p], pricesPerSlot, dayPartsEndBefore12hr[p]);
 
 			boolean changeToSchedule = false;
 
