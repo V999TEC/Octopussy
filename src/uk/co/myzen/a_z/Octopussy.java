@@ -2648,7 +2648,7 @@ public class Octopussy {
 			}
 		}
 
-		if (null == power) {
+		if (null == power && slotsPerDayPart[p] > 0) {
 
 			slots = new int[0];
 
