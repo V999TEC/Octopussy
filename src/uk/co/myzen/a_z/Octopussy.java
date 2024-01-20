@@ -95,6 +95,7 @@ public class Octopussy {
 	private final static String DEFAULT_BASE_URL_PROPERTY = "https://api.octopus.energy";
 	private final static String DEFAULT_HISTORY_PROPERTY = "octopus.import.csv";
 	private final static String DEFAULT_TARIFF_URL_PROPERTY = "";
+	private final static String DEFAULT_CONSUMPTION_PROPERTY = "15";
 	private final static String DEFAULT_DAYS_PROPERTY = "10";
 	private final static String DEFAULT_YEARLY_PROPERTY = "false";
 	private final static String DEFAULT_MONTHLY_PROPERTY = "false";
@@ -107,12 +108,12 @@ public class Octopussy {
 	private final static String DEFAULT_AGILE_ELECTRICITY_STANDING_PROPERTY = "42.7665";
 	private final static String DEFAULT_POSTCODE_PROPERTY = "?";
 	private final static String DEFAULT_REGION_PROPERTY = "H";
+
 	private final static String DEFAULT_CHECK_PROPERTY = "false";
 	private final static String DEFAULT_EXTRA_PROPERTY = "false";
-	private final static String DEFAULT_EXTRA2_PROPERTY = "false";
-	private final static String DEFAULT_EXTRA3_PROPERTY = "false";
-	private final static String DEFAULT_EXTRA4_PROPERTY = "false";
-	private final static String DEFAULT_EXTRA5_PROPERTY = "false";
+	private final static String DEFAULT_SOLAR_PROPERTY = "false";
+	private final static String DEFAULT_BATTERY_PROPERTY = "false";
+	private final static String DEFAULT_GRID_PROPERTY = "false";
 
 	private final static String DEFAULT_ELECTRICTY_MPRN_PROPERTY = "200001010163";
 	private final static String DEFAULT_ELECTRICTY_SN_PROPERTY = "21L010101";
@@ -164,6 +165,7 @@ public class Octopussy {
 	private final static String KEY_EXPORT_TARIFF_URL = "export.tariff.url";
 	private final static String KEY_EXPORT = "export";
 
+	private final static String KEY_CONSUMPTION = "consumption";
 	private final static String KEY_DAYS = "days";
 	private final static String KEY_PLUNGE = "plunge";
 	private final static String KEY_TARGET = "target";
@@ -183,10 +185,9 @@ public class Octopussy {
 
 	private final static String KEY_CHECK = "check";
 	private final static String KEY_EXTRA = "extra";
-	private final static String KEY_EXTRA2 = "extra2";
-	private final static String KEY_EXTRA3 = "extra3";
-	private final static String KEY_EXTRA4 = "extra4";
-	private final static String KEY_EXTRA5 = "extra5";
+	private final static String KEY_SOLAR = "solar";
+	private final static String KEY_BATTERY = "battery";
+	private final static String KEY_GRID = "grid";
 
 	private final static String KEY_REFERRAL = "referral";
 
@@ -196,9 +197,9 @@ public class Octopussy {
 			KEY_FLEXIBLE_ELECTRICITY_UNIT, KEY_FLEXIBLE_ELECTRICITY_STANDING, KEY_AGILE_ELECTRICITY_STANDING,
 			KEY_IMPORT_PRODUCT_CODE, KEY_TARIFF_CODE, KEY_TARIFF_URL, KEY_REGION, KEY_POSTCODE, KEY_ZONE_ID,
 			KEY_HISTORY, "#", KEY_EXPORT_PRODUCT_CODE, KEY_EXPORT_TARIFF_CODE, KEY_EXPORT_TARIFF_URL, KEY_EXPORT, "#",
-			KEY_DAYS, KEY_PLUNGE, KEY_TARGET, KEY_WIDTH, KEY_ANSI, KEY_COLOUR, KEY_COLOR, "#", KEY_YEARLY, KEY_MONTHLY,
-			KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO, "#", KEY_CHECK, KEY_EXTRA, KEY_EXTRA2, KEY_EXTRA3,
-			KEY_EXTRA4, KEY_EXTRA5, "#", KEY_REFERRAL };
+			KEY_CONSUMPTION, KEY_DAYS, KEY_PLUNGE, KEY_TARGET, KEY_WIDTH, KEY_ANSI, KEY_COLOUR, KEY_COLOR, "#",
+			KEY_YEARLY, KEY_MONTHLY, KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO, "#", KEY_CHECK, KEY_EXTRA,
+			KEY_SOLAR, KEY_BATTERY, KEY_GRID, "#", KEY_REFERRAL };
 
 	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd pph:mm a");
 
@@ -230,8 +231,13 @@ public class Octopussy {
 
 	private static String check = DEFAULT_CHECK_PROPERTY; // overridden by check=value in properties
 
-	private static String[] extra = { DEFAULT_EXTRA_PROPERTY, DEFAULT_EXTRA2_PROPERTY, DEFAULT_EXTRA3_PROPERTY,
-			DEFAULT_EXTRA4_PROPERTY, DEFAULT_EXTRA5_PROPERTY };
+	private static String extra = DEFAULT_EXTRA_PROPERTY; // overridden by extra=value in properties
+
+	private static String solar = DEFAULT_SOLAR_PROPERTY; // overridden by solar=value in properties
+
+	private static String battery = DEFAULT_BATTERY_PROPERTY; // overridden by battery=value in properties
+
+	private static String grid = DEFAULT_GRID_PROPERTY; // overridden by grid=value in properties
 
 	private static boolean usingExternalPropertyFile = false;
 
@@ -247,6 +253,8 @@ public class Octopussy {
 	private static long epochFrom = 0;
 
 	private static Map<Long, ConsumptionHistory> history = null;
+
+	private static Map<LocalDateTime, ImportExportData> importExportPriceMap = null;
 
 	private static synchronized Octopussy getInstance() {
 
@@ -393,7 +401,7 @@ public class Octopussy {
 
 			ZonedDateTime timeRecent;
 
-			if (dayOfYearToday < howManyDaysHistory) {
+			if (dayOfYearToday <= howManyDaysHistory) {
 
 				timeRecent = ourTimeNow.minusDays(howManyDaysHistory).withHour(00).withMinute(00).withSecond(00)
 						.withNano(0);
@@ -447,8 +455,7 @@ public class Octopussy {
 				agileResultsExport = v1AgileFlex.getAgileResults();
 			}
 
-			Map<LocalDateTime, ImportExportData> importExportPriceMap = instance.createPriceMap(agileResultsImport,
-					agileResultsExport);
+			importExportPriceMap = instance.createPriceMap(agileResultsImport, agileResultsExport);
 
 			SortedSet<LocalDateTime> ascendingKeysForPriceMap = new TreeSet<LocalDateTime>();
 
@@ -501,7 +508,7 @@ public class Octopussy {
 			//
 			//
 
-			Map<String, DayValues> elecMapDaily = instance.buildElecMapDaily(periodResults, importExportPriceMap);
+			Map<String, DayValues> elecMapDaily = instance.buildElecMapDaily(periodResults); // , importExportPriceMap);
 
 			//
 			//
@@ -618,8 +625,8 @@ public class Octopussy {
 
 			// filter by half an hour ago
 
-			List<SlotCost> pricesPerSlot = instance.buildListSlotCosts(epochNow - 1800, ascendingKeysForPriceMap,
-					importExportPriceMap);
+			List<SlotCost> pricesPerSlot = instance.buildListSlotCosts(epochNow - 1800, ascendingKeysForPriceMap);// ,
+//					importExportPriceMap);
 
 			//
 			//
@@ -636,13 +643,7 @@ public class Octopussy {
 			//
 			//
 
-			String[] schedule = instance.readChargingSchedule();
-
-			//
-			//
-			//
-
-			schedule = instance.scheduleBatteryCharging(pricesPerSlot, schedule);
+			String[] schedule = instance.scheduleBatteryCharging(pricesPerSlot);
 
 			//
 			//
@@ -680,16 +681,16 @@ public class Octopussy {
 		}
 	}
 
-	private String[] readChargingSchedule() {
+	private String[] readChargingSchedule(final int howMany) {
 
-		String[] result = new String[5];
+		String[] result = new String[howMany];
 
-		String[] readEndTimesParameter = { "65", "103", "106", "109", "112" };
+		String[] readEndTimesParameter = { "65", "103", "106", "109", "112", "115", "118", "121", "124", "127" };
 
 		// avoid setting the from/to times at the inverter if no change to previous
 		// values for AC Charge 1 End Time
 
-		for (int s = 0; s < 5; s++) {
+		for (int s = 0; s < howMany; s++) {
 
 			if ("false".equalsIgnoreCase(check)) {
 
@@ -700,9 +701,6 @@ public class Octopussy {
 				// what is the current 'to' time in the inverter for Slot 1/2/3/4/5?
 
 				result[s] = execRead(check, readEndTimesParameter[s]);
-
-				// System.err.println("Charging Slot " + String.valueOf(1 + s) + " ends at " +
-				// result[s]);
 			}
 		}
 
@@ -766,17 +764,17 @@ public class Octopussy {
 
 				String line = myReader.nextLine();
 
-				String[] parts = line.split("\t");
+				String[] elements = line.split("\t");
 
-				if (20 == parts[0].length() || ('T' == parts[0].charAt(10) && parts[0].endsWith("Z"))) {
+				if (20 == elements[0].length() || ('T' == elements[0].charAt(10) && elements[0].endsWith("Z"))) {
 
-					String value = parts[1].trim();
+					String value = elements[1].trim();
 
 					float power = 0;
 
 					power = "0.0".equals(value) ? 0 : Float.parseFloat(value);
 
-					Integer duration = Integer.parseInt(parts[3].trim());
+					Integer duration = Integer.parseInt(elements[3].trim());
 
 					// add an array of OffsetPower for matching against timeslots in the next 24
 					// hours or so
@@ -1839,11 +1837,13 @@ public class Octopussy {
 
 		check = properties.getProperty(KEY_CHECK, DEFAULT_CHECK_PROPERTY).trim();
 
-		extra[0] = properties.getProperty(KEY_EXTRA, DEFAULT_EXTRA_PROPERTY).trim();
-		extra[1] = properties.getProperty(KEY_EXTRA2, DEFAULT_EXTRA2_PROPERTY).trim();
-		extra[2] = properties.getProperty(KEY_EXTRA3, DEFAULT_EXTRA2_PROPERTY).trim();
-		extra[3] = properties.getProperty(KEY_EXTRA4, DEFAULT_EXTRA2_PROPERTY).trim();
-		extra[4] = properties.getProperty(KEY_EXTRA5, DEFAULT_EXTRA2_PROPERTY).trim();
+		extra = properties.getProperty(KEY_EXTRA, DEFAULT_EXTRA_PROPERTY).trim();
+
+		solar = properties.getProperty(KEY_SOLAR, DEFAULT_SOLAR_PROPERTY).trim();
+
+		battery = properties.getProperty(KEY_BATTERY, DEFAULT_BATTERY_PROPERTY).trim();
+
+		grid = properties.getProperty(KEY_GRID, DEFAULT_GRID_PROPERTY).trim();
 
 		// expand properties substituting $key$ values
 
@@ -1916,14 +1916,43 @@ public class Octopussy {
 	private V1AgileFlex getV1AgileFlexImport(Integer page, Integer pageSize, String periodFrom, String periodTo)
 			throws MalformedURLException, IOException {
 
+		V1AgileFlex result = null;
+
 		String spec = properties.getProperty(KEY_TARIFF_URL, DEFAULT_TARIFF_URL_PROPERTY).trim()
 				+ "/standard-unit-rates/" + "?page_size=" + pageSize + (null == page ? "" : "&page=" + page)
 				+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
 				+ (null == periodTo ? "" : "&period_to=" + periodTo);
 
-		String json = getRequest(new URL(spec), false);
+		int tries = 0;
 
-		V1AgileFlex result = mapper.readValue(json, V1AgileFlex.class);
+		boolean waitingForGoodResult = true;
+
+		while (waitingForGoodResult) {
+
+			tries++;
+
+			try {
+				String json = getRequest(new URL(spec), false);
+
+				result = mapper.readValue(json, V1AgileFlex.class);
+
+				waitingForGoodResult = false;
+
+			} catch (Exception e) {
+
+				System.out.println(tries + ")\tpage:" + page + "\tpageSize:" + pageSize + "\tperiodFrom:" + periodFrom
+						+ "\tperiodTo:" + periodTo + "\t" + e.getMessage() + "\n" + spec);
+
+				try {
+
+					Thread.sleep(60000L); // 1 minute pause before hitting API again
+
+				} catch (InterruptedException e1) {
+
+					e1.printStackTrace();
+				}
+			}
+		}
 
 		return result;
 	}
@@ -2058,23 +2087,6 @@ public class Octopussy {
 
 		return json;
 	}
-
-//	private V1GasConsumption getV1GasConsumption(String periodFrom, String periodTo)
-//			throws MalformedURLException, IOException {
-//
-//		String mprn = properties.getProperty("gas.mprn").trim();
-//
-//		String sn = properties.getProperty("gas.sn").trim();
-//
-//		String json = instance.getRequest(
-//				new URL("https://api.octopus.energy/v1/gas-meter-points/" + mprn + "/meters/" + sn + "/consumption/" +
-//
-//						"?page_size=100&period_from=" + periodFrom + "&period_to=" + periodTo + "&order_by=period"));
-//
-//		V1GasConsumption result = mapper.readValue(json, V1GasConsumption.class);
-//
-//		return result;
-//	}
 
 	private Map<Long, ConsumptionHistory> readHistory(File importData)
 			throws NumberFormatException, FileNotFoundException, IOException {
@@ -2414,17 +2426,17 @@ public class Octopussy {
 
 	private int[] findOptimalCostSlotToday(final int howMany, List<SlotCost> pricesPerSlot, String untilBefore12hr) {
 
-		int[] result = new int[howMany > -1 ? howMany : 0];
+		int[] result = new int[0];
 
 		if (howMany > 0) {
 
 			String simpleTimeStamp = pricesPerSlot.get(0).getSimpleTimeStamp();
 
-			String[] parts = simpleTimeStamp.split(" ");
+			String[] elements = simpleTimeStamp.split(" ");
 
-			String today = parts[0] + " " + parts[1] + " " + parts[2];
+			String today = elements[0] + " " + elements[1] + " " + elements[2];
 
-			String time12hr = parts[parts.length - 2] + " " + parts[parts.length - 1];
+			String time12hr = elements[elements.length - 2] + " " + elements[elements.length - 1];
 
 			List<Float> prices = new ArrayList<Float>();
 
@@ -2434,11 +2446,11 @@ public class Octopussy {
 
 				simpleTimeStamp = pricesPerSlot.get(index).getSimpleTimeStamp();
 
-				parts = simpleTimeStamp.split(" ");
+				elements = simpleTimeStamp.split(" ");
 
-				String testToday = parts[0] + " " + parts[1] + " " + parts[2];
+				String testToday = elements[0] + " " + elements[1] + " " + elements[2];
 
-				time12hr = parts[parts.length - 2] + " " + parts[parts.length - 1];
+				time12hr = elements[elements.length - 2] + " " + elements[elements.length - 1];
 
 				if (0 != testToday.compareTo(today)) {
 
@@ -2483,14 +2495,13 @@ public class Octopussy {
 				}
 			}
 
-			for (int i = 0; i < limit; i++) {
+			result = new int[timeIndex.size() < howMany ? timeIndex.size() : howMany];
+
+			for (int i = 0; i < result.length; i++) {
 
 				Integer nextIndex = timeIndex.get(i);
 
-				if (i < howMany) {
-
-					result[i] = nextIndex.intValue();
-				}
+				result[i] = nextIndex.intValue();
 
 				System.out.println(pricesPerSlot.get(nextIndex).getSimpleTimeStamp() + "\t"
 						+ pricesPerSlot.get(nextIndex).getImportPrice() + "p" + (i < howMany ? "\t[" + i + "]" : ""));
@@ -2530,7 +2541,7 @@ public class Octopussy {
 		return ldtAdjusted;
 	}
 
-	private String[] scheduleBatteryCharging(List<SlotCost> pricesPerSlot, String[] currentTo) {
+	private String[] scheduleBatteryCharging(List<SlotCost> pricesPerSlot) {
 
 		Instant instantRangeStart = Instant.ofEpochSecond(pricesPerSlot.get(0).getEpochSecond());
 
@@ -2538,11 +2549,12 @@ public class Octopussy {
 
 		String rangeStartTime = ldtRangeStart.format(formatter24HourClock);
 
+		String rangeEndTime = ldtRangeStart.plusMinutes(29).format(formatter24HourClock);
+
 		// BY convention we divide the day up into 4 parts - each is 24hr time HH:mm
 		// EG 00:00, 08:00, 12:00, 18:00
 		// However we will allow 0 to N parts with start times as HH:mm stored in
-		// parts[N]
-		// the times must be ascending and unique.
+		// parts[N] and the times must be ascending and unique.
 
 		int partNumber = 1;
 
@@ -2574,14 +2586,13 @@ public class Octopussy {
 
 			parts.add(value);
 
-//			String powerKey = "power"+String.valueOf(partNumber);
-//			
-//			powers
-
 			key = "part" + String.valueOf(++partNumber);
 		}
 
 		final int numberOfParts = parts.size();
+
+//		logErrTime("There are " + numberOfParts + " part(s) to the day configured: part[0] through part["
+//				+ (numberOfParts - 1) + "]");
 
 		final String dayPartsEndAt24hr[] = new String[numberOfParts];
 
@@ -2590,6 +2601,8 @@ public class Octopussy {
 		final int slotsPerDayPart[] = new int[numberOfParts];
 
 		final int powers[] = new int[numberOfParts];
+
+		final int percents[] = new int[numberOfParts];
 
 		float units = 0;
 
@@ -2607,21 +2620,26 @@ public class Octopussy {
 
 			String powerKey = "power" + String.valueOf(1 + n);
 
-			powers[n] = Integer.valueOf(properties.getProperty(powerKey));
+			String powerValue = properties.getProperty(powerKey);
 
-			System.out.println(parts.get(n) + " to " + dayPartsEndAt24hr[n] + "\t" + slotsPerDayPart[n]
-					+ " half-hour slot(s) @ " + powers[n] + " watts");
+			int endIndex = powerValue.indexOf(':'); // if > 0 assume power precedes a percentage
+
+			powers[n] = Integer.valueOf(-1 == endIndex ? powerValue : powerValue.substring(0, endIndex));
+
+			percents[n] = -1 == endIndex ? 100 : Integer.valueOf(powerValue.substring(1 + endIndex));
+
+			float wattHours = slotsPerDayPart[n] * powers[n] / 2;
+
+			System.out.println("Part" + (1 + n) + ": " + parts.get(n) + " to " + dayPartsEndAt24hr[n] + "\t"
+					+ slotsPerDayPart[n] + " half-hour slot(s) @ " + powers[n] + " watts (" + Math.round(wattHours)
+					+ " Whr) " + String.valueOf(percents[n]) + "%");
 
 			units += (+powers[n] * slotsPerDayPart[n]);
 		}
 
 		units = units / 2000;
 
-		System.out.println("Probable import of around " + units + " kWhr");
-
-		int[] slots;
-
-		String from;
+		System.out.println("Potential import of around " + units + " kWhr");
 
 		int p = 0;
 
@@ -2635,7 +2653,23 @@ public class Octopussy {
 			}
 		}
 
-		from = parts.get(p);
+		int numberofChargingSlotsInThisPartOfDay = slotsPerDayPart[p];
+
+		String[] schedule = instance.readChargingSchedule(numberofChargingSlotsInThisPartOfDay);
+
+		int chargesToDo = countRemainingCharges(rangeEndTime, schedule);
+
+		Float kWhrSolar = execReadSolar(); // null is also valid, particularly if solar=false in properties
+
+		Integer percentBattery = execReadBattery(); // null is also valid, particularly if battery=false in properties
+
+		Float kWhrGridImport = execReadGridImport(); // null is also valid, particularly if grid=false in properties
+
+		logErrTime(rangeStartTime + " is in part " + (1 + p) + " of the day, ending at " + dayPartsEndAt24hr[p]
+				+ " Charging slots to do:" + chargesToDo
+				+ (null == percentBattery ? "" : " Bat:" + percentBattery + "%")
+				+ (null == kWhrSolar ? "" : " Sol:" + kWhrSolar)
+				+ (null == kWhrGridImport ? "" : " Imp:" + kWhrGridImport));
 
 		String power = null;
 
@@ -2643,78 +2677,274 @@ public class Octopussy {
 
 			if (0 == rangeStartTime.compareTo(parts.get(n))) {
 
-				power = properties.getProperty("power" + String.valueOf(1 + n));
+				power = String.valueOf(powers[p]);
+
+				String percent = String.valueOf(percents[p]);
+
+				logErrTime(rangeStartTime + " is a scheduling point for charging between now and "
+						+ dayPartsEndAt24hr[p] + " (" + power + " watts x " + numberofChargingSlotsInThisPartOfDay
+						+ ") Limit: " + percent + "%");
 				break;
 			}
 		}
 
-		if (null == power && slotsPerDayPart[p] > 0) {
+		int[] slots = null;
 
-			slots = new int[0];
+		if (null != power && numberofChargingSlotsInThisPartOfDay > 0) {
 
-			// Examine currentTo to check there is at least one time in the current part of
-			// the day. EG: if we are in range "09:30" to "09:59" then a schedule
-			// should have fired at 08:00 to set a time between 08:00 and 11:59
+			slots = findOptimalCostSlotToday(numberofChargingSlotsInThisPartOfDay, pricesPerSlot,
+					dayPartsEndBefore12hr[p]);
 
-			final String until = dayPartsEndAt24hr[p];
+			logErrTime("There " + (1 == slots.length ? "is " : "are ") + slots.length + " slot"
+					+ (1 != slots.length ? "(s)" : "")
+					+ (slots.length == numberofChargingSlotsInThisPartOfDay ? ""
+							: " [NOT " + numberofChargingSlotsInThisPartOfDay + "]")
+					+ " chosen for charging in this period based on cost and current battery level");
 
-			// was there a schedule within the part of day we are in?
+			if (null != extra && 0 != "false".compareTo(extra)) {
 
-			boolean foundMatch = false;
+				for (int s = 0; s < numberofChargingSlotsInThisPartOfDay; s++) {
 
-			for (int s = 0; s < currentTo.length; s++) {
+					// Normally slots.length == numberofChargingSlotsInThisPartOfDay
+					// However if we configure more slots than can be fit in the remaining in the
+					// part of the day slots.length will be < numberofChargingSlotsInThisPartOfDay
+					// Exploit this to clear charging slots to 00:00
 
-				if (currentTo[s].compareTo(from) > 0) {
+					char macro = "ABCDEFGHIJ".charAt(s);
 
-					if (currentTo[s].compareTo(until) <= 0) {
+					String from = "00:00";
+					String to = "00:00";
 
-						// we have a scheduled charge time in the current range
+					if (s < slots.length) {
 
-						foundMatch = true;
-						break;
+						SlotCost sc = pricesPerSlot.get(slots[s]);
+
+						String[] period = startAndFinishTimeOfSlotCost(sc);
+
+						from = period[0];
+						to = period[1];
+
+						System.out.println(from + "\t" + to + "\t" + sc.getImportPrice() + "p");
+
+						float unitsPower = Float.valueOf(power) / 2000;
+
+						float importPrice = sc.getImportPrice();
+
+						logErrTime("Scheduling Slot" + (1 + s) + " to end at " + to + " price: " + importPrice
+								+ "p / unit. Cost ~ £" + String.format("%4.2f", importPrice * unitsPower / 100));
+
+					} else {
+
+						logErrTime("Resetting Slot" + (1 + s) + " to end at 00:00");
 					}
-				}
-			}
 
-			if (!foundMatch) {
+					String updatedTo = execMacro(macro, extra, from, to, percents[p], schedule[s]); // null
 
-				// assume the previous scheduling update failed (typically due to inverter
-				// timeout) so try again
-
-				power = "6000";
-			}
-		}
-
-		if (null != power) { // assume a change to AC Charge s schedule
-
-			slots = findOptimalCostSlotToday(slotsPerDayPart[p], pricesPerSlot, dayPartsEndBefore12hr[p]);
-
-			boolean changeToSchedule = false;
-
-			for (int s = 0; s < slots.length; s++) {
-
-				if (null != extra[s] && 0 != "false".compareTo(extra[s])) {
-
-					String updatedTo = execMacro(extra[s], pricesPerSlot.get(slots[s]), null, currentTo[s]); // null
-																												// implies
-																												// 100%
-																												// SoC
 					if (null != updatedTo) {
 
-						currentTo[s] = updatedTo;
-
-						changeToSchedule = true;
+						schedule[s] = updatedTo;
 					}
 				}
 			}
+		}
 
-			if (changeToSchedule) {
+		// is the current time a charging slot according to the current schedule?
 
-				execWrite(check, "72", power);
+		for (int s = 0; s < schedule.length; s++) {
+
+			if (0 == rangeEndTime.compareTo(schedule[s])) {
+
+				int tally = 0;
+
+				for (int index = 0; index < numberofChargingSlotsInThisPartOfDay; index++) {
+
+					String nextTime = schedule[index];
+
+					if (rangeEndTime.compareTo(nextTime) >= 0 && nextTime.compareTo(parts.get(p)) >= 0) {
+
+						tally++;
+					}
+				}
+
+				logErrTime(rangeStartTime + " Matches charging Slot" + (1 + s) + " ending at " + rangeEndTime + " ("
+						+ tally + " / " + numberofChargingSlotsInThisPartOfDay + " slots)");
+
+				int chargingSlotPower = optimisePowerCost(powers[p], schedule, s, importExportPriceMap);
+
+				logErrTime("Adjusting charging power to " + chargingSlotPower + " watts subject to battery limit "
+						+ percents[p] + "%");
+
+				if (chargingSlotPower > 0) {
+
+					execWrite(check, "72", String.valueOf(chargingSlotPower));
+				}
+
+				break;
 			}
 		}
 
-		return currentTo;
+		return schedule;
+	}
+
+	private int countRemainingCharges(String rangeEndTime, String[] schedule) {
+
+		int count = 0;
+
+		for (int index = 0; index < schedule.length; index++) {
+
+			if (rangeEndTime.compareTo(schedule[index]) <= 0) {
+
+				count++;
+			}
+		}
+
+		return count;
+	}
+
+	private int optimisePowerCost(int defaultPower, String[] schedule, int index,
+			Map<LocalDateTime, ImportExportData> importExportPriceMap) {
+
+		int result = defaultPower;
+
+		final int numberInSchedule = schedule.length;
+
+		if (numberInSchedule > 1) {
+
+			// get the import prices for all the slots in the schedule
+			// (which n.b., contains times at end of each slot)
+			//
+			// The schedule will have the cheapest first in [0],
+			// and most expensive last [numberInSchedule-1]
+
+			float[] prices = new float[numberInSchedule];
+
+			float[] ratios = new float[numberInSchedule];
+
+			int[] powers = new int[numberInSchedule];
+
+			LocalDateTime[] keys = new LocalDateTime[numberInSchedule];
+
+			for (int s = 0; s < numberInSchedule; s++) {
+
+				// create a LocalDateTime from the schedule element
+
+				String endSlot = schedule[s]; // 24hr HH:mm
+
+				int hours = Integer.parseInt(endSlot.substring(0, 2));
+
+				int mins = Integer.parseInt(endSlot.substring(3));
+
+				// to get time at start of slot
+				LocalDateTime key = LocalDateTime.now().withHour(hours).withMinute(mins).withSecond(0).withNano(0)
+						.minusMinutes(29);
+
+				keys[s] = key;
+
+				ImportExportData priceData = importExportPriceMap.get(key);
+
+				prices[s] = priceData.getImportPrice();
+
+				ratios[s] = prices[0] / prices[s]; // hence ratios[0] will always be 1.0
+			}
+
+			int targetSum = numberInSchedule * defaultPower;
+
+			int adjPower = defaultPower - 10;
+
+			int sum;
+
+			do {
+				sum = 0;
+
+				adjPower += 10;
+
+				for (int s = 0; s < numberInSchedule; s++) {
+
+					float product = adjPower * ratios[s];
+
+					int power = Math.round(product);
+
+					powers[s] = power;
+
+					sum += powers[s];
+				}
+
+			} while (sum < targetSum);
+
+			// debug logging
+
+			for (int s = 0; s < numberInSchedule; s++) {
+
+				float unitsPower = Float.valueOf(powers[s]) / 2000;
+
+				float cost = prices[s] * unitsPower / 100;
+
+				String from = keys[s].format(formatter24HourClock);
+				String to = keys[s].plusMinutes(29).format(formatter24HourClock);
+
+				logErrTime("Slot" + (1 + s) + " " + from + " to " + to + " Power: " + powers[s] + " @ " + prices[s]
+						+ "p  cost: £" + String.format("%4.2f", cost));
+			}
+
+			result = powers[index] > 6000 ? 6000 : powers[index];
+		}
+
+		return result;
+	}
+
+	private void logErrTime(String text) {
+
+		ZonedDateTime zdt = ZonedDateTime.now();
+
+		System.err.println(zdt.format(defaultDateTimeFormatter) + "\t" + text);
+	}
+
+	private Float execReadSolar() {
+
+		Float result = null;
+
+		if (!"false".equalsIgnoreCase(solar)) {
+
+			String[] cmdarray = solar.split(" ");
+
+			String value = exec(cmdarray);
+
+			result = Float.valueOf(value.trim());
+		}
+
+		return result;
+	}
+
+	private Integer execReadBattery() {
+
+		Integer result = null;
+
+		if (!"false".equalsIgnoreCase(battery)) {
+
+			String[] cmdarray = battery.split(" ");
+
+			String value = exec(cmdarray);
+
+			result = Integer.valueOf(value.trim());
+		}
+
+		return result;
+	}
+
+	private Float execReadGridImport() {
+
+		Float result = null;
+
+		if (!"false".equalsIgnoreCase(grid)) {
+
+			String[] cmdarray = grid.split(" ");
+
+			String value = exec(cmdarray);
+
+			result = Float.valueOf(value.trim());
+		}
+
+		return result;
 	}
 
 	private String execRead(String template, String p1) {
@@ -2805,21 +3035,14 @@ public class Octopussy {
 		return result;
 	}
 
-	private String execMacro(String template, SlotCost slotCost, String soc, String currentTo) {
-
-		String[] period = startAndFinishTimeOfSlotCost(slotCost);
-
-		String from = period[0];
-		String to = period[1];
+	private String execMacro(char macro, String template, String from, String to, int soc, String currentTo) {
 
 		if (null == currentTo || 0 != to.compareTo(currentTo)) {
 
-			System.out.println(from + "\t" + to + "\t" + slotCost.getImportPrice() + "p");
-
 			// assume extra contains a cmdarray to execute in a separate process
-			// java -jar plugs.jar ./SwindonIcarus.properties inverter setting A %1 %2 %3
+			// java -jar plugs.jar ./SwindonIcarus.properties inverter setting %1 %2 %3 %4
 
-			// substitute from, to and power for %1,%2 and %3 respectively
+			// substitute macro for %1 and from, to and power for %2, %3 and %4 respectively
 
 			String[] cmdarray = template.split(" ");
 
@@ -2827,15 +3050,19 @@ public class Octopussy {
 
 				if ("%1".equalsIgnoreCase(cmdarray[n])) {
 
-					cmdarray[n] = from;
+					cmdarray[n] = String.valueOf(macro);
 
 				} else if ("%2".equalsIgnoreCase(cmdarray[n])) {
 
-					cmdarray[n] = to;
+					cmdarray[n] = from;
 
 				} else if ("%3".equalsIgnoreCase(cmdarray[n])) {
 
-					cmdarray[n] = null == soc ? "" : soc;
+					cmdarray[n] = to;
+
+				} else if ("%4".equalsIgnoreCase(cmdarray[n])) {
+
+					cmdarray[n] = String.valueOf(soc);
 				}
 
 				System.out.println("param[" + n + "]=" + cmdarray[n]);
@@ -2948,35 +3175,71 @@ public class Octopussy {
 
 		try {
 
-			process = Runtime.getRuntime().exec(cmdarray);
+			InputStream inputStream = null;
+			InputStreamReader isr = null;
+			InputStream errorStream = null;
+			InputStreamReader esr = null;
 
-			InputStream inputStream = process.getInputStream();
-			InputStreamReader isr = new InputStreamReader(inputStream);
+			try {
 
-			int n1;
-			char[] c1 = new char[1024];
-			StringBuffer sbOutput = new StringBuffer();
+				process = Runtime.getRuntime().exec(cmdarray);
 
-			while ((n1 = isr.read(c1)) > 0) {
+				inputStream = process.getInputStream();
+				isr = new InputStreamReader(inputStream);
 
-				sbOutput.append(c1, 0, n1);
+				int n1;
+				char[] c1 = new char[1024];
+				StringBuffer sbOutput = new StringBuffer();
+
+				while ((n1 = isr.read(c1)) > 0) {
+
+					sbOutput.append(c1, 0, n1);
+				}
+
+				result = sbOutput.toString();
+
+				errorStream = process.getErrorStream();
+				esr = new InputStreamReader(errorStream);
+
+				int n2;
+				char[] c2 = new char[1024];
+
+				StringBuffer sbError = new StringBuffer();
+
+				while ((n2 = esr.read(c2)) > 0) {
+
+					sbError.append(c2, 0, n2);
+				}
+
+				String err = sbError.toString();
+
+				if (0 != err.length() && 0 != "Picked up JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF8".compareTo(err)) {
+
+					System.err.println("<" + err + ">");
+				}
+
+			} finally {
+
+				if (null != isr) {
+
+					isr.close();
+				}
+
+				if (null != inputStream) {
+
+					inputStream.close();
+				}
+
+				if (null != esr) {
+
+					esr.close();
+				}
+
+				if (null != errorStream) {
+
+					errorStream.close();
+				}
 			}
-
-			result = sbOutput.toString();
-
-			InputStream errorStream = process.getErrorStream();
-			InputStreamReader esr = new InputStreamReader(errorStream);
-
-			int n2;
-			char[] c2 = new char[1024];
-			StringBuffer sbError = new StringBuffer();
-
-			while ((n2 = esr.read(c2)) > 0) {
-
-				sbError.append(c2, 0, n2);
-			}
-
-			System.err.println(sbError.toString());
 
 		} catch (IOException e) {
 
@@ -3192,18 +3455,36 @@ public class Octopussy {
 
 		String pounds2DP = String.format("%.2f", accumulateDifference / 100);
 
-		String averagePounds2DP = String.format("%.2f", accumulateDifference / 100 / countDays);
+		float subTot1 = accumulateDifference / 100 / countDays;
+
+		String averagePounds2DP = String.format("%.2f", subTot1);
 
 		Float unitCostAverage = accumulateCost / accumulatePower;
 
 		String averageCostPerUnit = String.format("%.2f", unitCostAverage);
 
-		String averagePower = String.format("%.3f", accumulatePower / countDays);
+		float recentAverage = accumulatePower / countDays;
+
+		String averagePower = String.format("%.3f", recentAverage);
+
+		Float preSolarLongTermAverage = Float
+				.valueOf(properties.getProperty(KEY_CONSUMPTION, DEFAULT_CONSUMPTION_PROPERTY).trim());
+
+		float solarPower = preSolarLongTermAverage - recentAverage;
+
+		float subTot2 = flatRate * solarPower / 100;
+
+		String solarSaving = String.format("%.2f", subTot2);
+
+		String totalSaving = String.format("%.2f", subTot1 + subTot2);
 
 		System.out.println("\nOver " + countDays + " days, importing " + String.format("%.3f", accumulatePower)
 				+ " kWhr, Agile has saved £" + pounds2DP + " compared to the " + flatRate + "p (X) flat rate tariff");
-		System.out.println("Average daily saving: £" + averagePounds2DP + " Recent average cost per unit (A): "
+		System.out.println("Average daily tariff saving: £" + averagePounds2DP + " Recent average cost per unit (A): "
 				+ averageCostPerUnit + "p and daily grid import: " + averagePower + " kWhr");
+		System.out.println("Solar savings contribute " + String.format("%.3f", solarPower) + " kWhr compared to "
+				+ preSolarLongTermAverage + " kWhr historic daily use (worth £" + solarSaving + ") thus £" + totalSaving
+				+ " in total");
 
 		return unitCostAverage.intValue();
 	}
@@ -3496,16 +3777,16 @@ public class Octopussy {
 	 */
 	private String getSimpleDateTimestamp(LocalDateTime ldt) {
 
-		String parts[] = ldt.format(simpleTime).split(" ");
+		String elements[] = ldt.format(simpleTime).split(" ");
 
-		String result = parts[0] + " " + parts[1].substring(0, 3) + " " + parts[2] + " " + parts[3] + " " + parts[4]
-				+ (parts.length > 5 ? " " + parts[5] : "");
+		String result = elements[0] + " " + elements[1].substring(0, 3) + " " + elements[2] + " " + elements[3] + " "
+				+ elements[4] + (elements.length > 5 ? " " + elements[5] : "");
 
 		return result;
 	}
 
-	private List<SlotCost> buildListSlotCosts(long halfHourAgo, SortedSet<LocalDateTime> setOfLocalDateTime,
-			Map<LocalDateTime, ImportExportData> vatIncPriceMap) {
+	private List<SlotCost> buildListSlotCosts(long halfHourAgo, SortedSet<LocalDateTime> setOfLocalDateTime) { // ,
+//			Map<LocalDateTime, ImportExportData> vatIncPriceMap) {
 
 		List<SlotCost> pricesPerSlot = new ArrayList<SlotCost>();
 
@@ -3517,7 +3798,7 @@ public class Octopussy {
 
 				// this is recent: we are interested
 
-				ImportExportData importExportData = vatIncPriceMap.get(slot);
+				ImportExportData importExportData = importExportPriceMap.get(slot);
 
 				float importValueIncVat = importExportData.getImportPrice();
 
@@ -3543,8 +3824,8 @@ public class Octopussy {
 		return pricesPerSlot;
 	}
 
-	private Map<String, DayValues> buildElecMapDaily(ArrayList<V1PeriodConsumption> periodResults,
-			Map<LocalDateTime, ImportExportData> priceMap) {
+	private Map<String, DayValues> buildElecMapDaily(ArrayList<V1PeriodConsumption> periodResults) { // ,
+//			Map<LocalDateTime, ImportExportData> priceMap) {
 
 		Map<String, DayValues> elecMapDaily = new HashMap<String, DayValues>();
 
@@ -3575,7 +3856,7 @@ public class Octopussy {
 
 			Integer weekOfYear = Long.valueOf(ldt.getLong(ChronoField.ALIGNED_WEEK_OF_YEAR)).intValue();
 
-			ImportExportData importExportData = priceMap.get(ldt);
+			ImportExportData importExportData = importExportPriceMap.get(ldt);
 
 			if (null == importExportData) {
 
