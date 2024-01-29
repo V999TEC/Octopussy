@@ -58,6 +58,8 @@ import uk.co.myzen.a_z.json.V1ElectricityConsumption;
 import uk.co.myzen.a_z.json.V1GSP;
 import uk.co.myzen.a_z.json.V1GridSupplyPoints;
 import uk.co.myzen.a_z.json.V1PeriodConsumption;
+import uk.co.myzen.a_z.json.forecast.solar.ResultMessage;
+import uk.co.myzen.a_z.json.forecast.solar.SolarResult;
 
 /**
  * @author howard
@@ -95,7 +97,7 @@ public class Octopussy {
 	private final static String DEFAULT_BASE_URL_PROPERTY = "https://api.octopus.energy";
 	private final static String DEFAULT_HISTORY_PROPERTY = "octopus.import.csv";
 	private final static String DEFAULT_TARIFF_URL_PROPERTY = "";
-	private final static String DEFAULT_CONSUMPTION_PROPERTY = "15";
+	private final static String DEFAULT_BASELINE_PROPERTY = "15";
 	private final static String DEFAULT_DAYS_PROPERTY = "10";
 	private final static String DEFAULT_YEARLY_PROPERTY = "false";
 	private final static String DEFAULT_MONTHLY_PROPERTY = "false";
@@ -113,7 +115,12 @@ public class Octopussy {
 	private final static String DEFAULT_EXTRA_PROPERTY = "false";
 	private final static String DEFAULT_SOLAR_PROPERTY = "false";
 	private final static String DEFAULT_BATTERY_PROPERTY = "false";
-	private final static String DEFAULT_GRID_PROPERTY = "false";
+	private final static String DEFAULT_GRID_IMPORT_PROPERTY = "false";
+	private final static String DEFAULT_CONSUMPTION_PROPERTY = "false";
+	private final static String DEFAULT_GRID_EXPORT_PROPERTY = "false";
+
+	private final static String DEFAULT_FORECAST_SOLAR_PROPERTY = "false";
+	private final static String DEFAULT_MAX_SOLAR_PROPERTY = "false";
 
 	private final static String DEFAULT_ELECTRICTY_MPRN_PROPERTY = "200001010163";
 	private final static String DEFAULT_ELECTRICTY_SN_PROPERTY = "21L010101";
@@ -165,7 +172,7 @@ public class Octopussy {
 	private final static String KEY_EXPORT_TARIFF_URL = "export.tariff.url";
 	private final static String KEY_EXPORT = "export";
 
-	private final static String KEY_CONSUMPTION = "consumption";
+	private final static String KEY_BASELINE = "baseline";
 	private final static String KEY_DAYS = "days";
 	private final static String KEY_PLUNGE = "plunge";
 	private final static String KEY_TARGET = "target";
@@ -187,7 +194,12 @@ public class Octopussy {
 	private final static String KEY_EXTRA = "extra";
 	private final static String KEY_SOLAR = "solar";
 	private final static String KEY_BATTERY = "battery";
-	private final static String KEY_GRID = "grid";
+	private final static String KEY_GRID_IN = "gridIn";
+	private final static String KEY_CONSUMPTION = "consumption";
+	private final static String KEY_GRID_OUT = "gridOut";
+
+	private final static String KEY_FORECAST_SOLAR = "forecast.solar";
+	private final static String KEY_MAX_SOLAR = "max.solar";
 
 	private final static String KEY_REFERRAL = "referral";
 
@@ -197,9 +209,10 @@ public class Octopussy {
 			KEY_FLEXIBLE_ELECTRICITY_UNIT, KEY_FLEXIBLE_ELECTRICITY_STANDING, KEY_AGILE_ELECTRICITY_STANDING,
 			KEY_IMPORT_PRODUCT_CODE, KEY_TARIFF_CODE, KEY_TARIFF_URL, KEY_REGION, KEY_POSTCODE, KEY_ZONE_ID,
 			KEY_HISTORY, "#", KEY_EXPORT_PRODUCT_CODE, KEY_EXPORT_TARIFF_CODE, KEY_EXPORT_TARIFF_URL, KEY_EXPORT, "#",
-			KEY_CONSUMPTION, KEY_DAYS, KEY_PLUNGE, KEY_TARGET, KEY_WIDTH, KEY_ANSI, KEY_COLOUR, KEY_COLOR, "#",
-			KEY_YEARLY, KEY_MONTHLY, KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO, "#", KEY_CHECK, KEY_EXTRA,
-			KEY_SOLAR, KEY_BATTERY, KEY_GRID, "#", KEY_REFERRAL };
+			KEY_BASELINE, KEY_DAYS, KEY_PLUNGE, KEY_TARGET, KEY_WIDTH, KEY_ANSI, KEY_COLOUR, KEY_COLOR, "#", KEY_YEARLY,
+			KEY_MONTHLY, KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO, "#", KEY_CHECK, KEY_EXTRA, KEY_SOLAR,
+			KEY_BATTERY, KEY_GRID_IN, KEY_CONSUMPTION, KEY_GRID_OUT, "#", KEY_FORECAST_SOLAR, KEY_MAX_SOLAR, "#",
+			KEY_REFERRAL };
 
 	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd pph:mm a");
 
@@ -214,6 +227,8 @@ public class Octopussy {
 	private final static DateTimeFormatter defaultDateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
 
 	private final static DateTimeFormatter formatterLocalDate = DateTimeFormatter.ISO_LOCAL_DATE;
+
+	private final static DateTimeFormatter formatterSolar = DateTimeFormatter.ofPattern("YYYY-MM-DD");
 
 	private static ZoneId ourZoneId;
 
@@ -237,7 +252,16 @@ public class Octopussy {
 
 	private static String battery = DEFAULT_BATTERY_PROPERTY; // overridden by battery=value in properties
 
-	private static String grid = DEFAULT_GRID_PROPERTY; // overridden by grid=value in properties
+	private static String gridIn = DEFAULT_GRID_IMPORT_PROPERTY; // overridden by grid=value in properties
+
+	private static String consumption = DEFAULT_CONSUMPTION_PROPERTY; // overridden by consumption=value in properties
+
+	private static String gridOut = DEFAULT_GRID_EXPORT_PROPERTY; // overridden by grid=value in properties
+
+	private static String forecastSolar = DEFAULT_FORECAST_SOLAR_PROPERTY;// overridden by forcecast.solar=value in
+																			// properties
+
+	private static String maxSolar = DEFAULT_MAX_SOLAR_PROPERTY;// overridden by max.solar=value in properties
 
 	private static boolean usingExternalPropertyFile = false;
 
@@ -298,13 +322,6 @@ public class Octopussy {
 
 		instance = getInstance();
 
-//		if (0 == args.length) {
-//
-//			float[] prices = new float[] { -1.88f, -1.71f, 0f };
-//
-//			int[] powers = instance.testableOPC(3000, prices, null);
-//		}
-
 		File importData = null;
 
 		String propertyFileName = DEFAULT_PROPERTY_FILENAME;
@@ -342,6 +359,15 @@ public class Octopussy {
 			}
 
 			instance.dealWithProperties(propertyFileName);
+
+			//
+			//
+			//
+
+//			System.out.println(scaleSolarForcastRange0to29(4449));
+			//
+			//
+			//
 
 			if (null != propertyAccountId) { // optional verification of Account verses dot.properties
 
@@ -632,8 +658,7 @@ public class Octopussy {
 
 			// filter by half an hour ago
 
-			List<SlotCost> pricesPerSlot = instance.buildListSlotCosts(epochNow - 1800, ascendingKeysForPriceMap);// ,
-//					importExportPriceMap);
+			List<SlotCost> pricesPerSlot = instance.buildListSlotCosts(epochNow - 1800, ascendingKeysForPriceMap);
 
 			//
 			//
@@ -1849,7 +1874,15 @@ public class Octopussy {
 
 		battery = properties.getProperty(KEY_BATTERY, DEFAULT_BATTERY_PROPERTY).trim();
 
-		grid = properties.getProperty(KEY_GRID, DEFAULT_GRID_PROPERTY).trim();
+		gridIn = properties.getProperty(KEY_GRID_IN, DEFAULT_GRID_IMPORT_PROPERTY).trim();
+
+		consumption = properties.getProperty(KEY_CONSUMPTION, DEFAULT_CONSUMPTION_PROPERTY).trim();
+
+		gridOut = properties.getProperty(KEY_GRID_OUT, DEFAULT_GRID_EXPORT_PROPERTY).trim();
+
+		forecastSolar = properties.getProperty(KEY_FORECAST_SOLAR, DEFAULT_FORECAST_SOLAR_PROPERTY).trim();
+
+		maxSolar = properties.getProperty(KEY_MAX_SOLAR, DEFAULT_MAX_SOLAR_PROPERTY).trim();
 
 		// expand properties substituting $key$ values
 
@@ -2036,6 +2069,7 @@ public class Octopussy {
 		con = (HttpURLConnection) url.openConnection();
 		con.setRequestMethod("GET");
 
+		con.setRequestProperty("Accept", contentType);
 		con.setRequestProperty("Content-Type", contentType);
 		con.setRequestProperty("user-agent", userAgent);
 
@@ -2597,14 +2631,13 @@ public class Octopussy {
 
 		final int numberOfParts = parts.size();
 
-//		logErrTime("There are " + numberOfParts + " part(s) to the day configured: part[0] through part["
-//				+ (numberOfParts - 1) + "]");
-
 		final String dayPartsEndAt24hr[] = new String[numberOfParts];
 
 		final String dayPartsEndBefore12hr[] = new String[numberOfParts];
 
 		final int slotsPerDayPart[] = new int[numberOfParts];
+
+		final Character[] options = new Character[numberOfParts];
 
 		final int powers[] = new int[numberOfParts];
 
@@ -2622,13 +2655,26 @@ public class Octopussy {
 
 			dayPartsEndAt24hr[n] = convertHHmmMinus1Minute(partsKey);
 
-			slotsPerDayPart[n] = Integer.valueOf(properties.getProperty("slots" + String.valueOf(1 + n)));
+			String slots = properties.getProperty("slots" + String.valueOf(1 + n));
+
+			int endIndex = slots.indexOf(':'); // if > 0 assume number of slots followed by :Sxxx
+
+			if (-1 == endIndex) {
+
+				slotsPerDayPart[n] = Integer.valueOf(slots);
+				options[n] = ' ';
+
+			} else {
+
+				slotsPerDayPart[n] = Integer.valueOf(slots.substring(0, endIndex));
+				options[n] = slots.toUpperCase().charAt(1 + endIndex); // eg 'S' for :solar
+			}
 
 			String powerKey = "power" + String.valueOf(1 + n);
 
 			String powerValue = properties.getProperty(powerKey);
 
-			int endIndex = powerValue.indexOf(':'); // if > 0 assume power precedes a percentage
+			endIndex = powerValue.indexOf(':'); // if > 0 assume power precedes a percentage
 
 			powers[n] = Integer.valueOf(-1 == endIndex ? powerValue : powerValue.substring(0, endIndex));
 
@@ -2663,20 +2709,27 @@ public class Octopussy {
 
 		String[] schedule = instance.readChargingSchedule(numberofChargingSlotsInThisPartOfDay);
 
-//		int chargesToDo = countRemainingCharges(rangeEndTime, schedule);
+		Integer percentBattery = execReadBattery(); // null is also valid, particularly if battery=false in properties
 
 		Float kWhrSolar = execReadSolar(); // null is also valid, particularly if solar=false in properties
 
-		Integer percentBattery = execReadBattery(); // null is also valid, particularly if battery=false in properties
+		Float kWhrGridImport = execReadGridImport(); // null is also valid, particularly if gridIn=false in properties
 
-		Float kWhrGridImport = execReadGridImport(); // null is also valid, particularly if grid=false in properties
+		Float kWhrConsumption = execReadConsumption();// null is also valid, particularly if consumption=false in
+														// properties
+
+		Float kWhrGridExport = execReadGridExport(); // null is also valid, particularly if gridOut=false in properties
 
 		logErrTime(rangeStartTime + " is in part " + (1 + p) + " of the day, ending at " + dayPartsEndAt24hr[p]
-				+ "  Sch:" + schedule.length + (null == percentBattery ? "" : " Bat:" + percentBattery + "%")
+				+ (null == percentBattery ? "" : " Bat:" + percentBattery + "%")
 				+ (null == kWhrSolar ? "" : " Sol:" + kWhrSolar)
-				+ (null == kWhrGridImport ? "" : " Imp:" + kWhrGridImport));
+				+ (null == kWhrGridImport ? "" : " Imp:" + kWhrGridImport)
+				+ (null == kWhrConsumption ? "" : " Con:" + kWhrConsumption)
+				+ (null == kWhrGridExport ? "" : " Exp:" + kWhrGridExport));
 
 		String power = null;
+
+		int minsDelayStart = 0;
 
 		for (int n = 0; n < numberOfParts; n++) {
 
@@ -2686,8 +2739,29 @@ public class Octopussy {
 
 				String percent = String.valueOf(percents[p]);
 
-				logErrTime(rangeStartTime + " Scheduling point for charging " + power + " watts x "
-						+ String.valueOf(schedule.length) + " slot subject to battery limit: " + percent + "%");
+				try {
+					ResultMessage solarForcast = getForecastSolar(); // limited number of calls to this API for free
+
+					String keyToday = ldtRangeStart.format(formatterSolar); // YYYY-MM-DD
+
+					SolarResult solarResult = solarForcast.getResult();
+
+					Integer WHrToday = solarResult.getValue(keyToday);
+
+					if ('S' == options[p]) { // delay start time by N minutes for a sunny day
+
+						minsDelayStart = scaleSolarForcastRange0to29(WHrToday);
+					}
+
+					logErrTime("Scheduling point for charging @ " + power + " watts x "
+							+ String.valueOf(schedule.length) + " slots limited by: " + percent + "% "
+							+ (minsDelayStart > 0 ? "& delay " + minsDelayStart + "m Solar est:" + WHrToday : ""));
+
+				} catch (IOException e) {
+
+					e.printStackTrace();
+				}
+
 				break;
 			}
 		}
@@ -2700,9 +2774,6 @@ public class Octopussy {
 
 			slots = findOptimalCostSlotToday(numberofChargingSlotsInThisPartOfDay, pricesPerSlot,
 					dayPartsEndBefore12hr[p]);
-
-			logErrTime(slots.length + " slot" + (1 == slots.length ? "" : "s")
-					+ " chosen for charging in this period based on cost and battery level at the time");
 
 			if (null != extra && 0 != "false".compareTo(extra)) {
 
@@ -2722,19 +2793,17 @@ public class Octopussy {
 
 						SlotCost sc = pricesPerSlot.get(slots[s]);
 
-						String[] period = startAndFinishTimeOfSlotCost(sc);
+						String[] period = startAndFinishTimeOfSlotCost(sc, minsDelayStart);
 
 						from = period[0];
 						to = period[1];
 
-//						System.out.println(from + "\t" + to + "\t" + sc.getImportPrice() + "p");
-
-						float unitsPower = Float.valueOf(power) / 2000;
+//						float unitsPower = Float.valueOf(power) / 2000;
 
 						float importPrice = sc.getImportPrice();
 
-						logErrTime("Scheduling Slot" + (1 + s) + " to end at " + to + " price: " + importPrice
-								+ "p / unit. Cost ~ £" + String.format("%4.2f", importPrice * unitsPower / 100));
+						logErrTime("Scheduling Slot" + (1 + s) + " between " + from + " and " + to + " price: "
+								+ importPrice + "p / unit");
 
 					} else {
 
@@ -2751,12 +2820,7 @@ public class Octopussy {
 
 					} else {
 
-						String updatedTo = execMacro(macro, extra, from, to, percents[p], schedule[s]); // null
-
-						if (null != updatedTo) {
-
-							schedule[s] = updatedTo;
-						}
+						schedule[s] = execMacro(macro, extra, from, to, percents[p]);
 					}
 				}
 			}
@@ -2768,21 +2832,24 @@ public class Octopussy {
 
 			int comp = rangeEndTime.compareTo(schedule[s]);
 
-			logErrTime("S" + (1 + s) + " comparing " + rangeEndTime + " with " + schedule[s] + " gives result:" + comp);
+			// logErrTime("S" + (1 + s) + " comparing " + rangeEndTime + " with " +
+			// schedule[s] + " gives result:" + comp);
 
 			if (0 == comp) {
+
+				int chargingSlotPower = 6000;
 
 				if (null != percentBattery && percentBattery >= percents[p]) {
 
 					logErrTime("Battery limit " + percents[p] + "% already reached. Unscheduling Slot" + (1 + s)
-							+ " Reset slot begin & end to 00:00");
+							+ " Reset begin/end to 00:00 & power " + chargingSlotPower);
 
 					char macro = "ABCDEFGHIJ".charAt(s);
 
 					String from = "00:00";
 					String to = "00:00";
 
-					execMacro(macro, extra, from, to, percents[p], schedule[s]); // null
+					execMacro(macro, extra, from, to, percents[p]);
 
 					schedule[s] = to;
 
@@ -2792,8 +2859,8 @@ public class Octopussy {
 
 						logErrTime("Starting charge immediately Battery limit < " + percents[p] + "%");
 
-						execMacro(deferredMacro.charValue(), extra, rangeStartTime, rangeEndTime, percents[p],
-								schedule[s]);
+						schedule[s] = execMacro(deferredMacro.charValue(), extra, rangeStartTime, rangeEndTime,
+								percents[p]);
 					}
 
 					int tally = 0;
@@ -2811,15 +2878,15 @@ public class Octopussy {
 					logErrTime(rangeStartTime + " Matches charging Slot" + (1 + s) + " ending at " + rangeEndTime + " ("
 							+ tally + " / " + numberofChargingSlotsInThisPartOfDay + " slots)");
 
-					int chargingSlotPower = optimisePowerCost(powers[p], schedule, s, importExportPriceMap);
+					chargingSlotPower = optimisePowerCost(powers[p], schedule, s, importExportPriceMap);
 
 					logErrTime("Adjusting charging power to " + chargingSlotPower + " watts subject to battery limit "
 							+ percents[p] + "%");
+				}
 
-					if (chargingSlotPower > 0) {
+				if (chargingSlotPower > 0) {
 
-						execWrite(check, "72", String.valueOf(chargingSlotPower));
-					}
+					execWrite(check, "72", String.valueOf(chargingSlotPower));
 				}
 
 				break;
@@ -2829,19 +2896,22 @@ public class Octopussy {
 		return schedule;
 	}
 
-	private int countRemainingCharges(String rangeEndTime, String[] schedule) {
+	private static int scaleSolarForcastRange0to29(Integer wHrSunshine) {
 
-		int count = 0;
+		int result = 0;
 
-		for (int index = 0; index < schedule.length; index++) {
+		if (0 != "false".compareTo(maxSolar)) {
 
-			if (rangeEndTime.compareTo(schedule[index]) < 0) {
+			final float maxSolarAssumed = Float.valueOf(maxSolar);
 
-				count++;
-			}
+			final float wHr = Float.valueOf(String.valueOf(wHrSunshine.intValue()));
+
+			int sunny = Math.round(29 * wHr / maxSolarAssumed);
+
+			result = sunny > 29 ? 29 : sunny;
 		}
 
-		return count;
+		return result; // require 0 to 29 result
 	}
 
 	private int[] testableOPC(int defaultPower, float[] prices, LocalDateTime[] keys) {
@@ -2994,6 +3064,29 @@ public class Octopussy {
 		System.err.println(zdt.format(defaultDateTimeFormatter).substring(0, 19) + " " + text);
 	}
 
+	private ResultMessage getForecastSolar() throws IOException {
+
+		ResultMessage result = null;
+
+		if (!"false".equalsIgnoreCase(forecastSolar)) {
+
+			URL url = new URL(forecastSolar);
+
+			String json = getRequest(url, false);
+
+			if (null == json || 0 == json.trim().length()) {
+
+				result = new ResultMessage();// empty object
+
+			} else {
+
+				result = mapper.readValue(json, ResultMessage.class);
+			}
+		}
+
+		return result;
+	}
+
 	private Float execReadSolar() {
 
 		Float result = null;
@@ -3030,9 +3123,41 @@ public class Octopussy {
 
 		Float result = null;
 
-		if (!"false".equalsIgnoreCase(grid)) {
+		if (!"false".equalsIgnoreCase(gridIn)) {
 
-			String[] cmdarray = grid.split(" ");
+			String[] cmdarray = gridIn.split(" ");
+
+			String value = exec(cmdarray);
+
+			result = Float.valueOf(value.trim());
+		}
+
+		return result;
+	}
+
+	private Float execReadGridExport() {
+
+		Float result = null;
+
+		if (!"false".equalsIgnoreCase(gridOut)) {
+
+			String[] cmdarray = gridOut.split(" ");
+
+			String value = exec(cmdarray);
+
+			result = Float.valueOf(value.trim());
+		}
+
+		return result;
+	}
+
+	private Float execReadConsumption() {
+
+		Float result = null;
+
+		if (!"false".equalsIgnoreCase(consumption)) {
+
+			String[] cmdarray = consumption.split(" ");
 
 			String value = exec(cmdarray);
 
@@ -3116,7 +3241,7 @@ public class Octopussy {
 		return result;
 	}
 
-	private String[] startAndFinishTimeOfSlotCost(SlotCost slotCost) {
+	private String[] startAndFinishTimeOfSlotCost(SlotCost slotCost, int minsDelayStart) {
 
 		Instant instantStart = Instant.ofEpochSecond(slotCost.getEpochSecond());
 
@@ -3124,51 +3249,44 @@ public class Octopussy {
 
 		LocalDateTime ldtFinish = ldtStart.plusMinutes(29);
 
-		String[] result = new String[] { ldtStart.format(formatter24HourClock),
+		String[] result = new String[] { ldtStart.plusMinutes(minsDelayStart).format(formatter24HourClock),
 				ldtFinish.format(formatter24HourClock) };
 
 		return result;
 	}
 
-	private String execMacro(char macro, String template, String from, String to, int soc, String currentTo) {
+	private String execMacro(char macro, String template, String from, String to, int soc) {
 
-		if (null == currentTo || 0 != to.compareTo(currentTo)) {
+		// assume extra contains a cmdarray to execute in a separate process
+		// java -jar plugs.jar ./SwindonIcarus.properties inverter setting %1 %2 %3 %4
 
-			// assume extra contains a cmdarray to execute in a separate process
-			// java -jar plugs.jar ./SwindonIcarus.properties inverter setting %1 %2 %3 %4
+		// substitute macro for %1 and from, to and power for %2, %3 and %4 respectively
 
-			// substitute macro for %1 and from, to and power for %2, %3 and %4 respectively
+		String[] cmdarray = template.split(" ");
 
-			String[] cmdarray = template.split(" ");
+		for (int n = 0; n < cmdarray.length; n++) {
 
-			for (int n = 0; n < cmdarray.length; n++) {
+			if ("%1".equalsIgnoreCase(cmdarray[n])) {
 
-				if ("%1".equalsIgnoreCase(cmdarray[n])) {
+				cmdarray[n] = String.valueOf(macro);
 
-					cmdarray[n] = String.valueOf(macro);
+			} else if ("%2".equalsIgnoreCase(cmdarray[n])) {
 
-				} else if ("%2".equalsIgnoreCase(cmdarray[n])) {
+				cmdarray[n] = from;
 
-					cmdarray[n] = from;
+			} else if ("%3".equalsIgnoreCase(cmdarray[n])) {
 
-				} else if ("%3".equalsIgnoreCase(cmdarray[n])) {
+				cmdarray[n] = to;
 
-					cmdarray[n] = to;
+			} else if ("%4".equalsIgnoreCase(cmdarray[n])) {
 
-				} else if ("%4".equalsIgnoreCase(cmdarray[n])) {
-
-					cmdarray[n] = String.valueOf(soc);
-				}
-
-				System.out.println("param[" + n + "]=" + cmdarray[n]);
+				cmdarray[n] = String.valueOf(soc);
 			}
 
-			exec(cmdarray);
-
-		} else {
-
-			to = null; // imply no action taken
+			System.out.println("param[" + n + "]=" + cmdarray[n]);
 		}
+
+		exec(cmdarray);
 
 		return to;
 	}
@@ -3563,7 +3681,7 @@ public class Octopussy {
 		String averagePower = String.format("%.3f", recentAverage);
 
 		Float preSolarLongTermAverage = Float
-				.valueOf(properties.getProperty(KEY_CONSUMPTION, DEFAULT_CONSUMPTION_PROPERTY).trim());
+				.valueOf(properties.getProperty(KEY_BASELINE, DEFAULT_BASELINE_PROPERTY).trim());
 
 		float solarPower = preSolarLongTermAverage - recentAverage;
 
@@ -3653,7 +3771,7 @@ public class Octopussy {
 
 			SlotCost slotCost = pricesPerSlot.get(index);
 
-			String[] period = startAndFinishTimeOfSlotCost(slotCost);
+			String[] period = startAndFinishTimeOfSlotCost(slotCost, 0);
 
 			String to = period[1];
 
