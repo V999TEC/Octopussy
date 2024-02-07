@@ -66,7 +66,7 @@ import uk.co.myzen.a_z.json.forecast.solar.SolarResult;
  *
  */
 
-public class Octopussy {
+public class Octopussy implements IOctopus {
 
 	public static Instant now; // Initialised when singleton instance created
 
@@ -739,13 +739,32 @@ public class Octopussy {
 
 			instance.matchDevices(pricesPerSlot, sampleGroups);
 
+			//
+			// Before terminating main, wait for the optional WatchSlotHelperThread
+			// Thread is launched to monitor battery state while charging is occurring
+			//
+
 			if (null != instance.wd) {
 
 				if (instance.wd.isAlive()) {
 
-					instance.wd.join();
+					long futureSlotStart = pricesPerSlot.get(1).getEpochSecond();
 
-					logErrTime("Confirmation thread no longer alive: WatchSlotHelperThread");
+					long millis = 1000 * (futureSlotStart - Instant.now().getEpochSecond() - 10); // knock of 10 seconds
+
+					instance.wd.join(millis); // expect thread to die within millis
+
+					if (instance.wd.isAlive()) {
+
+						instance.logErrTime("Thread has not yet died: WatchSlotHelperThread");
+						instance.logErrTime(
+								"Forcing interrupt 10s before next slot " + pricesPerSlot.get(1).getSimpleTimeStamp());
+						instance.wd.interrupt();
+
+					} else {
+
+						instance.logErrTime("Confirmation thread no longer alive: WatchSlotHelperThread");
+					}
 				}
 			}
 
@@ -775,7 +794,26 @@ public class Octopussy {
 
 				String hhmm = execRead(check, readEndTimesParameter[s]);
 
-				endTimes.add(hhmm);
+				try {
+					Thread.sleep(2500l);
+
+				} catch (InterruptedException e) {
+
+					e.printStackTrace();
+					break;
+				}
+
+				if ("00:00".equals(hhmm)) {
+
+					instance.logErrTime("Error in readChargingSchedule(" + howMany + ") execRead check [" + s + "]");
+
+					// try again
+					s--;
+
+				} else {
+
+					endTimes.add(hhmm);
+				}
 			}
 		}
 
@@ -2757,7 +2795,7 @@ public class Octopussy {
 		units = units / 2000;
 
 		System.out.println("Potential import of around " + units
-				+ " kWhr.\nFor option:S 30-min slot will be reduced according to solar forecast");
+				+ " kWhr.\nFor option:S 30-min slot will be reduced in minutes according to solar forecast");
 
 		int p = 0;
 
@@ -2834,10 +2872,9 @@ public class Octopussy {
 						}
 					}
 
-					logErrTime("Part " + (1 + p) + "/" + numberOfParts + " Scheduling point " + power + " watts x "
-							+ String.valueOf(schedule.length) + " slots " + percent + "% limit "
-							+ (minsDelayStart > 0 ? "& delay " + minsDelayStart + "m due to " : "") + "Solar:"
-							+ WHrToday);
+					logErrTime("Part " + (1 + p) + "/" + numberOfParts + " Scheduling " + power + " W x "
+							+ String.valueOf(schedule.length) + " slot(s) " + percent + "% limit "
+							+ (minsDelayStart > 0 ? "& delay " + minsDelayStart + "m " : "") + "Solar:" + WHrToday);
 
 				} catch (IOException e) {
 
@@ -2924,7 +2961,7 @@ public class Octopussy {
 
 				if (null != percentBattery && percentBattery >= percents[p]) {
 
-					logErrTime("*Slot" + (1 + s) + " Unschedule: Bat: " + percents[p] + "% already."
+					logErrTime("*Slot" + (1 + s) + " Unschedule: Bat: >= " + percents[p] + "% already."
 							+ " Reset begin/end to " + rangeEndTime);
 
 					resetSlot(s, rangeEndTime);
@@ -2947,7 +2984,7 @@ public class Octopussy {
 					logErrTime("Adjusting charging power to " + chargingSlotPower + " watts subject to battery limit "
 							+ percents[p] + "%");
 
-					wd = new WatchSlotHelperThread(29, s, percents[p]);
+					wd = new WatchSlotHelperThread(this, 29, s, percents[p]);
 
 					wd.start(); // this spawned thread will run no longer than HH:MM in schedule[s]
 					// the slot will be reset when task complete
@@ -2989,7 +3026,7 @@ public class Octopussy {
 		}
 	}
 
-	final static void resetSlot(int scheduleIndex, String expiryTime) {
+	public void resetSlot(int scheduleIndex, String expiryTime) {
 
 		char macro = "ABCDEFGHIJ".charAt(scheduleIndex);
 
@@ -3200,7 +3237,7 @@ public class Octopussy {
 		return result;
 	}
 
-	static synchronized String logErrTime(String text) {
+	public synchronized String logErrTime(String text) {
 
 		ZonedDateTime zdt = ZonedDateTime.now();
 
@@ -3255,7 +3292,7 @@ public class Octopussy {
 		return result;
 	}
 
-	final static Integer execReadBattery() {
+	public Integer execReadBattery() {
 
 		Integer result = null;
 
@@ -3274,7 +3311,7 @@ public class Octopussy {
 		return result;
 	}
 
-	final static Float execReadTemperature() {
+	public Float execReadTemperature() {
 
 		Float result = null;
 

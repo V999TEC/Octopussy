@@ -11,7 +11,11 @@ public class WatchSlotHelperThread extends Thread implements Runnable {
 
 	private final String expiryTime;
 
-	protected WatchSlotHelperThread(int runTimeoutMinutes, int scheduleIndex, int limitPercent) {
+	private final IOctopus i;
+
+	protected WatchSlotHelperThread(IOctopus i, int runTimeoutMinutes, int scheduleIndex, int limitPercent) {
+
+		this.i = i;
 
 		this.runTimeoutMinutes = runTimeoutMinutes;
 
@@ -29,7 +33,7 @@ public class WatchSlotHelperThread extends Thread implements Runnable {
 
 		Thread.currentThread().setName("WatchSlotHelperThread");
 
-		Octopussy.logErrTime("Running for Slot" + (1 + scheduleIndex));
+		i.logErrTime("Running for Slot" + (1 + scheduleIndex));
 
 		DateTimeFormatter formatter24HourClock = Octopussy.formatter24HourClock;
 
@@ -39,9 +43,9 @@ public class WatchSlotHelperThread extends Thread implements Runnable {
 
 		String now24HrClock = null;
 
-		int flag = 0;
+		int reason = 0;
 
-		do { // repeat every 20 seconds or so
+		do { // repeat every 40 seconds or so
 
 			Integer batteryLevel = null;
 
@@ -49,32 +53,32 @@ public class WatchSlotHelperThread extends Thread implements Runnable {
 
 			try {
 
-				Thread.sleep(10000L);
+				Thread.sleep(20000L);
 
-				temperatureDegreesC = Octopussy.execReadTemperature();
+				temperatureDegreesC = i.execReadTemperature();
 
-				Thread.sleep(10000L);
+				Thread.sleep(20000L);
 
-				batteryLevel = Octopussy.execReadBattery();
+				batteryLevel = i.execReadBattery();
 
 			} catch (InterruptedException e) {
 
-				flag = 1;
-				Octopussy.logErrTime("InterruptException");
+				reason = 1;
+				i.logErrTime("InterruptException");
 				break; // get out of run() asap
 			}
 
 			if (System.currentTimeMillis() >= millisTimeout) {
 
-				flag = 2;
-				Octopussy.logErrTime("Slot runTimeoutMinutes:" + runTimeoutMinutes);
+				reason = 2;
+				i.logErrTime("Slot runTimeoutMinutes:" + runTimeoutMinutes);
 				break;
 			}
 
 			if (null == temperatureDegreesC || null == batteryLevel) {
 
-				flag = 3;
-				Octopussy.logErrTime("Bat: or Temp: cannot be read");
+				reason = 3;
+				i.logErrTime("Bat: or Temp: cannot be read");
 				break;
 			}
 
@@ -90,23 +94,23 @@ public class WatchSlotHelperThread extends Thread implements Runnable {
 					prevTemperature = temperatureDegreesC.floatValue();
 				}
 
-				Octopussy.logErrTime("Bat:" + prevBatLev + "% Temp:" + prevTemperature + "°C");
+				i.logErrTime("Bat:" + prevBatLev + "% Temp:" + prevTemperature + "°C");
 			}
 
 			now24HrClock = LocalDateTime.now().format(formatter24HourClock);
 
 			if (prevBatLev >= limitPercent) {
 
-				flag = -1;
+				reason = -1;
 			}
 
 		} while (0 != expiryTime.compareTo(now24HrClock) && prevBatLev < limitPercent);
 
-		if (flag < 1) {
+		if (reason < 1) {
 
-			Octopussy.resetSlot(scheduleIndex, expiryTime);
+			i.resetSlot(scheduleIndex, expiryTime);
 		}
 
-		Octopussy.logErrTime("Slot" + (1 + scheduleIndex) + " charging finished. Flag:" + flag);
+		i.logErrTime("Slot" + (1 + scheduleIndex) + " charging finished. Reason:" + reason);
 	}
 }
