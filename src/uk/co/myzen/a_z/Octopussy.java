@@ -296,7 +296,7 @@ public class Octopussy implements IOctopus {
 
 	static String[] schedule = null;
 
-	private WatchSlotHelperThread wd = null;
+	private WatchSlotChargeHelperThread wd = null;
 
 	private static synchronized Octopussy getInstance() {
 
@@ -740,7 +740,7 @@ public class Octopussy implements IOctopus {
 			instance.matchDevices(pricesPerSlot, sampleGroups);
 
 			//
-			// Before terminating main, wait for the optional WatchSlotHelperThread
+			// Before terminating main, wait for the optional WatchSlotChargeHelperThread
 			// Thread is launched to monitor battery state while charging is occurring
 			//
 
@@ -756,14 +756,14 @@ public class Octopussy implements IOctopus {
 
 					if (instance.wd.isAlive()) {
 
-						instance.logErrTime("Thread has not yet died: WatchSlotHelperThread");
 						instance.logErrTime(
-								"Forcing interrupt 10s before next slot " + pricesPerSlot.get(1).getSimpleTimeStamp());
+								"Forcing WatchSlotChargeHelperThread interrupt 10s before next slot starts");
+
 						instance.wd.interrupt();
 
 					} else {
 
-						instance.logErrTime("Confirmation thread no longer alive: WatchSlotHelperThread");
+						instance.logErrTime("Confirmation thread no longer alive: WatchSlotChargeHelperThread");
 					}
 				}
 			}
@@ -1075,83 +1075,6 @@ public class Octopussy implements IOctopus {
 		}
 
 		return averageOffsetPowerList;
-	}
-
-	private void dumpPowerList(String fileName, List<PowerDuration> offsetPowerList) throws IOException {
-
-		File file = new File(fileName);
-
-		if (file.createNewFile()) {
-
-		} else {
-
-			// file already exists
-		}
-
-		OffsetDateTime odt = OffsetDateTime.ofInstant(now, ourZoneId).withNano(0).withSecond(0);
-
-		long fromDay = odt.get(ChronoField.DAY_OF_YEAR);
-
-		String fromHHMM = odt.format(formatter24HourClock);
-
-		FileWriter fw = new FileWriter(file, false);
-
-		BufferedWriter bw = new BufferedWriter(fw);
-
-		String upTo = odt.plusSeconds(offsetPowerList.size()).format(defaultDateTimeFormatter);
-
-		bw.write(fileName + " \"SmartPlug\" " + odt.format(defaultDateTimeFormatter) + " " + upTo);
-
-		bw.newLine();
-
-		int secsUsingPower = 0;
-
-		float accWattSeconds = 0f;
-
-		float wattSeconds;
-
-		final int lastLine = offsetPowerList.size() - 1;
-
-		for (int line = 0; line < lastLine + 1; line++) {
-
-			PowerDuration pd = offsetPowerList.get(line);
-
-			Float power = pd.getPower();
-
-			Integer secsDuration = pd.getSecsDuration();
-
-			if (power > 0) {
-
-				secsUsingPower += secsDuration;
-			}
-
-			wattSeconds = power * secsDuration;
-
-			accWattSeconds += wattSeconds;
-
-			bw.write(odt.format(defaultDateTimeFormatter) + "\t" + String.format("%7.1f", power) + "\twatts for\t"
-					+ String.format("%8d", secsDuration) + "\tseconds\t" + String.format("%10.2f", wattSeconds)
-					+ " watt-seconds ( " + String.format("%12.2f", accWattSeconds) + " accumulated)");
-			bw.newLine();
-
-			odt = odt.plusSeconds(secsDuration);
-		}
-
-		float kWhr = accWattSeconds / 3600 / 1000;
-
-		long toDay = odt.get(ChronoField.DAY_OF_YEAR);
-
-		String toHHMM = odt.format(formatter24HourClock);
-
-		bw.write((toDay - fromDay + 1) + " day(s) from: " + fromHHMM + " on day " + fromDay + " to " + toHHMM
-				+ " on day " + toDay + " " + String.format("%8.3f", kWhr) + " kWhr consumed via SmartPlug ( "
-				+ secsUsingPower + " secs using power)");
-
-		bw.newLine();
-
-		bw.close();
-
-		fw.close();
 	}
 
 	private void compressPowerList(String fileName, List<PowerDuration> averageOffsetPowerList) throws IOException {
@@ -2794,8 +2717,8 @@ public class Octopussy implements IOctopus {
 
 		units = units / 2000;
 
-		System.out.println("Potential import of around " + units
-				+ " kWhr.\nFor option:S 30-min slot will be reduced in minutes according to solar forecast");
+		System.out.println("Potential import of up to " + units
+				+ " kWhr constrained by limits\nFor option:S 30-min slots will be reduced in minutes according to solar forecast");
 
 		int p = 0;
 
@@ -2984,7 +2907,7 @@ public class Octopussy implements IOctopus {
 					logErrTime("Adjusting charging power to " + chargingSlotPower + " watts subject to battery limit "
 							+ percents[p] + "%");
 
-					wd = new WatchSlotHelperThread(this, 29, s, percents[p]);
+					wd = new WatchSlotChargeHelperThread(this, 29, s, percents[p]);
 
 					wd.start(); // this spawned thread will run no longer than HH:MM in schedule[s]
 					// the slot will be reset when task complete
@@ -3713,7 +3636,13 @@ public class Octopussy implements IOctopus {
 			ZonedDateTime instantFrom = ZonedDateTime.of(ldtFrom, ZoneId.of("UTC"));
 			LocalDateTime actualFrom = instantFrom.withZoneSameInstant(ourZoneId).toLocalDateTime();
 
-			OffsetDateTime offsetDateTime = actualFrom.atOffset(ZoneOffset.of("+01:00"));
+			//
+			//
+			// /* TODO */
+			OffsetDateTime offsetDateTime = actualFrom.atOffset(ZoneOffset.of("+00:00"));
+			//
+			//
+			//
 
 			long epochActualFrom = offsetDateTime.toEpochSecond();
 
@@ -3734,7 +3663,13 @@ public class Octopussy implements IOctopus {
 
 			LocalDateTime actualTo = instantTo.withZoneSameInstant(ourZoneId).toLocalDateTime();
 
-			OffsetDateTime offsetDateTimeTo = actualTo.atOffset(ZoneOffset.of("+01:00"));
+			//
+			//
+			// /* TODO */
+			OffsetDateTime offsetDateTimeTo = actualTo.atOffset(ZoneOffset.of("+00:00"));
+			//
+			//
+			//
 
 			consumptionLatest.setTo(offsetDateTimeTo);
 
@@ -3886,12 +3821,14 @@ public class Octopussy implements IOctopus {
 
 			float dailyAverageUnitPrice = agilePrice / consumption;
 
+			// + " @ " + String.format("%.2f", dailyAverageUnitPrice)+ "p"
+
 			System.out.println(dayValues.getDayOfWeek() + (lowestPrice < plunge ? " * " : "   ") + key + "  £"
-					+ String.format("%5.2f", agileCost / 100) + " " + String.format("%7.3f", consumption)
-					+ " kWhr  Agile: " + String.format("%8.4f", agilePrice) + "p +" + agileCharge + "p (X: "
+					+ String.format("%5.2f", agileCost / 100) + " " + String.format("%7.3f", consumption) + " kWhr @ "
+					+ String.format("%5.2f", dailyAverageUnitPrice) + "p" + " Agile: "
+					+ String.format("%8.4f", agilePrice) + "p +" + agileCharge + "p (X: "
 					+ String.format("%8.4f", standardPrice) + "p +" + standardCharge + "p) Save: £"
-					+ String.format("%5.2f", (difference / 100)) + " @ " + String.format("%.2f", dailyAverageUnitPrice)
-					+ "p");
+					+ String.format("%5.2f", (difference / 100)));
 
 			accumulateDifference += difference;
 
@@ -4434,5 +4371,82 @@ public class Octopussy implements IOctopus {
 
 		return periodResults;
 
+	}
+
+	private void dumpPowerList(String fileName, List<PowerDuration> offsetPowerList) throws IOException {
+
+		File file = new File(fileName);
+
+		if (file.createNewFile()) {
+
+		} else {
+
+			// file already exists
+		}
+
+		OffsetDateTime odt = OffsetDateTime.ofInstant(now, ourZoneId).withNano(0).withSecond(0);
+
+		long fromDay = odt.get(ChronoField.DAY_OF_YEAR);
+
+		String fromHHMM = odt.format(formatter24HourClock);
+
+		FileWriter fw = new FileWriter(file, false);
+
+		BufferedWriter bw = new BufferedWriter(fw);
+
+		String upTo = odt.plusSeconds(offsetPowerList.size()).format(defaultDateTimeFormatter);
+
+		bw.write(fileName + " \"SmartPlug\" " + odt.format(defaultDateTimeFormatter) + " " + upTo);
+
+		bw.newLine();
+
+		int secsUsingPower = 0;
+
+		float accWattSeconds = 0f;
+
+		float wattSeconds;
+
+		final int lastLine = offsetPowerList.size() - 1;
+
+		for (int line = 0; line < lastLine + 1; line++) {
+
+			PowerDuration pd = offsetPowerList.get(line);
+
+			Float power = pd.getPower();
+
+			Integer secsDuration = pd.getSecsDuration();
+
+			if (power > 0) {
+
+				secsUsingPower += secsDuration;
+			}
+
+			wattSeconds = power * secsDuration;
+
+			accWattSeconds += wattSeconds;
+
+			bw.write(odt.format(defaultDateTimeFormatter) + "\t" + String.format("%7.1f", power) + "\twatts for\t"
+					+ String.format("%8d", secsDuration) + "\tseconds\t" + String.format("%10.2f", wattSeconds)
+					+ " watt-seconds ( " + String.format("%12.2f", accWattSeconds) + " accumulated)");
+			bw.newLine();
+
+			odt = odt.plusSeconds(secsDuration);
+		}
+
+		float kWhr = accWattSeconds / 3600 / 1000;
+
+		long toDay = odt.get(ChronoField.DAY_OF_YEAR);
+
+		String toHHMM = odt.format(formatter24HourClock);
+
+		bw.write((toDay - fromDay + 1) + " day(s) from: " + fromHHMM + " on day " + fromDay + " to " + toHHMM
+				+ " on day " + toDay + " " + String.format("%8.3f", kWhr) + " kWhr consumed via SmartPlug ( "
+				+ secsUsingPower + " secs using power)");
+
+		bw.newLine();
+
+		bw.close();
+
+		fw.close();
 	}
 }

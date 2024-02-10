@@ -3,7 +3,7 @@ package uk.co.myzen.a_z;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
-public class WatchSlotHelperThread extends Thread implements Runnable {
+public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 	private final int runTimeoutMinutes;
 	private final int scheduleIndex;
@@ -13,7 +13,7 @@ public class WatchSlotHelperThread extends Thread implements Runnable {
 
 	private final IOctopus i;
 
-	protected WatchSlotHelperThread(IOctopus i, int runTimeoutMinutes, int scheduleIndex, int limitPercent) {
+	protected WatchSlotChargeHelperThread(IOctopus i, int runTimeoutMinutes, int scheduleIndex, int limitPercent) {
 
 		this.i = i;
 
@@ -45,7 +45,7 @@ public class WatchSlotHelperThread extends Thread implements Runnable {
 
 		int reason = 0;
 
-		do { // repeat every 40 seconds or so
+		do { // repeat loop every 40 seconds or so
 
 			Integer batteryLevel = null;
 
@@ -63,50 +63,51 @@ public class WatchSlotHelperThread extends Thread implements Runnable {
 
 			} catch (InterruptedException e) {
 
-				reason = 1;
+				reason = 2;
 				i.logErrTime("InterruptException");
 				break; // get out of run() asap
 			}
 
 			if (System.currentTimeMillis() >= millisTimeout) {
 
-				reason = 2;
+				reason = 1;
 				i.logErrTime("Slot runTimeoutMinutes:" + runTimeoutMinutes);
+				break;
+			}
+
+			if (prevBatLev >= limitPercent) {
+
+				reason = -1;
 				break;
 			}
 
 			if (null == temperatureDegreesC || null == batteryLevel) {
 
-				reason = 3;
 				i.logErrTime("Bat: or Temp: cannot be read");
-				break;
-			}
 
-			if (batteryLevel.intValue() != prevBatLev || temperatureDegreesC.floatValue() != prevTemperature) {
+			} else {
 
-				if (batteryLevel.intValue() != prevBatLev) {
+				if (batteryLevel.intValue() != prevBatLev || temperatureDegreesC.floatValue() != prevTemperature) {
 
-					prevBatLev = batteryLevel.intValue();
+					if (batteryLevel.intValue() != prevBatLev) {
+
+						prevBatLev = batteryLevel.intValue();
+					}
+
+					if (temperatureDegreesC.floatValue() != prevTemperature) {
+
+						prevTemperature = temperatureDegreesC.floatValue();
+					}
+
+					i.logErrTime("Bat:" + prevBatLev + "% Temp:" + prevTemperature + "°C");
 				}
-
-				if (temperatureDegreesC.floatValue() != prevTemperature) {
-
-					prevTemperature = temperatureDegreesC.floatValue();
-				}
-
-				i.logErrTime("Bat:" + prevBatLev + "% Temp:" + prevTemperature + "°C");
 			}
 
 			now24HrClock = LocalDateTime.now().format(formatter24HourClock);
 
-			if (prevBatLev >= limitPercent) {
+		} while (0 != expiryTime.compareTo(now24HrClock));
 
-				reason = -1;
-			}
-
-		} while (0 != expiryTime.compareTo(now24HrClock) && prevBatLev < limitPercent);
-
-		if (reason < 1) {
+		if (reason < 2) {
 
 			i.resetSlot(scheduleIndex, expiryTime);
 		}
