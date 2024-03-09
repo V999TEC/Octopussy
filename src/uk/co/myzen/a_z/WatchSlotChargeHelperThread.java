@@ -7,13 +7,18 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 	private final int runTimeoutMinutes;
 	private final int scheduleIndex;
-	private final int limitPercent;
+	private final int maxPercent;
+	private final int minPercent;
+	private final int defaultChargeRate;
 
 	private final String expiryTime;
 
 	private final IOctopus i;
 
-	protected WatchSlotChargeHelperThread(IOctopus i, int runTimeoutMinutes, int scheduleIndex, int limitPercent) {
+	private final String slotN;
+
+	protected WatchSlotChargeHelperThread(IOctopus i, int runTimeoutMinutes, int scheduleIndex, int maxPercent,
+			int minPercent, int defaultChargeRate) {
 
 		this.i = i;
 
@@ -21,9 +26,14 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 		this.scheduleIndex = scheduleIndex;
 
-		this.limitPercent = limitPercent;
+		this.maxPercent = maxPercent;
+		this.minPercent = minPercent;
+
+		this.defaultChargeRate = defaultChargeRate;
 
 		this.expiryTime = Octopussy.schedule[scheduleIndex];
+
+		slotN = "Slot" + String.valueOf(1 + scheduleIndex) + " ";
 	}
 
 	@Override
@@ -31,9 +41,9 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 		final long millisTimeout = (runTimeoutMinutes * 60000) + System.currentTimeMillis();
 
-		Thread.currentThread().setName("WatchSlotHelperThread");
+		Thread.currentThread().setName("WatchSlotChargeHelperThread");
 
-		i.logErrTime("Running for Slot" + (1 + scheduleIndex));
+		i.logErrTime(slotN + "monitoring starts");
 
 		DateTimeFormatter formatter24HourClock = Octopussy.formatter24HourClock;
 
@@ -44,6 +54,8 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 		String now24HrClock = null;
 
 		int reason = 0;
+
+		boolean chargeRestarted = false;
 
 		do { // repeat loop every 40 seconds or so
 
@@ -64,18 +76,18 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 			} catch (InterruptedException e) {
 
 				reason = 2;
-				i.logErrTime("InterruptException");
+				i.logErrTime(slotN + "InterruptedException");
 				break; // get out of run() asap
 			}
 
 			if (System.currentTimeMillis() >= millisTimeout) {
 
 				reason = 1;
-				i.logErrTime("Slot runTimeoutMinutes:" + runTimeoutMinutes);
+				i.logErrTime(slotN + "Hit runTimeoutMinutes:" + runTimeoutMinutes);
 				break;
 			}
 
-			if (prevBatLev >= limitPercent) {
+			if (prevBatLev >= maxPercent) {
 
 				reason = -1;
 				break;
@@ -83,35 +95,64 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 			if (null == temperatureDegreesC || null == batteryLevel) {
 
-				i.logErrTime("Bat: or Temp: cannot be read");
+				i.logErrTime(slotN + "Bat: or Temp: cannot be read");
 
 			} else {
 
 				if (batteryLevel.intValue() != prevBatLev || temperatureDegreesC.floatValue() != prevTemperature) {
 
+					boolean log = false;
+
 					if (batteryLevel.intValue() != prevBatLev) {
 
 						prevBatLev = batteryLevel.intValue();
+
+						log = true;
 					}
 
 					if (temperatureDegreesC.floatValue() != prevTemperature) {
 
+						// only log diagnostic if units change - ignore decimals
+
+						if (Float.valueOf(prevTemperature).intValue() != temperatureDegreesC.intValue()) {
+
+							log = true;
+						}
+
 						prevTemperature = temperatureDegreesC.floatValue();
 					}
 
-					i.logErrTime("Bat:" + prevBatLev + "% Temp:" + prevTemperature + "°C");
+					if (log) {
+
+						i.logErrTime(slotN + "Bat:" + prevBatLev + "% Temp:" + prevTemperature + "°C");
+					}
 				}
 			}
 
 			now24HrClock = LocalDateTime.now().format(formatter24HourClock);
 
+			if (batteryLevel < minPercent) {
+
+				if (!chargeRestarted) {
+
+					i.logErrTime(slotN + "Battery < " + minPercent + "% restart charging at " + defaultChargeRate
+							+ " watts");
+
+					i.resetChargingPower(defaultChargeRate);
+
+					i.resetSlot(scheduleIndex, now24HrClock, expiryTime, maxPercent);
+
+					chargeRestarted = true;
+				}
+			}
+
 		} while (0 != expiryTime.compareTo(now24HrClock));
 
-		if (reason < 2) {
+		if (reason < 2 || chargeRestarted) {
 
-			i.resetSlot(scheduleIndex, expiryTime);
+			i.resetSlot(scheduleIndex, expiryTime, expiryTime, 100);
 		}
 
-		i.logErrTime("Slot" + (1 + scheduleIndex) + " charging finished. Reason:" + reason);
+		i.logErrTime(slotN + "monitoring finished. Reason:" + reason + " Restarted:" + chargeRestarted);
 	}
 }
