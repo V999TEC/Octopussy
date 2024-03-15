@@ -41,15 +41,17 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 		final long millisTimeout = (runTimeoutMinutes * 60000) + System.currentTimeMillis();
 
-		Thread.currentThread().setName("WatchSlotChargeHelperThread");
+		Thread.currentThread().setName("Watch");
 
-		i.logErrTime(slotN + "monitoring starts");
+		i.logErrTime(slotN + "Monitoring starts");
 
 		DateTimeFormatter formatter24HourClock = Octopussy.formatter24HourClock;
 
 		int prevBatLev = 0;
 
 		float prevTemperature = 0;
+
+		float prevChargeUnits = 0;
 
 		String now24HrClock = null;
 
@@ -63,15 +65,21 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 			Float temperatureDegreesC = null;
 
+			Float chargeUnits = null;
+
 			try {
 
-				Thread.sleep(20000L);
+				Thread.sleep(10000L);
 
 				temperatureDegreesC = i.execReadTemperature();
 
-				Thread.sleep(20000L);
+				Thread.sleep(10000L);
 
 				batteryLevel = i.execReadBattery();
+
+				Thread.sleep(10000L);
+
+				chargeUnits = i.execReadCharge();
 
 			} catch (InterruptedException e) {
 
@@ -89,17 +97,20 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 			if (prevBatLev >= maxPercent) {
 
+				i.logErrTime(slotN + "WARNING: Battery >= " + maxPercent + "% terminating charge now");
+
 				reason = -1;
 				break;
 			}
 
-			if (null == temperatureDegreesC || null == batteryLevel) {
+			if (null == temperatureDegreesC || null == batteryLevel || null == chargeUnits) {
 
-				i.logErrTime(slotN + "Bat: or Temp: cannot be read");
+				i.logErrTime(slotN + "Battery, Temperature or Charge cannot be read");
 
 			} else {
 
-				if (batteryLevel.intValue() != prevBatLev || temperatureDegreesC.floatValue() != prevTemperature) {
+				if (batteryLevel.intValue() != prevBatLev || temperatureDegreesC.floatValue() != prevTemperature
+						|| chargeUnits != prevChargeUnits) {
 
 					boolean log = false;
 
@@ -110,21 +121,24 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 						log = true;
 					}
 
-					if (temperatureDegreesC.floatValue() != prevTemperature) {
+					if (temperatureDegreesC.intValue() != Float.valueOf(prevTemperature).intValue()) {
 
-						// only log diagnostic if units change - ignore decimals
-
-						if (Float.valueOf(prevTemperature).intValue() != temperatureDegreesC.intValue()) {
-
-							log = true;
-						}
+						log = true;
 
 						prevTemperature = temperatureDegreesC.floatValue();
 					}
 
+					if (chargeUnits.intValue() != Float.valueOf(prevChargeUnits).intValue()) {
+
+						prevChargeUnits = chargeUnits.floatValue();
+
+						log = true;
+					}
+
 					if (log) {
 
-						i.logErrTime(slotN + "Bat:" + prevBatLev + "% Temp:" + prevTemperature + "°C");
+						i.logErrTime(slotN + "Battery:" + prevBatLev + "% Temperature:" + prevTemperature + "°C Charge:"
+								+ chargeUnits + "kWhr");
 					}
 				}
 			}
@@ -135,8 +149,8 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 				if (!chargeRestarted) {
 
-					i.logErrTime(slotN + "Battery < " + minPercent + "% restart charging at " + defaultChargeRate
-							+ " watts");
+					i.logErrTime(slotN + "WARNING: Battery < " + minPercent + "% expedite charging now at "
+							+ defaultChargeRate + " watts");
 
 					i.resetChargingPower(defaultChargeRate);
 
@@ -148,11 +162,13 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 		} while (0 != expiryTime.compareTo(now24HrClock));
 
-		if (reason < 2 || chargeRestarted) {
+		if (reason < 2 || chargeRestarted)
+
+		{
 
 			i.resetSlot(scheduleIndex, expiryTime, expiryTime, 100);
 		}
 
-		i.logErrTime(slotN + "monitoring finished. Reason:" + reason + " Restarted:" + chargeRestarted);
+		i.logErrTime(slotN + "Monitoring finished. Reason:" + reason + " Restarted:" + chargeRestarted);
 	}
 }

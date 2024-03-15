@@ -6,6 +6,8 @@ public interface IOctopus {
 
 	public Float execReadTemperature();
 
+	public Float execReadCharge();
+
 	public Integer execReadBattery();
 
 	public void resetSlot(int scheduleIndex, String startTime, String expiryTime, Integer maxPercent);
