@@ -6,6 +6,10 @@ public class SlotCost {
 
 	private Long epochSecond;
 
+	private String slotStartTime24hr;
+
+	private String slotEndTime24hr;
+
 	private Boolean isMinimumImportPrice;
 
 	private Boolean isMaximumExportPrice;
@@ -60,6 +64,22 @@ public class SlotCost {
 
 	public void setIsMaximumExportPrice(Boolean isMaximumExportPrice) {
 		this.isMaximumExportPrice = isMaximumExportPrice;
+	}
+
+	public String getSlotEndTime24hr() {
+		return slotEndTime24hr;
+	}
+
+	public void setSlotEndTime24hr(String slotEndTime24hr) {
+		this.slotEndTime24hr = slotEndTime24hr;
+	}
+
+	public String getSlotStartTime24hr() {
+		return slotStartTime24hr;
+	}
+
+	public void setSlotStartTime24hr(String slotStartTime24hr) {
+		this.slotStartTime24hr = slotStartTime24hr;
 	}
 
 }

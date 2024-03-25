@@ -3,6 +3,8 @@ package uk.co.myzen.a_z;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+import uk.co.myzen.a_z.json.ChargeDischarge;
+
 public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 	private final int runTimeoutMinutes;
@@ -49,9 +51,11 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 		int prevBatLev = 0;
 
-		float prevTemperature = 0;
+		float prevTemperature = 0f;
 
-		float prevChargeUnits = 0;
+		float prevChargeUnits = 0f;
+
+		float prevDischargeUnits = 0f;
 
 		String now24HrClock = null;
 
@@ -59,7 +63,7 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 		boolean chargeRestarted = false;
 
-		do { // repeat loop every 40 seconds or so
+		do { // repeat loop every 45 seconds or so
 
 			Integer batteryLevel = null;
 
@@ -67,19 +71,25 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 			Float chargeUnits = null;
 
+			Float dischargeUnits = null;
+
 			try {
 
-				Thread.sleep(10000L);
+				Thread.sleep(15000L);
 
 				temperatureDegreesC = i.execReadTemperature();
 
-				Thread.sleep(10000L);
+				Thread.sleep(15000L);
 
-				batteryLevel = i.execReadBattery();
+				batteryLevel = i.execReadBatteryPercent();
 
-				Thread.sleep(10000L);
+				Thread.sleep(15000L);
 
-				chargeUnits = i.execReadCharge();
+				ChargeDischarge chargeAndDischargeUnits = i.execReadChargeDischarge();
+
+				chargeUnits = chargeAndDischargeUnits.getCharge();
+
+				dischargeUnits = chargeAndDischargeUnits.getDischarge();
 
 			} catch (InterruptedException e) {
 
@@ -135,10 +145,17 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 						log = true;
 					}
 
+					if (dischargeUnits.intValue() != Float.valueOf(prevDischargeUnits).intValue()) {
+
+						prevDischargeUnits = dischargeUnits.floatValue();
+
+						log = true;
+					}
+
 					if (log) {
 
 						i.logErrTime(slotN + "Battery:" + prevBatLev + "% Temperature:" + prevTemperature + "°C Charge:"
-								+ chargeUnits + "kWhr");
+								+ chargeUnits + " kWhr Discharge:" + dischargeUnits);
 					}
 				}
 			}
