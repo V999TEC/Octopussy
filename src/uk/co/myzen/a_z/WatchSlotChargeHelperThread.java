@@ -154,8 +154,8 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 					if (log) {
 
-						i.logErrTime(slotN + "Battery:" + prevBatLev + "% Temperature:" + prevTemperature + "°C Charge:"
-								+ chargeUnits + " kWhr Discharge:" + dischargeUnits);
+						i.logErrTime(slotN + "Bat:" + prevBatLev + "% Tmp:" + prevTemperature + "°C Cha:" + chargeUnits
+								+ " Dis:" + dischargeUnits);
 					}
 				}
 			}

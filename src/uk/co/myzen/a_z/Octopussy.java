@@ -2924,15 +2924,45 @@ public class Octopussy implements IOctopus {
 
 					if (null == solarResult) {
 
-						logErrTime("ERROR: (3): using solar forcast from " + forecastSolcast);
+						logErrTime("ERROR: (3): data not currently available from " + forecastSolar);
 
 						// take the Solcast forecast instead
 
-						todayWHr = Float.valueOf(pvSolcast * 1000).intValue(); // convert to wHr
+						if (0f == pvSolcast) {
+
+							// try once more after a delay.
+
+							try {
+								Thread.sleep(60000); // wait a minute
+
+							} catch (InterruptedException e) {
+
+								e.printStackTrace();
+							}
+
+							if (null == solcastForecast) {
+
+								logErrTime("ERROR: (4): data not currently available from " + forecastSolcast);
+
+								todayWHr = 0;
+
+							} else {
+
+								logErrTime("WARNING: (5): solar forcast obtained on 2nd attempt");
+
+								pvSolcast = pvGuesstimate(solcastForecast, "00:00", "23:59");
+
+								todayWHr = Float.valueOf(pvSolcast * 1000).intValue(); // convert to wHr
+							}
+
+						} else {
+
+							todayWHr = Float.valueOf(pvSolcast * 1000).intValue(); // convert to wHr
+						}
 
 					} else {
 
-						logErrTime("WARNING: (4): solar forcast obtained on 2nd attempt");
+						logErrTime("WARNING: (6): solar forcast obtained on 2nd attempt");
 
 						todayWHr = solarResult.getValue(keyToday);
 
@@ -3106,8 +3136,8 @@ public class Octopussy implements IOctopus {
 
 				} else if (null != percentBattery && percentBattery >= maxPercents[p]) {
 
-					logErrTime("*Slot" + (1 + s) + " Unscheduling: Bat: >= " + maxPercent + "% already."
-							+ " Reset begin/end to " + rangeEndTime);
+					logErrTime("Unscheduling Slot " + (1 + s) + " Battery already >= " + maxPercent
+							+ "% Resetting begin/end to " + rangeEndTime);
 
 					resetSlot(s, rangeEndTime, rangeEndTime, 100);
 
@@ -3127,7 +3157,7 @@ public class Octopussy implements IOctopus {
 					String dateYYYY_MM_DD = logErrTime(
 							"Time matches charging Slot" + (1 + s) + " ending at " + rangeEndTime).substring(0, 10);
 
-					logErrTime("Optimising charging power according to option " + options[p]
+					logErrTime("Optimising charging power according to selected option " + options[p]
 							+ (null != optionParameters[p] ? ":" + optionParameters[p] : ""));
 
 					if ('N' == options[p]) { // (night) option - charging will start at beginning of slot
@@ -4298,7 +4328,17 @@ public class Octopussy implements IOctopus {
 
 		String exportSaving = String.format("%.2f", subTot3);
 
-		String totalSaving = String.format("%.2f", subTot1 + subTot2 + subTot3);
+		float total = subTot1 + subTot2 + subTot3;
+
+		String totalSaving = String.format("%.2f", total);
+
+		float historic = preSolarLongTermAverage * flatRateImport / 100;
+
+		float costDailyAverage = historic - total;
+
+		String actualCost = String.format("%.2f", costDailyAverage);
+
+		String historicDailyCost = String.format("%.2f", historic);
 
 		System.out.println("\nOver " + countDays + " days, importing " + String.format("%.3f", accumulatePower)
 				+ " kWhr, Agile tariff has saved £" + pounds2DP + " compared to the " + flatRateImport
@@ -4309,8 +4349,9 @@ public class Octopussy implements IOctopus {
 		System.out.println("Average daily tariff saving: £" + averagePounds2DP + " Recent average cost per unit (A): "
 				+ averageCostPerUnit + "p and daily grid import: " + averagePower + " kWhr");
 		System.out.println("Average daily solar saving:  £" + solarSaving + " (" + String.format("%.3f", solarPower)
-				+ " kWhr compared to historic " + preSolarLongTermAverage + " kWhr import)");
-		System.out.println("Recent daily saving average: £" + totalSaving);
+				+ " kWhr compared to historic " + preSolarLongTermAverage + " kWhr import @ " + flatRateImport + "p = £"
+				+ historicDailyCost + ")");
+		System.out.println("Recent daily saving average: £" + totalSaving + " & recent cost £" + actualCost + " daily");
 
 		return unitCostAverage.intValue();
 	}
