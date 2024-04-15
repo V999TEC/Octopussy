@@ -57,8 +57,6 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 		float prevDischargeUnits = 0f;
 
-		String now24HrClock = null;
-
 		int reason = 0;
 
 		boolean chargeRestarted = false;
@@ -160,7 +158,8 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 				}
 			}
 
-			now24HrClock = LocalDateTime.now().format(formatter24HourClock);
+			// for scheduling, play safe and ensure a future time
+			String soon = LocalDateTime.now().plusMinutes(1l).format(formatter24HourClock);
 
 			if (batteryLevel < minPercent) {
 
@@ -171,13 +170,13 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 					i.resetChargingPower(defaultChargeRate);
 
-					i.resetSlot(scheduleIndex, now24HrClock, expiryTime, maxPercent);
+					i.resetSlot(scheduleIndex, soon, expiryTime, maxPercent);
 
 					chargeRestarted = true;
 				}
 			}
 
-		} while (0 != expiryTime.compareTo(now24HrClock));
+		} while (0 != expiryTime.compareTo(LocalDateTime.now().format(formatter24HourClock)));
 
 		if (reason < 2 || chargeRestarted)
 
