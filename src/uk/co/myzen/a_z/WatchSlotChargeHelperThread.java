@@ -35,7 +35,7 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 		this.expiryTime = Octopussy.schedule[scheduleIndex];
 
-		slotN = "Slot" + String.valueOf(1 + scheduleIndex) + " ";
+		slotN = "S" + String.valueOf(1 + scheduleIndex) + " ";
 	}
 
 	@Override

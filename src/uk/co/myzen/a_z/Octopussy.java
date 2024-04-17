@@ -3125,7 +3125,8 @@ public class Octopussy implements IOctopus {
 					defaultChargeRate = optimisePowerCost(Integer.parseInt(maxRate), schedulePrices, s);
 
 					logErrTime("ALERT: negative price for grid import: " + schedulePrices[s] + "p Overiding limit "
-							+ maxPercent + "% with 100% & charging now at " + defaultChargeRate + " watts");
+							+ maxPercent + "% / " + powers[p] + " with 100% & charging at " + defaultChargeRate
+							+ " watts");
 
 					minPercent = 100; // will trigger a restart:true within the WatchSlotChargeHelperThread
 					maxPercent = 100;
@@ -3134,7 +3135,7 @@ public class Octopussy implements IOctopus {
 
 				} else if (null != percentBattery && percentBattery >= maxPercents[p]) {
 
-					logErrTime("Unscheduling Slot " + (1 + s) + " Battery already >= " + maxPercent
+					logErrTime("Unscheduling S" + (1 + s) + " Battery already >= " + maxPercent
 							+ "% Resetting begin/end to " + rangeEndTime);
 
 					resetSlot(s, rangeEndTime, rangeEndTime, 100);
@@ -3153,7 +3154,7 @@ public class Octopussy implements IOctopus {
 					}
 
 					String dateYYYY_MM_DD = logErrTime(
-							"Time matches charging Slot" + (1 + s) + " ending at " + rangeEndTime).substring(0, 10);
+							"Time matches charging S" + (1 + s) + " ending at " + rangeEndTime).substring(0, 10);
 
 					logErrTime("Optimising charging power according to selected option " + options[p]
 							+ (null != optionParameters[p] ? ":" + optionParameters[p] : ""));
@@ -3254,7 +3255,7 @@ public class Octopussy implements IOctopus {
 
 		char macro = "ABCDEFGHIJ".charAt(scheduleIndex);
 
-		logErrTime("Slot" + (1 + scheduleIndex) + " Reset " + startTime + "-" + expiryTime + " " + maxPercent + "%");
+		logErrTime("S" + (1 + scheduleIndex) + " Reset " + startTime + "-" + expiryTime + " " + maxPercent + "%");
 
 		execMacro(macro, extra, startTime, expiryTime, maxPercent);
 	}
@@ -3505,7 +3506,7 @@ public class Octopussy implements IOctopus {
 
 			prices[s] -= kludge;
 
-			logErrTime((index == s ? "*" : " ") + "Slot" + (1 + s) + " Power: " + powers[s] + " @ "
+			logErrTime((index == s ? "*" : " ") + "S" + (1 + s) + " Power: " + powers[s] + " @ "
 					+ String.format("%4.2f", prices[s]) + "p");
 		}
 
