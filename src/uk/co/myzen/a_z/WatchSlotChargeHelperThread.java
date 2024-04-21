@@ -19,6 +19,11 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 	private final String slotN;
 
+	protected static String SN(int zeroBasedIndex) {
+
+		return "S" + String.valueOf(1 + zeroBasedIndex) + " ";
+	}
+
 	protected WatchSlotChargeHelperThread(IOctopus i, int runTimeoutMinutes, int scheduleIndex, int maxPercent,
 			int minPercent, int defaultChargeRate) {
 
@@ -35,7 +40,7 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 		this.expiryTime = Octopussy.schedule[scheduleIndex];
 
-		slotN = "S" + String.valueOf(1 + scheduleIndex) + " ";
+		slotN = SN(scheduleIndex);
 	}
 
 	@Override

@@ -2637,8 +2637,9 @@ public class Octopussy implements IOctopus {
 
 				result[i] = nextIndex.intValue();
 
-				System.out.println("S" + (1 + i) + ": " + pricesPerSlotSinceMidnight.get(nextIndex).getSimpleTimeStamp()
-						+ "\t" + pricesPerSlotSinceMidnight.get(nextIndex).getImportPrice() + "p");
+				System.out.println(WatchSlotChargeHelperThread.SN(i) + ": "
+						+ pricesPerSlotSinceMidnight.get(nextIndex).getSimpleTimeStamp() + "\t"
+						+ pricesPerSlotSinceMidnight.get(nextIndex).getImportPrice() + "p");
 			}
 		}
 
@@ -2806,13 +2807,32 @@ public class Octopussy implements IOctopus {
 
 			float wattHours = slotsPerDayPart[p] * powers[p] / 2;
 
+			StringBuffer sbScaledDown = new StringBuffer(" ");
+
+			if (null != optionParameters[p] && 'N' == options[p]) {
+
+				int numScaledDown = Integer.parseInt(optionParameters[p]);
+
+				if (numScaledDown > 0) {
+
+					sbScaledDown.append('(');
+
+					for (int index = slotsPerDayPart[p] - numScaledDown; index < slotsPerDayPart[p]; index++) {
+
+						sbScaledDown.append(WatchSlotChargeHelperThread.SN(index));
+					}
+
+					sbScaledDown.append("shortened)");
+				}
+			}
+
 			System.out.println("Part" + (1 + p) + ": " + parts.get(p) + " to " + dayPartsEndAt24hr[p] + "\t"
 					+ slotsPerDayPart[p] + " half-hour slot(s) @ " + powers[p] + " watts (" + Math.round(wattHours)
 					+ " Whr)\tBattery " + String.valueOf(minPercents[p]) + "% to " + String.valueOf(maxPercents[p])
 					+ "%\t"
 					+ (' ' == options[p] ? " - no option"
-							: " + option:" + options[p]
-									+ (null == optionParameters[p] ? "" : ":" + optionParameters[p])));
+							: " + option:" + options[p] + (null == optionParameters[p] ? ""
+									: ":" + optionParameters[p] + sbScaledDown.toString())));
 
 			units += (+powers[p] * slotsPerDayPart[p]);
 		}
@@ -2823,7 +2843,7 @@ public class Octopussy implements IOctopus {
 		System.out.println(
 				"For option:D(ay)\t30-min slot charging will be reduced in minutes according to solar forecast");
 		System.out.println("For option:N(ight)\tSlots will charge at reduced power correlated to battery level");
-		System.out.println("\t\t\tMost expensive slot(s) will also be reduced in time according to solar forecast");
+		System.out.println("\t\t\tMost expensive slot(s) may also be reduced in time according to solar forecast");
 		System.out.println(
 				"No option:\t\tCharging slots full length - no consideration of battery state or solar forecast");
 		int p = 0;
@@ -2998,8 +3018,8 @@ public class Octopussy implements IOctopus {
 
 				logErrTime("Part " + (1 + p) + "/" + numberOfParts + " Schedule " + power + " W x "
 						+ String.valueOf(schedule.length) + " slot(s) " + percent + "% "
-						+ (minsDelayStart > 0 ? "delay:" + minsDelayStart + "m " : "") + "Solar:" + todayWHr
-						+ " Solcast:" + pvStr);
+						+ (minsDelayStart > 0 ? "delay:" + minsDelayStart + "m " : "") + "Solar:" + todayWHr + " / "
+						+ maxSolar);
 
 				break;
 			}
@@ -3041,8 +3061,8 @@ public class Octopussy implements IOctopus {
 
 						float importPrice = sc.getImportPrice();
 
-						logErrTime("Scheduling Slot" + (1 + s) + " for " + (29 - minsDelayStart) + " mins between "
-								+ from + " and " + to + " @ " + importPrice + "p / unit");
+						logErrTime("Scheduling  " + WatchSlotChargeHelperThread.SN(s) + " for " + (29 - minsDelayStart)
+								+ " mins between " + from + " and " + to + " @ " + importPrice + "p / unit");
 
 					} else {
 
@@ -3154,9 +3174,10 @@ public class Octopussy implements IOctopus {
 					}
 
 					String dateYYYY_MM_DD = logErrTime(
-							"Time matches charging S" + (1 + s) + " ending at " + rangeEndTime).substring(0, 10);
+							"Time matches " + WatchSlotChargeHelperThread.SN(s) + "ending at " + rangeEndTime)
+							.substring(0, 10);
 
-					logErrTime("Optimising charging power according to selected option " + options[p]
+					logErrTime("Adjusting charging power according to selected option " + options[p]
 							+ (null != optionParameters[p] ? ":" + optionParameters[p] : ""));
 
 					if ('N' == options[p]) { // (night) option - charging will start at beginning of slot
@@ -3255,7 +3276,8 @@ public class Octopussy implements IOctopus {
 
 		char macro = "ABCDEFGHIJ".charAt(scheduleIndex);
 
-		logErrTime("S" + (1 + scheduleIndex) + " Reset " + startTime + "-" + expiryTime + " " + maxPercent + "%");
+		logErrTime(WatchSlotChargeHelperThread.SN(scheduleIndex) + "Reset " + startTime + "-" + expiryTime + " "
+				+ maxPercent + "%");
 
 		execMacro(macro, extra, startTime, expiryTime, maxPercent);
 	}
@@ -3506,7 +3528,7 @@ public class Octopussy implements IOctopus {
 
 			prices[s] -= kludge;
 
-			logErrTime((index == s ? "*" : " ") + "S" + (1 + s) + " Power: " + powers[s] + " @ "
+			logErrTime((index == s ? "*" : " ") + WatchSlotChargeHelperThread.SN(s) + "Power: " + powers[s] + " @ "
 					+ String.format("%4.2f", prices[s]) + "p");
 		}
 
@@ -4025,7 +4047,7 @@ public class Octopussy implements IOctopus {
 
 					String err = sbError.toString();
 
-					if (0 != err.length() && 0 != "Picked up JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF8".compareTo(err)) {
+					if (0 != err.length() && !err.startsWith("Picked up JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF8")) {
 
 						instance.logErrTime("ERROR: " + err);
 					}
@@ -4356,15 +4378,18 @@ public class Octopussy implements IOctopus {
 				+ " kWhr, Agile tariff has saved £" + pounds2DP + " compared to the " + flatRateImport
 				+ "p (X) flat rate tariff");
 
-		System.out.println("Average daily export worth:  £" + exportSaving + " from " + unitsExported + " units @ "
-				+ flatRateExport + "p  yielding £" + valueExported + " recently");
-		System.out.println("Average daily tariff saving: £" + averagePounds2DP + " Recent average cost per unit (A): "
-				+ averageCostPerUnit + "p and daily grid import: " + averagePower + " kWhr");
-		System.out.println("Average daily solar saving:  £" + solarSaving + " (" + String.format("%.3f", solarPower)
+		System.out.println("Average daily tariff saving:\t£" + averagePounds2DP + " (Recent average cost per unit (A): "
+				+ averageCostPerUnit + "p and daily grid import: " + averagePower + " kWhr)");
+		System.out.println("Average daily solar saving:\t£" + solarSaving + " (" + String.format("%.3f", solarPower)
 				+ " kWhr compared to historic " + preSolarLongTermAverage + " kWhr import @ " + flatRateImport + "p = £"
 				+ historicDailyCost + ")");
-		System.out.println("Recent daily saving average: £" + totalSaving + " & effective cost £" + actualCost + " + "
-				+ agileCharge + "p standing charge daily ~ £" + approxCost);
+		System.out.println("Average daily export worth:\t£" + exportSaving + " (from " + unitsExported + " units @ "
+				+ flatRateExport + "p  yielding £" + valueExported + " recently)");
+		System.out.println("\t\t\t\t=====");
+		System.out.println("Total daily saving:\t\t£" + totalSaving);
+		System.out.println("\t\t\t\t=====");
+		System.out.println("Approx average daily expense:\t£" + approxCost + "\t(£" + actualCost + " average + "
+				+ agileCharge + "p standing charge daily)");
 
 		return unitCostAverage.intValue();
 	}
@@ -4638,15 +4663,16 @@ public class Octopussy implements IOctopus {
 
 					if (0 == to.compareTo(schedule[s])) {
 
-						chargeSlot = "S" + String.valueOf(1 + s);
+						chargeSlot = WatchSlotChargeHelperThread.SN(s);
 						break;
 					}
 				}
 			}
 
 			System.out.println(optionalExport + slotCost.getSimpleTimeStamp() + "  "
-					+ (null == chargeSlot ? (cheapestImport ? "!" : " ") + (lessThanAverage ? "!" : " ") : chargeSlot)
-					+ "  " + String.format("%5.2f", importValueIncVat) + "p  "
+					+ (null == chargeSlot ? (cheapestImport ? "!" : " ") + (lessThanAverage ? "!" : " ") + " "
+							: chargeSlot)
+					+ " " + String.format("%5.2f", importValueIncVat) + "p  "
 					+ (ansi && cheapestImport ? ANSI_COLOUR_LO : "") + asterisks
 					+ (ansi && cheapestImport ? ANSI_RESET : "") + padding + prices + clockHHMM);
 		}
