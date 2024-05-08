@@ -669,7 +669,7 @@ public class Octopussy implements IOctopus {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_YEARLY, DEFAULT_YEARLY_PROPERTY)))) {
 
-				SortedMap<Integer, PeriodicValues> yearly = accumulateCostsByField(ChronoField.YEAR, upToEpochSecond);
+				SortedMap<String, PeriodicValues> yearly = accumulateCostsByField(ChronoField.YEAR, upToEpochSecond);
 
 				System.out.println("\nHistorical yearly results:");
 
@@ -682,7 +682,7 @@ public class Octopussy implements IOctopus {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_MONTHLY, DEFAULT_MONTHLY_PROPERTY)))) {
 
-				SortedMap<Integer, PeriodicValues> monthly = accumulateCostsByField(ChronoField.MONTH_OF_YEAR,
+				SortedMap<String, PeriodicValues> monthly = accumulateCostsByField(ChronoField.MONTH_OF_YEAR,
 						upToEpochSecond);
 
 				System.out.println("\nHistorical monthly results:");
@@ -696,7 +696,7 @@ public class Octopussy implements IOctopus {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_WEEKLY, DEFAULT_WEEKLY_PROPERTY)))) {
 
-				SortedMap<Integer, PeriodicValues> weekly = accumulateCostsByField(ChronoField.ALIGNED_WEEK_OF_YEAR,
+				SortedMap<String, PeriodicValues> weekly = accumulateCostsByField(ChronoField.ALIGNED_WEEK_OF_YEAR,
 						upToEpochSecond);
 
 				System.out.println("\nHistorical weekly results:");
@@ -711,13 +711,13 @@ public class Octopussy implements IOctopus {
 
 				// get epochSecond for start of next day of range
 
-				SortedMap<Integer, PeriodicValues> daily = accumulateCostsByField(ChronoField.EPOCH_DAY,
+				SortedMap<String, PeriodicValues> daily = accumulateCostsByField(ChronoField.EPOCH_DAY,
 						requiredEpochSecond < 0 ? upToEpochSecond : requiredEpochSecond);
 
 				System.out.println("\nHistorical daily results: " + ("".equals(filterFrom) ? "" : " from " + filterFrom)
 						+ ("".equals(filterTo) ? "" : " up to " + filterTo));
 
-				displayPeriodSummary("Daily", daily, fromEpochDayIncl, toEpochDayIncl);
+				displayPeriodSummary("Day", daily, fromEpochDayIncl, toEpochDayIncl);
 			}
 
 			//
@@ -1713,7 +1713,7 @@ public class Octopussy implements IOctopus {
 		return result;
 	}
 
-	private static void displayPeriodSummary(String id, SortedMap<Integer, PeriodicValues> periodic, Integer fromIncl,
+	private static void displayPeriodSummary(String id, SortedMap<String, PeriodicValues> periodic, Integer fromIncl,
 			Integer toIncl) {
 
 		String datestamp = null;
@@ -1726,7 +1726,9 @@ public class Octopussy implements IOctopus {
 
 		int count = 0;
 
-		for (Integer number : periodic.keySet()) {
+		for (String key : periodic.keySet()) {
+
+			Integer number = Integer.parseInt(key.substring(5));
 
 			if (null != fromIncl) {
 
@@ -1748,7 +1750,7 @@ public class Octopussy implements IOctopus {
 				}
 			}
 
-			PeriodicValues periodData = periodic.get(number);
+			PeriodicValues periodData = periodic.get(key);
 
 			Integer countHalfHours = periodData.getCountHalfHours();
 
@@ -1760,8 +1762,20 @@ public class Octopussy implements IOctopus {
 
 				Long epochSecond = (long) number * 86400;
 
-				datestamp = LocalDateTime.ofInstant(Instant.ofEpochSecond(epochSecond), ourZoneId).toString()
+				datestamp = "     " + LocalDateTime.ofInstant(Instant.ofEpochSecond(epochSecond), ourZoneId).toString()
 						.substring(0, 10);
+
+			} else if (id.startsWith("Y")) {
+
+				// assume year
+
+				datestamp = String.format("%6s", id) + ":" + String.format("%4d", number) + "    ";
+
+			} else {
+
+				// assume month or week
+
+				datestamp = String.format("%6s", id) + ":" + String.format("%3d", number) + "/" + key.substring(0, 4);
 			}
 
 			count++;
@@ -1782,14 +1796,12 @@ public class Octopussy implements IOctopus {
 
 			tallyCost += accCost;
 
-			String tag = null == datestamp ? String.format("%5s", id) + ":" + String.format("%4d", number) : datestamp;
-
-			System.out.println(tag + "  " + String.format("%8.3f", accConsumption) + " kWhr  "
-					+ String.format("%8.2f", accCost) + "p  " + String.format("%5d", countHalfHours) + " half-hours ~ "
-					+ String.format("%5.2f", equivalentDays) + " days @ £"
-					+ String.format("%7.2f", equivalentDailyAverageCost) + "   equivalent to "
+			System.out.println(datestamp + " " + String.format("%8.3f", accConsumption) + " kWhr "
+					+ String.format("%9.2f", accCost) + "p  " + String.format("%5d", countHalfHours) + " half-hours ~ "
+					+ String.format("%6.2f", equivalentDays) + " days @ £"
+					+ String.format("%7.2f", equivalentDailyAverageCost) + " Daily equivalent: "
 					+ String.format("%6.3f", equivalentDailyEnergy) + " kWhr @ "
-					+ String.format("%4.2f", averagePricePerUnit) + "p per unit");
+					+ String.format("%5.2f", averagePricePerUnit) + "p per unit");
 		}
 
 		if (count > 1) {
@@ -1798,16 +1810,16 @@ public class Octopussy implements IOctopus {
 
 			float averageDailyEnergy = tallyEnergy / equivalentDays;
 
-			System.out.println("Totals:     " + String.format("%8.3f", tallyEnergy) + " kWhr\t\t\t\t "
-					+ String.format("%5.2f", equivalentDays) + " days   £" + String.format("%7.2f", (tallyCost / 100))
-					+ "\t      Average: " + String.format("%6.3f", averageDailyEnergy) + " kWhr @ "
-					+ String.format("%4.2f", tallyCost / tallyEnergy) + "p");
+			System.out.println("Totals:\t\t" + String.format("%8.3f", tallyEnergy) + " kWhr\t\t\t\t    "
+					+ String.format("%7.2f", equivalentDays) + " days   £" + String.format("%7.2f", (tallyCost / 100))
+					+ "\t     Average: " + String.format("%6.3f", averageDailyEnergy) + " kWhr @ "
+					+ String.format("%5.2f", tallyCost / tallyEnergy) + "p");
 		}
 	}
 
-	private static SortedMap<Integer, PeriodicValues> accumulateCostsByField(ChronoField field, Long upToEpochSecond) {
+	private static SortedMap<String, PeriodicValues> accumulateCostsByField(ChronoField field, Long upToEpochSecond) {
 
-		SortedMap<Integer, PeriodicValues> result = new TreeMap<Integer, PeriodicValues>();
+		SortedMap<String, PeriodicValues> result = new TreeMap<String, PeriodicValues>();
 
 		for (Long key : history.keySet()) {
 
@@ -1837,7 +1849,7 @@ public class Octopussy implements IOctopus {
 
 			LocalDateTime ldt = LocalDateTime.ofInstant(Instant.ofEpochSecond(key), ourZoneId);
 
-			Integer calendarElement = Long.valueOf(ldt.getLong(field)).intValue();
+			String calendarElement = String.valueOf(ldt.getYear()) + "_" + String.format("%02d", ldt.getLong(field));
 
 			Float cost = consumption * price;
 
@@ -4386,10 +4398,11 @@ public class Octopussy implements IOctopus {
 		System.out.println("Average daily export worth:\t£" + exportSaving + " (from " + unitsExported + " units @ "
 				+ flatRateExport + "p  yielding £" + valueExported + " recently)");
 		System.out.println("\t\t\t\t=====");
-		System.out.println("Total daily saving:\t\t£" + totalSaving);
+		System.out.println("Total daily saving:\t\t£" + totalSaving + "\t- £" + historicDailyCost + "\t= £" + actualCost
+				+ " (excluding standing charge)");
 		System.out.println("\t\t\t\t=====");
-		System.out.println("Approx average daily expense:\t£" + approxCost + "\t(£" + actualCost + " average + "
-				+ agileCharge + "p standing charge daily)");
+		System.out.println("Average daily expense:\t\t£" + approxCost + "\t(including + " + agileCharge
+				+ "p Agile daily standing charge)");
 
 		return unitCostAverage.intValue();
 	}
