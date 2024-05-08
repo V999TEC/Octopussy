@@ -16,6 +16,7 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -1762,8 +1763,11 @@ public class Octopussy implements IOctopus {
 
 				Long epochSecond = (long) number * 86400;
 
-				datestamp = "     " + LocalDateTime.ofInstant(Instant.ofEpochSecond(epochSecond), ourZoneId).toString()
-						.substring(0, 10);
+				LocalDateTime ldt = LocalDateTime.ofInstant(Instant.ofEpochSecond(epochSecond), ourZoneId);
+
+				DayOfWeek dow = ldt.getDayOfWeek();
+
+				datestamp = " " + dow.name().substring(0, 3) + " " + ldt.toString().substring(0, 10);
 
 			} else if (id.startsWith("Y")) {
 
@@ -4387,8 +4391,8 @@ public class Octopussy implements IOctopus {
 		String approxCost = String.format("%.2f", costEffective);
 
 		System.out.println("\nOver " + countDays + " days, importing " + String.format("%.3f", accumulatePower)
-				+ " kWhr, Agile tariff has saved £" + pounds2DP + " compared to the " + flatRateImport
-				+ "p (X) flat rate tariff");
+				+ " kWhr, Agile tariff has saved £" + pounds2DP + " compared to the flat rate tariff (X) @ "
+				+ flatRateImport + "p");
 
 		System.out.println("Average daily tariff saving:\t£" + averagePounds2DP + " (Recent average cost per unit (A): "
 				+ averageCostPerUnit + "p and daily grid import: " + averagePower + " kWhr)");
