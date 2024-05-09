@@ -2486,8 +2486,10 @@ public class Octopussy implements IOctopus {
 
 	private ArrayList<Long> upcomingExport(List<SlotCost> pricesPerSlot) {
 
-		System.out.println(
-				"\nUpcoming best " + (ansi ? ANSI_COLOR_HI + "export" + ANSI_RESET : "export") + " price periods:");
+		if (!ansi) {
+
+			System.out.println("\nUpcoming best export price periods:");
+		}
 
 		ArrayList<Long> bestStartTime = new ArrayList<Long>();
 
@@ -2549,24 +2551,27 @@ public class Octopussy implements IOctopus {
 
 			bestStartTime.add(epochSecond);
 
-			Instant instant = Instant.ofEpochSecond(-60 + epochSecond + (period + 1) * 1800);
+			if (!ansi) {
 
-			LocalDateTime ldt = LocalDateTime.ofInstant(instant, ourZoneId);
+				Instant instant = Instant.ofEpochSecond(-60 + epochSecond + (period + 1) * 1800);
 
-			String periodEndTime = ldt.format(formatter24HourClock);
+				LocalDateTime ldt = LocalDateTime.ofInstant(instant, ourZoneId);
 
-			float average = optimumAcc / (period + 1); // the number of 30 minute periods in the slot
+				String periodEndTime = ldt.format(formatter24HourClock);
 
-			int secondsInSlot = 1800 * (period + 1);
+				float average = optimumAcc / (period + 1); // the number of 30 minute periods in the slot
 
-			int hours = (int) (secondsInSlot / 3600);
+				int secondsInSlot = 1800 * (period + 1);
 
-			int minutes = (secondsInSlot % 3600) / 60;
+				int hours = (int) (secondsInSlot / 3600);
 
-			System.out.println((0 == hours ? "      " : String.format("%2d", hours) + " hr ")
-					+ (0 == minutes ? "      " : String.format("%2d", minutes) + " min") + " period from "
-					+ simpleTimeStamp + " to " + periodEndTime + "  has average price: "
-					+ String.format("%5.2f", average) + "p");
+				int minutes = (secondsInSlot % 3600) / 60;
+
+				System.out.println((0 == hours ? "      " : String.format("%2d", hours) + " hr ")
+						+ (0 == minutes ? "      " : String.format("%2d", minutes) + " min") + " period from "
+						+ simpleTimeStamp + " to " + periodEndTime + "  has average price: "
+						+ String.format("%5.2f", average) + "p");
+			}
 		}
 
 		return bestStartTime;
@@ -3927,8 +3932,10 @@ public class Octopussy implements IOctopus {
 
 	private ArrayList<Long> upcomingImport(List<SlotCost> pricesPerSlot) {
 
-		System.out.println(
-				"\nUpcoming best " + (ansi ? ANSI_COLOUR_LO + "import" + ANSI_RESET : "import") + " price periods:");
+		if (!ansi) {
+
+			System.out.println("\nUpcoming best import price periods:");
+		}
 
 		ArrayList<Long> bestStartTime = new ArrayList<Long>();
 
@@ -3990,24 +3997,27 @@ public class Octopussy implements IOctopus {
 
 			bestStartTime.add(epochSecond);
 
-			Instant instant = Instant.ofEpochSecond(-60 + epochSecond + (period + 1) * 1800);
+			if (!ansi) {
 
-			LocalDateTime ldtEndTime = LocalDateTime.ofInstant(instant, ourZoneId);
+				Instant instant = Instant.ofEpochSecond(-60 + epochSecond + (period + 1) * 1800);
 
-			String periodEndTime = ldtEndTime.format(formatter24HourClock);
+				LocalDateTime ldtEndTime = LocalDateTime.ofInstant(instant, ourZoneId);
 
-			float average = optimumAcc / (period + 1); // the number of 30 minute periods in the slot
+				String periodEndTime = ldtEndTime.format(formatter24HourClock);
 
-			int secondsInSlot = 1800 * (period + 1);
+				float average = optimumAcc / (period + 1); // the number of 30 minute periods in the slot
 
-			int hours = (int) (secondsInSlot / 3600);
+				int secondsInSlot = 1800 * (period + 1);
 
-			int minutes = (secondsInSlot % 3600) / 60;
+				int hours = (int) (secondsInSlot / 3600);
 
-			System.out.println((0 == hours ? "      " : String.format("%2d", hours) + " hr ")
-					+ (0 == minutes ? "      " : String.format("%2d", minutes) + " min") + " period from "
-					+ simpleTimeStamp + " to " + periodEndTime + "  has average price: "
-					+ String.format("%5.2f", average) + "p");
+				int minutes = (secondsInSlot % 3600) / 60;
+
+				System.out.println((0 == hours ? "      " : String.format("%2d", hours) + " hr ")
+						+ (0 == minutes ? "      " : String.format("%2d", minutes) + " min") + " period from "
+						+ simpleTimeStamp + " to " + periodEndTime + "  has average price: "
+						+ String.format("%5.2f", average) + "p");
+			}
 
 		}
 
