@@ -4352,9 +4352,15 @@ public class Octopussy implements IOctopus {
 			accumulateExportUnits += dailyExportUnits;
 		}
 
-		String pounds2DP = String.format("%.2f", accumulateDifference / 100);
+		float poundsDifference = accumulateDifference / 100;
+
+		String pounds2DP = String.format("%.2f", poundsDifference);
 
 		float subTot1 = accumulateDifference / 100 / countDays;
+
+		float poundsFlatRate = subTot1 + poundsDifference;
+
+		String flatPounds2DP = String.format("%.2f", poundsFlatRate);
 
 		String averagePounds2DP = String.format("%.2f", subTot1);
 
@@ -4405,15 +4411,20 @@ public class Octopussy implements IOctopus {
 
 		String approxCost = String.format("%.2f", costEffective);
 
+//		System.out.println("\nOver " + countDays + " days, importing " + String.format("%.3f", accumulatePower)
+//				+ " kWhr, Agile tariff has saved £" + pounds2DP + " compared to the flat rate tariff (X) @ "
+//				+ flatRateImport + "p");
+
 		System.out.println("\nOver " + countDays + " days, importing " + String.format("%.3f", accumulatePower)
-				+ " kWhr, Agile tariff has saved £" + pounds2DP + " compared to the flat rate tariff (X) @ "
-				+ flatRateImport + "p");
+				+ " kWhr, Agile average unit price (A) has saved £" + pounds2DP + "  Flat rate (X) @ " + flatRateImport
+				+ "p would cost £" + flatPounds2DP);
 
 		System.out.println("Average daily tariff saving:\t£" + averagePounds2DP + " (Recent average cost per unit (A): "
 				+ averageCostPerUnit + "p and daily grid import: " + averagePower + " kWhr)");
 		System.out.println("Average daily solar saving:\t£" + solarSaving + " (" + String.format("%.3f", solarPower)
-				+ " kWhr compared to historic " + preSolarLongTermAverage + " kWhr daily import @ " + flatRateImport
-				+ "p = £" + historicDailyCostMinusStandingCharge + " + " + standardCharge + "p)");
+				+ " kWhr compared to " + preSolarLongTermAverage + " kWhr historic daily cost £"
+				+ historicDailyCostInclStandingCharge + " = £" + historicDailyCostMinusStandingCharge + " + "
+				+ standardCharge + "p)");
 		System.out.println("Average daily export worth:\t£" + exportSaving + " (from " + unitsExported + " units @ "
 				+ flatRateExport + "p  yielding £" + valueExported + " recently)");
 		System.out.println("\t\t\t\t=====");
