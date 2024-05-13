@@ -2860,7 +2860,8 @@ public class Octopussy implements IOctopus {
 
 		units = units / 2000;
 
-		System.out.println("Potential import of up to " + units + " kWhr optionally constrained by limits as follows:");
+		System.out
+				.println("\nPotential import of up to " + units + " kWhr optionally constrained by limits as follows:");
 		System.out.println(
 				"For option:D(ay)\t30-min slot charging will be reduced in minutes according to solar forecast");
 		System.out.println("For option:N(ight)\tSlots will charge at reduced power correlated to battery level");
@@ -4390,11 +4391,15 @@ public class Octopussy implements IOctopus {
 
 		float historic = preSolarLongTermAverage * flatRateImport / 100;
 
-		float costDailyAverage = historic - total;
+		String historicDailyCostMinusStandingCharge = String.format("%.2f", historic);
+
+		float historicIncl = historic + standardCharge / 100;
+
+		float costDailyAverage = historicIncl - total;
 
 		String actualCost = String.format("%.2f", costDailyAverage);
 
-		String historicDailyCost = String.format("%.2f", historic);
+		String historicDailyCostInclStandingCharge = String.format("%.2f", historicIncl);
 
 		float costEffective = (costDailyAverage * 100 + agileCharge) / 100;
 
@@ -4407,15 +4412,15 @@ public class Octopussy implements IOctopus {
 		System.out.println("Average daily tariff saving:\t£" + averagePounds2DP + " (Recent average cost per unit (A): "
 				+ averageCostPerUnit + "p and daily grid import: " + averagePower + " kWhr)");
 		System.out.println("Average daily solar saving:\t£" + solarSaving + " (" + String.format("%.3f", solarPower)
-				+ " kWhr compared to historic " + preSolarLongTermAverage + " kWhr import @ " + flatRateImport + "p = £"
-				+ historicDailyCost + ")");
+				+ " kWhr compared to historic " + preSolarLongTermAverage + " kWhr daily import @ " + flatRateImport
+				+ "p = £" + historicDailyCostMinusStandingCharge + " + " + standardCharge + "p)");
 		System.out.println("Average daily export worth:\t£" + exportSaving + " (from " + unitsExported + " units @ "
 				+ flatRateExport + "p  yielding £" + valueExported + " recently)");
 		System.out.println("\t\t\t\t=====");
-		System.out.println("Total daily saving:\t\t£" + totalSaving + "\t- £" + historicDailyCost + "\t= £" + actualCost
-				+ " (excluding standing charge)");
+		System.out.println("Total daily saving:\t£" + historicDailyCostInclStandingCharge + " - £" + totalSaving
+				+ "\t= £" + actualCost + " (excluding standing charge)");
 		System.out.println("\t\t\t\t=====");
-		System.out.println("Average daily expense:\t\t£" + approxCost + "\t(including + " + agileCharge
+		System.out.println("Average daily expense:\t\t£" + approxCost + "\t(including " + agileCharge
 				+ "p Agile daily standing charge)");
 
 		return unitCostAverage.intValue();
