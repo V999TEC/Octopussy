@@ -3177,7 +3177,7 @@ public class Octopussy implements IOctopus {
 
 				} else if (null != percentBattery && percentBattery >= maxPercents[p]) {
 
-					logErrTime("Unscheduling S" + (1 + s) + " Battery already >= " + maxPercent
+					logErrTime("Unscheduling S" + (1 + s) + " Battery charge. Already >= " + maxPercent
 							+ "% Resetting begin/end to " + rangeEndTime);
 
 					resetSlot(s, rangeEndTime, rangeEndTime, 100);
@@ -4408,20 +4408,21 @@ public class Octopussy implements IOctopus {
 		String actualCost = String.format("%.2f", costDailyAverage);
 
 		String historicDailyCostInclStandingCharge = String.format("%.2f", historicIncl);
-//
-//		float costEffective = (costDailyAverage * 100 + agileCharge) / 100;
-//
-//		String approxCost = String.format("%.2f", costEffective);
+
+		float recentAgileExclStandingCharge = accumulatePower * unitCostAverage;
+
+		float recentFlatExclStandingCharge = accumulatePower * flatRateImport;
 
 		System.out.println("\nOver " + countDays + " days, importing " + String.format("%.3f", accumulatePower)
 				+ " kWhr, Agile average unit price (A) is " + averageCostPerUnit + "p and daily grid import "
 				+ averagePower + " kWhr");
 
-		System.out.println("Average daily tariff saving:\t£" + averagePounds2DP + " (based on recent saving "
-				+ accumulateDifference + "p)");
+		System.out.println("Average daily tariff saving:\t£" + averagePounds2DP + " (where " + accumulateDifference
+				+ "p = [" + recentFlatExclStandingCharge + " + " + countDays + " x " + flatStandingCharge + "] - ["
+				+ recentAgileExclStandingCharge + " + " + countDays + " x " + agileStandingCharge + "] )");
 
 		System.out.println("Average solar/battery saving:\t£" + solarSaving + " (" + String.format("%.3f", solarPower)
-				+ " kWhr compared to " + preSolarLongTermAverage + " kWhr historic daily cost £"
+				+ " kWhr compared to " + preSolarLongTermAverage + " kWhr historically £"
 				+ historicDailyCostInclStandingCharge + " = £" + historicDailyCostMinusStandingCharge + " + "
 				+ flatStandingCharge + "p)");
 
