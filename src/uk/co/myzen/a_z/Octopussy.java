@@ -4278,10 +4278,10 @@ public class Octopussy implements IOctopus {
 
 		setOfDays.addAll(elecMapDaily.keySet());
 
-		float standardCharge = Float.valueOf(properties.getProperty(KEY_FLEXIBLE_ELECTRICITY_STANDING,
+		float flatStandingCharge = Float.valueOf(properties.getProperty(KEY_FLEXIBLE_ELECTRICITY_STANDING,
 				DEFAULT_FLEXIBLE_ELECTRICITY_STANDING_PROPERTY));
 
-		float agileCharge = Float.valueOf(
+		float agileStandingCharge = Float.valueOf(
 				properties.getProperty(KEY_AGILE_ELECTRICITY_STANDING, DEFAULT_AGILE_ELECTRICITY_STANDING_PROPERTY));
 
 		for (String key : setOfDays) {
@@ -4313,11 +4313,11 @@ public class Octopussy implements IOctopus {
 
 			float agilePrice = dayValues.getDailyPrice();
 
-			float standardPrice = consumption * flatRateImport;
+			float flatImportPrice = consumption * flatRateImport;
 
-			float agileCost = agilePrice + agileCharge;
+			float agileCost = agilePrice + agileStandingCharge;
 
-			float difference = (standardPrice + standardCharge) - agileCost;
+			float difference = (flatImportPrice + flatStandingCharge) - agileCost;
 
 			float lowestPrice = dayValues.getLowestPrice();
 
@@ -4339,8 +4339,8 @@ public class Octopussy implements IOctopus {
 			System.out.println(dayValues.getDayOfWeek() + (lowestPrice < plunge ? " * " : "   ") + key + "  £"
 					+ String.format("%5.2f", agileCost / 100) + " " + String.format("%7.3f", consumption) + " kWhr @ "
 					+ String.format("%5.2f", dailyAverageUnitPrice) + "p" + " Agile: "
-					+ String.format("%8.4f", agilePrice) + "p +" + agileCharge + "p (X: "
-					+ String.format("%8.4f", standardPrice) + "p +" + standardCharge + "p) Save: £"
+					+ String.format("%8.4f", agilePrice) + "p +" + agileStandingCharge + "p (X: "
+					+ String.format("%8.4f", flatImportPrice) + "p +" + flatStandingCharge + "p) Save: £"
 					+ String.format("%5.2f", (difference / 100)) + " + Export:" + dailyExportUnits);
 
 			accumulateDifference += difference;
@@ -4352,19 +4352,21 @@ public class Octopussy implements IOctopus {
 			accumulateExportUnits += dailyExportUnits;
 		}
 
-		float poundsDifference = accumulateDifference / 100;
+		Float unitCostAverage = accumulateCost / accumulatePower;
 
-		String pounds2DP = String.format("%.2f", poundsDifference);
+		renderSummaryB(agileStandingCharge, flatStandingCharge, flatRateImport, flatRateExport, countDays,
+				unitCostAverage, accumulatePower, accumulateDifference, accumulateExportUnits);
+
+		return unitCostAverage.intValue();
+	}
+
+	private void renderSummaryB(float agileStandingCharge, float flatStandingCharge, float flatRateImport,
+			float flatRateExport, int countDays, float unitCostAverage, float accumulatePower,
+			float accumulateDifference, float accumulateExportUnits) {
 
 		float subTot1 = accumulateDifference / 100 / countDays;
 
-		float poundsFlatRate = subTot1 + poundsDifference;
-
-		String flatPounds2DP = String.format("%.2f", poundsFlatRate);
-
 		String averagePounds2DP = String.format("%.2f", subTot1);
-
-		Float unitCostAverage = accumulateCost / accumulatePower;
 
 		String averageCostPerUnit = String.format("%.2f", unitCostAverage);
 
@@ -4399,42 +4401,37 @@ public class Octopussy implements IOctopus {
 
 		String historicDailyCostMinusStandingCharge = String.format("%.2f", historic);
 
-		float historicIncl = historic + standardCharge / 100;
+		float historicIncl = historic + flatStandingCharge / 100;
 
 		float costDailyAverage = historicIncl - total;
 
 		String actualCost = String.format("%.2f", costDailyAverage);
 
 		String historicDailyCostInclStandingCharge = String.format("%.2f", historicIncl);
-
-		float costEffective = (costDailyAverage * 100 + agileCharge) / 100;
-
-		String approxCost = String.format("%.2f", costEffective);
-
-//		System.out.println("\nOver " + countDays + " days, importing " + String.format("%.3f", accumulatePower)
-//				+ " kWhr, Agile tariff has saved £" + pounds2DP + " compared to the flat rate tariff (X) @ "
-//				+ flatRateImport + "p");
+//
+//		float costEffective = (costDailyAverage * 100 + agileCharge) / 100;
+//
+//		String approxCost = String.format("%.2f", costEffective);
 
 		System.out.println("\nOver " + countDays + " days, importing " + String.format("%.3f", accumulatePower)
-				+ " kWhr, Agile average unit price (A) has saved £" + pounds2DP + "  Flat rate (X) @ " + flatRateImport
-				+ "p would cost £" + flatPounds2DP);
+				+ " kWhr, Agile average unit price (A) is " + averageCostPerUnit + "p and daily grid import "
+				+ averagePower + " kWhr");
 
-		System.out.println("Average daily tariff saving:\t£" + averagePounds2DP + " (Recent average cost per unit (A): "
-				+ averageCostPerUnit + "p and daily grid import: " + averagePower + " kWhr)");
-		System.out.println("Average daily solar saving:\t£" + solarSaving + " (" + String.format("%.3f", solarPower)
+		System.out.println("Average daily tariff saving:\t£" + averagePounds2DP + " (based on recent saving "
+				+ accumulateDifference + "p)");
+
+		System.out.println("Average solar/battery saving:\t£" + solarSaving + " (" + String.format("%.3f", solarPower)
 				+ " kWhr compared to " + preSolarLongTermAverage + " kWhr historic daily cost £"
 				+ historicDailyCostInclStandingCharge + " = £" + historicDailyCostMinusStandingCharge + " + "
-				+ standardCharge + "p)");
+				+ flatStandingCharge + "p)");
+
 		System.out.println("Average daily export worth:\t£" + exportSaving + " (from " + unitsExported + " units @ "
 				+ flatRateExport + "p  yielding £" + valueExported + " recently)");
 		System.out.println("\t\t\t\t=====");
 		System.out.println("Total daily saving:\t£" + historicDailyCostInclStandingCharge + " - £" + totalSaving
-				+ "\t= £" + actualCost + " (excluding standing charge)");
+				+ "\t= £" + actualCost + " (cost per day on average)");
 		System.out.println("\t\t\t\t=====");
-		System.out.println("Average daily expense:\t\t£" + approxCost + "\t(including " + agileCharge
-				+ "p Agile daily standing charge)");
 
-		return unitCostAverage.intValue();
 	}
 
 	private void showAnalysis(List<SlotCost> pricesPerSlot, int averageUnitCost, ArrayList<Long> bestImportTime,
