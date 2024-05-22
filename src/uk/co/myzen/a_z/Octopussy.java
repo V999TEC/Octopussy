@@ -4338,10 +4338,10 @@ public class Octopussy implements IOctopus {
 
 			System.out.println(dayValues.getDayOfWeek() + (lowestPrice < plunge ? " * " : "   ") + key + "  £"
 					+ String.format("%5.2f", agileCost / 100) + " " + String.format("%7.3f", consumption) + " kWhr @ "
-					+ String.format("%5.2f", dailyAverageUnitPrice) + "p" + " Agile: "
-					+ String.format("%8.4f", agilePrice) + "p +" + agileStandingCharge + "p (X: "
-					+ String.format("%8.4f", flatImportPrice) + "p +" + flatStandingCharge + "p) Save: £"
-					+ String.format("%5.2f", (difference / 100)) + " + Export:" + dailyExportUnits);
+					+ String.format("%5.2f", dailyAverageUnitPrice) + "p" + " A: " + String.format("%8.4f", agilePrice)
+					+ "p +" + agileStandingCharge + "p (X: " + String.format("%8.4f", flatImportPrice) + "p +"
+					+ flatStandingCharge + "p) Save: £" + String.format("%5.2f", (difference / 100)) + " + Export:"
+					+ dailyExportUnits);
 
 			accumulateDifference += difference;
 
@@ -4364,7 +4364,9 @@ public class Octopussy implements IOctopus {
 			float flatRateExport, int countDays, float unitCostAverage, float accumulatePower,
 			float accumulateDifference, float accumulateExportUnits) {
 
-		float subTot1 = accumulateDifference / 100 / countDays;
+		float subTot0 = accumulateDifference / countDays;
+
+		float subTot1 = subTot0 / 100;
 
 		String averagePounds2DP = String.format("%.2f", subTot1);
 
@@ -4413,18 +4415,19 @@ public class Octopussy implements IOctopus {
 
 		float recentFlatExclStandingCharge = accumulatePower * flatRateImport;
 
-		System.out.println("\nOver " + countDays + " days, importing " + String.format("%.3f", accumulatePower)
-				+ " kWhr, Agile average unit price (A) is " + averageCostPerUnit + "p and daily grid import "
-				+ averagePower + " kWhr");
+		System.out.println("\n" + String.format("%.3f", accumulatePower) + " kWhr imported over " + countDays
+				+ " days. Average (A)gile price " + averageCostPerUnit + "p and daily grid import " + averagePower
+				+ " kWhr. Flat rate (X) " + flatRateImport + "p");
 
-		System.out.println("Average daily tariff saving:\t£" + averagePounds2DP + " (where " + accumulateDifference
-				+ "p = [" + recentFlatExclStandingCharge + " + " + countDays + " x " + flatStandingCharge + "] - ["
-				+ recentAgileExclStandingCharge + " + " + countDays + " x " + agileStandingCharge + "] )");
+		System.out.println("Average daily Agile saving:\t£" + averagePounds2DP + " (" + countDays + " x " + subTot0
+				+ "p = " + accumulateDifference + "p = [Σ(X)" + recentFlatExclStandingCharge + " + " + countDays + " x "
+				+ flatStandingCharge + "]-[Σ(A)" + recentAgileExclStandingCharge + " + " + countDays + " x "
+				+ agileStandingCharge + "])");
 
 		System.out.println("Average solar/battery saving:\t£" + solarSaving + " (" + String.format("%.3f", solarPower)
-				+ " kWhr compared to " + preSolarLongTermAverage + " kWhr historically £"
-				+ historicDailyCostInclStandingCharge + " = £" + historicDailyCostMinusStandingCharge + " + "
-				+ flatStandingCharge + "p)");
+				+ " kWhr less. Historical " + preSolarLongTermAverage + " kWhr @ (X) = £"
+				+ historicDailyCostMinusStandingCharge + " + " + flatStandingCharge + "p = £"
+				+ historicDailyCostInclStandingCharge + ")");
 
 		System.out.println("Average daily export worth:\t£" + exportSaving + " (from " + unitsExported + " units @ "
 				+ flatRateExport + "p  yielding £" + valueExported + " recently)");
