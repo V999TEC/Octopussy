@@ -4425,7 +4425,7 @@ public class Octopussy implements IOctopus {
 				+ agileStandingCharge + "])");
 
 		System.out.println("Average solar/battery saving:\t£" + solarSaving + " (" + String.format("%.3f", solarPower)
-				+ " kWhr less. Historical " + preSolarLongTermAverage + " kWhr @ (X) = £"
+				+ " kWhr less vr. historical consumption " + preSolarLongTermAverage + " kWhr @ (X) = £"
 				+ historicDailyCostMinusStandingCharge + " + " + flatStandingCharge + "p = £"
 				+ historicDailyCostInclStandingCharge + ")");
 
