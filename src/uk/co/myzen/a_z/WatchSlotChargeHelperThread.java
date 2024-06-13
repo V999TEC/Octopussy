@@ -48,7 +48,11 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 		final long millisTimeout = (runTimeoutMinutes * 60000) + System.currentTimeMillis();
 
-		Thread.currentThread().setName("Watch");
+		Thread currentThread = Thread.currentThread();
+
+		String idHexString = Long.toHexString(currentThread.getId());
+
+		currentThread.setName("Watch-" + idHexString);
 
 		i.logErrTime(slotN + "Monitoring starts");
 
