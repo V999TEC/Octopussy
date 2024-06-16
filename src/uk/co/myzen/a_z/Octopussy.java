@@ -2734,7 +2734,9 @@ public class Octopussy implements IOctopus {
 
 		String key = "part1";
 
-		LocalDateTime ldtPrevious = LocalDateTime.of(2024, 1, 1, 0, 0); // 2024-01-01T00:00
+//		LocalDateTime ldtPrevious = LocalDateTime.of(2024, 1, 1, 0, 0); // 2024-01-01T00:00
+
+		LocalDateTime ldtPrevious = convertHHmm("0000").minusMinutes(1L);
 
 		List<String> parts = new ArrayList<String>();
 
@@ -2871,7 +2873,7 @@ public class Octopussy implements IOctopus {
 				}
 			}
 
-			LocalDateTime ldt = convertHHmm(value);
+			LocalDateTime ldt = convertHHmm(value.substring(0, 2) + value.substring(3));
 
 			if (ldt.compareTo(ldtPrevious) <= 0) {
 
@@ -3298,6 +3300,11 @@ public class Octopussy implements IOctopus {
 //			options[p] = 'N';
 //			percentBattery = 10;
 
+			/* TODO Test code to force current time as a scheduling part */
+
+//			schedule[s] = rangeStartTime;
+//			int comp = 0;
+
 			int comp = rangeEndTime.compareTo(schedule[s]);
 
 			// logErrTime("S" + (1 + s) + " comparing " + rangeEndTime + " with " +
@@ -3395,7 +3402,7 @@ public class Octopussy implements IOctopus {
 
 								chargingSlotPower = Math.round(chargeRate);
 
-								logErrTime("Part " + (1 + p) + " Sol: " + cols[1] + " Whr. " + powers[p]
+								logErrTime("Part " + (1 + p) + " Sol: " + cols[2] + "/" + maxSolar + " " + powers[p]
 										+ " watts scaled down by (1-30): " + scaled + "/30");
 							}
 						}
@@ -3520,15 +3527,15 @@ public class Octopussy implements IOctopus {
 
 	private static Map<String, String> getSolarDataFromFile(Set<Integer> weekNumbers) {
 
-		return getSolarDataFromFile(false, weekNumbers);
+		return getSolarDataFromFile(null, weekNumbers);
 	}
 
-	private static Map<String, String> getSolarDataFromFile(boolean justToday) {
+	private static Map<String, String> getSolarDataFromFile(String dateYYYY_MM_DD) {
 
-		return getSolarDataFromFile(justToday, null);
+		return getSolarDataFromFile(dateYYYY_MM_DD, null);
 	}
 
-	private static Map<String, String> getSolarDataFromFile(boolean justToday, Set<Integer> weekNumbers) {
+	private static Map<String, String> getSolarDataFromFile(String thisDateOnly, Set<Integer> weekNumbers) {
 
 		Map<String, String> result = new HashMap<String, String>();
 
@@ -3542,11 +3549,9 @@ public class Octopussy implements IOctopus {
 
 				String prevSol = null;
 
-				LocalDate timestampNow = LocalDate.now();
-
-				String today = timestampNow.format(DateTimeFormatter.ISO_LOCAL_DATE);
-
 				boolean pvGenerating = false;
+
+				boolean isThisDate = false;
 
 				while (null != (line = solarDataReader.readLine())) {
 
@@ -3554,9 +3559,11 @@ public class Octopussy implements IOctopus {
 
 					String isoLocalDate = cols[0].substring(0, 10);
 
-					if (justToday && !today.equals(isoLocalDate)) {
+					isThisDate = isoLocalDate.equals(thisDateOnly);
 
-						continue; // only interested in solar data logged today
+					if (!isThisDate) {
+
+						continue; // only interested in solar data logged on specified date
 					}
 
 					if (null != weekNumbers) { // select dates only in the supplied week numbers
@@ -3605,22 +3612,25 @@ public class Octopussy implements IOctopus {
 
 							// see if solar generation has started ( i.e., > "0.0" for cols[6])
 
-							if (!"0.0".equals(sol)) {
+							if (isThisDate) {
 
-								// have we detected the rise already ?
+								if (!"0.0".equals(sol)) {
 
-								if (!result.containsKey(key + "R")) {
+									// have we detected the rise already ?
 
-									result.put(key + "R", line); // assume solar generation has started
-																	// - sun has (R)isen
+									if (!result.containsKey(key + "R")) {
 
-									pvGenerating = true;
+										result.put(key + "R", line); // assume solar generation has started
+																		// - sun has (R)isen
+
+										pvGenerating = true;
+									}
 								}
 							}
 						}
 
-					} else if (pvGenerating) { // we have observed no further PV generation
-												// (implies light going into dark)
+					} else if (isThisDate && pvGenerating) { // we have observed no further PV generation
+						// (implies light going into dark)
 
 						if (sol.equals(prevSol)) {
 
@@ -3636,7 +3646,10 @@ public class Octopussy implements IOctopus {
 						}
 					}
 
-					prevSol = sol; // used to detect if no further PV generation
+					if (isThisDate && !"00:00".equals(cols[1])) {
+
+						prevSol = sol; // used to detect if no further PV generation today
+					}
 				}
 
 				solarDataReader.close();
@@ -3657,7 +3670,7 @@ public class Octopussy implements IOctopus {
 
 		if (null != fileSolar) {
 
-			Map<String, String> map = getSolarDataFromFile(true);
+			Map<String, String> map = getSolarDataFromFile(dateYYYY_MM_DD);
 
 			String key = dateYYYY_MM_DD + "_R";
 
@@ -3699,7 +3712,7 @@ public class Octopussy implements IOctopus {
 
 		if (null != fileSolar) {
 
-			Map<String, String> map = getSolarDataFromFile(true);
+			Map<String, String> map = getSolarDataFromFile(dateYYYY_MM_DD);
 
 			String key = dateYYYY_MM_DD + "_" + suffix;
 
