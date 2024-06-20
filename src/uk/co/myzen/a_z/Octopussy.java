@@ -2697,11 +2697,14 @@ public class Octopussy implements IOctopus {
 		return ldtAdjusted.format(formatter12HourClock);
 	}
 
+	/*
+	 * copes with HH:MM and HHMM
+	 */
 	private static LocalDateTime convertHHmm(String hhmm) {
 
 		String hh = hhmm.substring(0, 2);
 
-		String mm = hhmm.substring(3);
+		String mm = hhmm.substring(hhmm.length() - 2);
 
 		LocalDateTime ldt = LocalDateTime.ofInstant(now, ourZoneId);
 
@@ -2734,13 +2737,33 @@ public class Octopussy implements IOctopus {
 
 		String key = "part1";
 
-//		LocalDateTime ldtPrevious = LocalDateTime.of(2024, 1, 1, 0, 0); // 2024-01-01T00:00
-
-		LocalDateTime ldtPrevious = convertHHmm("0000").minusMinutes(1L);
+		LocalDateTime ldtPrevious = convertHHmm("00:00").minusMinutes(1L);
 
 		List<String> parts = new ArrayList<String>();
 
 		String[] sunRisenAndSetHHMM = hasSunRisenAndSet(ldtRangeStart.format(formatterSolar));
+
+		int rangeStartIndex = -1;
+
+		// what slot index is the time now?
+
+		for (int i = 0; i < slotStartTimes.length; i++) {
+
+			if (slotStartTimes[i].equals(rangeStartTime)) {
+
+				rangeStartIndex = i;
+				break;
+			}
+		}
+
+		if (rangeStartTime.equals(sunRisenAndSetHHMM[0])) {
+
+			logErrTime("Sunrise in the current slot (index: " + rangeStartIndex + ")");
+
+		} else if (rangeStartTime.equals(sunRisenAndSetHHMM[1])) {
+
+			logErrTime("Sunset in the current slot (index: " + rangeStartIndex + ")");
+		}
 
 		while (properties.containsKey(key)) {
 
@@ -2759,7 +2782,7 @@ public class Octopussy implements IOctopus {
 
 			if (timeDynamic.length() > 5) { // assume dynamic adjustment to value depending on solar
 
-				int sunIndex = -1;
+				int defaultIndex = -1;
 
 				// what slot index is default for this part?
 
@@ -2767,113 +2790,82 @@ public class Octopussy implements IOctopus {
 
 					if (slotStartTimes[i].equals(value)) {
 
-						sunIndex = i;
+						defaultIndex = i;
 						break;
 					}
 				}
 
-				if (-1 != sunIndex) { // should always be true
+				if ('-' == timeDynamic.charAt(5)) { // allow slot to start earlier than default (but not later)
 
-					if ('-' == timeDynamic.charAt(5)) {
+					// have we detected sunrise yet?
 
-						// have we detected sunrise yet?
+					if (null != sunRisenAndSetHHMM[0]) {
 
-						if (null != sunRisenAndSetHHMM[0]) {
+						// is it before our default ?
 
-							// String slotStartTimes[] holds all the slots "00:00" through to "23:30"
+						int sunRisenIndex = -1;
 
-							// In which slot did the sun appear? Answer cols[1]
+						for (int i = 0; i < slotStartTimes.length; i++) {
 
-							for (int j = 0; j < sunIndex; j++) {
+							if (slotStartTimes[i].equals(sunRisenAndSetHHMM[0])) {
 
-								if (slotStartTimes[j].equals(sunRisenAndSetHHMM[0])) {
+								sunRisenIndex = i;
 
-									sunIndex = 1 + j;
-
-									break;
-								}
-							}
-
-							value = slotStartTimes[sunIndex];
-
-							if (!value.equals(defaultValue)) {
-
-								System.out.println("Selected option (-) changed " + key + " start time from "
-										+ defaultValue + " to " + value + " due to timing of sunrise");
+								break;
 							}
 						}
 
-					} else if ('+' == timeDynamic.charAt(5)) {
+						if (sunRisenIndex < defaultIndex) {
 
-						// have we detected sunrise yet?
+							value = slotStartTimes[sunRisenIndex];
 
-						if (null != sunRisenAndSetHHMM[0]) {
+							System.out.println("Selected option (-) changed " + key + " start time from " + defaultValue
+									+ " to " + value + " due to timing of sunrise");
+						}
+					}
 
-							// have we detected sunset yet?
+				} else if ('+' == timeDynamic.charAt(5)) { // allow slot to start later than default (but not earlier)
 
-							if (null == sunRisenAndSetHHMM[1]) {
+					// have we detected sunset yet?
 
-								int defaultValueIndex = -1;
+					if (null == sunRisenAndSetHHMM[1]) {
 
-								for (int i = 0; i < slotStartTimes.length; i++) {
+						// no. Push the time to the next slot
 
-									if (slotStartTimes[i].equals(defaultValue)) {
+						if (rangeStartIndex >= defaultIndex) {
 
-										defaultValueIndex = i;
-										break;
-									}
-								}
+							value = slotStartTimes[1 + rangeStartIndex];
+						}
 
-								// have we reached the default time for this part?
+					} else {
 
-								int timeNowIndex = -1;
+						// yes. What slot does this represent?
 
-								for (int i = 0; i < slotStartTimes.length; i++) {
+						int sunSetIndex = -1;
 
-									if (slotStartTimes[i].equals(rangeStartTime)) {
+						for (int i = 0; i < slotStartTimes.length; i++) {
 
-										timeNowIndex = i;
-										break;
-									}
-								}
+							if (slotStartTimes[i].equals(sunRisenAndSetHHMM[1])) {
 
-								if (timeNowIndex < defaultValueIndex) {
+								sunSetIndex = i;
 
-									// not reached the minimum time yet
-									// no change needed yet
-
-									sunIndex = defaultValueIndex;
-
-								} else {
-
-									sunIndex = 1 + timeNowIndex; // push it half-hour later
-								}
-
-							} else {
-
-								for (int i = 0; i < slotStartTimes.length; i++) {
-
-									if (slotStartTimes[i].equals(sunRisenAndSetHHMM[1])) {
-
-										sunIndex = i;
-										break;
-									}
-								}
+								break;
 							}
+						}
 
-							value = slotStartTimes[sunIndex];
+						if (sunSetIndex > defaultIndex) {
 
-							if (!value.equals(defaultValue)) {
+							value = slotStartTimes[sunSetIndex];
 
-								System.out.println("Selected option (+) changed " + key + " start time from "
-										+ defaultValue + " to " + value + " due to timing of sunset");
-							}
+							System.out.println("Selected option (+) changed " + key + " start time from " + defaultValue
+									+ " to " + value + " due to timing of sunset");
+
 						}
 					}
 				}
 			}
 
-			LocalDateTime ldt = convertHHmm(value.substring(0, 2) + value.substring(3));
+			LocalDateTime ldt = convertHHmm(value);
 
 			if (ldt.compareTo(ldtPrevious) <= 0) {
 
@@ -3509,14 +3501,19 @@ public class Octopussy implements IOctopus {
 
 			try {
 
-				BufferedWriter solarDataWriter = new BufferedWriter(new FileWriter(fileSolar, true));
+				FileWriter fileWriter = new FileWriter(fileSolar, true);
+
+				BufferedWriter solarDataWriter = new BufferedWriter(fileWriter);
 
 				solarDataWriter.append(timestamp);
 				solarDataWriter.append(",");
 				solarDataWriter.append(data);
 				solarDataWriter.newLine();
 
+				solarDataWriter.flush();
 				solarDataWriter.close();
+
+				fileWriter.close();
 
 			} catch (IOException e) {
 
@@ -3543,13 +3540,13 @@ public class Octopussy implements IOctopus {
 
 			try {
 
-				BufferedReader solarDataReader = new BufferedReader(new FileReader(fileSolar));
+				FileReader fileReader = new FileReader(fileSolar);
+
+				BufferedReader solarDataReader = new BufferedReader(fileReader);
 
 				String line = null;
 
 				String prevSol = null;
-
-				boolean pvGenerating = false;
 
 				boolean isThisDate = false;
 
@@ -3561,7 +3558,7 @@ public class Octopussy implements IOctopus {
 
 					isThisDate = isoLocalDate.equals(thisDateOnly);
 
-					if (!isThisDate) {
+					if (null != thisDateOnly && !isThisDate) {
 
 						continue; // only interested in solar data logged on specified date
 					}
@@ -3582,37 +3579,46 @@ public class Octopussy implements IOctopus {
 
 					result.put(key + cols[1], line);
 
-					String sol = cols[6];
+					// the following is all to do with detecting sunrise & sunset on the specified
+					// day (typically today)
 
-					String numberOfParts = cols[4]; // will define which number is the last part of the day
-													// -typically 4
+					if (isThisDate) {
 
-					if ("1".equals(cols[3])) { // we are in 1st part of the day (implies dark going into light)
+						String sol = cols[6];
 
-						if ("00:00".equals(cols[1])) { // midnight recording of data gives
-														// yesterday's totals
-							// but not reliably - because sometimes values have already been reset to zero -
+						String currentPart = cols[3];
 
-							LocalDateTime timestampThen = LocalDateTime.parse(cols[0],
-									DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+						String numberOfParts = cols[4]; // will define which number is the last part of the day
+														// -typically 4
 
-							String yesterday = timestampThen.minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE);
+						String penultimatePart = String.valueOf(Integer.parseInt(numberOfParts) - 1);
 
-							if ("0.0".equals(sol)) { // sol is reporting zero - probably values have been
-														// reset
+//						instance.logErrTime(key + cols[1] + " " + currentPart + " sol:" + sol + "  prev:" + prevSol);
 
-								// select the data from yesterday_part# as a closer approximation for the solar
+						if ("1".equals(currentPart)) { // we are in 1st part of the day (implies dark going into light)
 
-								line = result.get(yesterday + "_" + numberOfParts);
-							}
+							if ("00:00".equals(cols[1])) { // midnight recording of data gives
+															// yesterday's totals
+								// but not reliably - because sometimes values have already been reset to zero -
 
-							result.put(yesterday, line);
+								LocalDateTime timestampThen = LocalDateTime.parse(cols[0],
+										DateTimeFormatter.ISO_LOCAL_DATE_TIME);
 
-						} else {
+								String yesterday = timestampThen.minusDays(1).format(DateTimeFormatter.ISO_LOCAL_DATE);
 
-							// see if solar generation has started ( i.e., > "0.0" for cols[6])
+								if ("0.0".equals(sol)) { // sol is reporting zero - probably values have been
+															// reset
 
-							if (isThisDate) {
+									// select the data from yesterday_part# as a closer approximation for the solar
+
+									line = result.get(yesterday + "_" + numberOfParts);
+								}
+
+								result.put(yesterday, line);
+
+							} else {
+
+								// see if solar generation has started ( i.e., > "0.0" for cols[6])
 
 								if (!"0.0".equals(sol)) {
 
@@ -3623,36 +3629,41 @@ public class Octopussy implements IOctopus {
 										result.put(key + "R", line); // assume solar generation has started
 																		// - sun has (R)isen
 
-										pvGenerating = true;
+//										instance.logErrTime("PV generation has started by " + key + cols[1]);
 									}
+								}
+
+							}
+
+						} else if (currentPart.equals(penultimatePart)) { // we are in the penultimate part of the day
+																			// eg 3 of 4
+
+							// (implies light going into dark)
+
+							if (sol.equals(prevSol)) {
+
+								// have we detected the sunset already ?
+
+								if (!result.containsKey(key + "S")) {
+
+									result.put(key + "S", line); // assume solar generation has ended
+																	// - sun has (S)et
+
+									instance.logErrTime("PV generation has stopped by " + key + cols[1]);
 								}
 							}
 						}
 
-					} else if (isThisDate && pvGenerating) { // we have observed no further PV generation
-						// (implies light going into dark)
+						if (!"00:00".equals(cols[1])) {
 
-						if (sol.equals(prevSol)) {
-
-							// have we detected the sunset already ?
-
-							if (!result.containsKey(key + "S")) {
-
-								result.put(key + "S", line); // assume solar generation has ended
-																// - sun has (S)et
-
-								pvGenerating = false;
-							}
+							prevSol = sol; // used to detect if no further PV generation on this day
 						}
-					}
-
-					if (isThisDate && !"00:00".equals(cols[1])) {
-
-						prevSol = sol; // used to detect if no further PV generation today
 					}
 				}
 
 				solarDataReader.close();
+
+				fileReader.close();
 
 			} catch (IOException e) {
 

@@ -103,6 +103,12 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 				reason = 2;
 				i.logErrTime(slotN + "InterruptedException");
 				break; // get out of run() asap
+
+			} catch (Exception e2) {
+
+				e2.printStackTrace();
+
+				continue; // loop
 			}
 
 			if (System.currentTimeMillis() >= millisTimeout) {
