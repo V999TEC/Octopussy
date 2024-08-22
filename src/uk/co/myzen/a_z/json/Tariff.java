@@ -2,7 +2,7 @@ package uk.co.myzen.a_z.json;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-public class Agile {
+public class Tariff {
 
 	@JsonProperty("value_exc_vat")
 	private Float valueExcVat;

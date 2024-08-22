@@ -10,9 +10,9 @@ public class ConsumptionHistory {
 
 	private OffsetDateTime to;
 
-	private Float price; // typically the slot price
+	private Float priceImportedOrExported;
 
-	private Float cost; // typically the cost of the energy consumed
+	private Float costImportedOrExported;
 
 	public Float getConsumption() {
 		return consumption;
@@ -38,19 +38,20 @@ public class ConsumptionHistory {
 		this.to = to;
 	}
 
-	public Float getPrice() {
-		return price;
+	public Float getPriceImportedOrExported() {
+		return priceImportedOrExported;
 	}
 
-	public void setPrice(Float price) {
-		this.price = price;
+	public void setPriceImportedOrExported(Float price) {
+		this.priceImportedOrExported = price;
 	}
 
-	public Float getCost() {
-		return cost;
+	public Float getCostImportedOrExported() {
+		return costImportedOrExported;
 	}
 
-	public void setCost(Float cost) {
-		this.cost = cost;
+	public void setCostImportedOrExported(Float cost) {
+		this.costImportedOrExported = cost;
 	}
+
 }

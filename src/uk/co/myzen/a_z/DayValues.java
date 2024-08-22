@@ -2,32 +2,40 @@ package uk.co.myzen.a_z;
 
 public class DayValues {
 
-	private Float lowestPrice;
+	private Integer weekOfYear;
 
 	private String dayOfWeek;
 
-	private Integer weekOfYear;
-
 	private int slotCount;
 
-	private float dailyConsumption;
+	private Float highestExportPrice;
 
-	private float dailyPrice;
+	private float dailyExport;
 
-	public float getDailyConsumption() {
-		return dailyConsumption;
+	private Float dailyExportPrice;
+
+	private Float lowestImportPrice;
+
+	private float dailyImport;
+
+	private Float dailyImportPrice;
+
+	public float getDailyImport() {
+
+		return dailyImport;
 	}
 
-	public void setDailyConsumption(float dailyConsumption) {
-		this.dailyConsumption = dailyConsumption;
+	public void setDailyImport(float dailyImport) {
+
+		this.dailyImport = dailyImport;
 	}
 
-	public float getDailyPrice() {
-		return dailyPrice;
+	public Float getDailyImportPrice() {
+		return dailyImportPrice;
 	}
 
-	public void setDailyPrice(float dailyPrice) {
-		this.dailyPrice = dailyPrice;
+	public void setDailyImportPrice(Float dailyPrice) {
+		this.dailyImportPrice = dailyPrice;
 	}
 
 	public int getSlotCount() {
@@ -46,12 +54,12 @@ public class DayValues {
 		this.dayOfWeek = dayOfWeek;
 	}
 
-	public Float getLowestPrice() {
-		return lowestPrice;
+	public Float getLowestImportPrice() {
+		return lowestImportPrice;
 	}
 
-	public void setLowestPrice(Float lowestPrice) {
-		this.lowestPrice = lowestPrice;
+	public void setLowestImportPrice(Float lowestPrice) {
+		this.lowestImportPrice = lowestPrice;
 	}
 
 	public Integer getWeekOfYear() {
@@ -60,5 +68,29 @@ public class DayValues {
 
 	public void setWeekOfYear(Integer weekOfYear) {
 		this.weekOfYear = weekOfYear;
+	}
+
+	public Float getHighestExportPrice() {
+		return highestExportPrice;
+	}
+
+	public void setHighestExportPrice(Float highestExportPrice) {
+		this.highestExportPrice = highestExportPrice;
+	}
+
+	public float getDailyExport() {
+		return dailyExport;
+	}
+
+	public void setDailyExport(float dailyExport) {
+		this.dailyExport = dailyExport;
+	}
+
+	public Float getDailyExportPrice() {
+		return dailyExportPrice;
+	}
+
+	public void setDailyExportPrice(Float dailyExportPrice) {
+		this.dailyExportPrice = dailyExportPrice;
 	}
 }
