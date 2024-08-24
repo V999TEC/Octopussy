@@ -4069,7 +4069,7 @@ public class Octopussy implements IOctopus {
 		return result; // require 0 to 29 result
 	}
 
-	private int[] testableOPC(int defaultPower, float[] prices, final int index) {
+	public int[] testableOPC(int defaultPower, float[] prices, final int index) {
 
 		final int numberInSchedule = prices.length;
 
