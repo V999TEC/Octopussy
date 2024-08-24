@@ -2,7 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>Octopussy</groupId>
   <artifactId>Octopussy</artifactId>
-  <version>1.0.12-SNAPSHOT</version>
+  <version>1.0.13-SNAPSHOT</version>
   <name>name</name>
   <description>desc</description>
   
@@ -15,11 +15,11 @@
 	</properties>
   
   <build>
-    <sourceDirectory>src</sourceDirectory>
+    <sourceDirectory>src/main/java</sourceDirectory>
     
     <resources>
       <resource>
-        <directory>resources</directory>
+        <directory>src/main/resources</directory>
          <filtering>true</filtering>
         <excludes>
           <exclude>**/*.java</exclude>
@@ -71,22 +71,51 @@
   
 
   <dependencies>
+	  
   	<dependency>
   		<groupId>com.fasterxml.jackson.core</groupId>
   		<artifactId>jackson-annotations</artifactId>
   		<version>2.14.2</version>
   	</dependency>
+  	
   	<dependency>
   		<groupId>com.fasterxml.jackson.core</groupId>
   		<artifactId>jackson-databind</artifactId>
   		<version>2.14.2</version>
   	</dependency>
+  	
   	<dependency>
   		<groupId>com.fasterxml.jackson.core</groupId>
   		<artifactId>jackson-core</artifactId>
   		<version>2.14.2</version>
   	</dependency>
   	
-  	
+
+		
+	<!-- https://mvnrepository.com/artifact/org.hamcrest/hamcrest-core -->
+	<dependency>
+	    <groupId>org.hamcrest</groupId>
+	    <artifactId>hamcrest-core</artifactId>
+	    <version>3.0</version>
+	    <scope>test</scope>
+	</dependency>
+	
+	<!-- https://mvnrepository.com/artifact/org.hamcrest/hamcrest -->
+	<dependency>
+	    <groupId>org.hamcrest</groupId>
+	    <artifactId>hamcrest</artifactId>
+	    <version>3.0</version>
+	    <scope>test</scope>
+	</dependency>
+
+  	<!-- https://mvnrepository.com/artifact/junit/junit -->
+	<dependency>
+	    <groupId>junit</groupId>
+	    <artifactId>junit</artifactId>
+	    <version>4.13.2</version>
+	    <scope>test</scope>
+	</dependency>
+
+
   </dependencies>  
 </project>

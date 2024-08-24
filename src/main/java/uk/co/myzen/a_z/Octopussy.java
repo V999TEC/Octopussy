@@ -329,7 +329,7 @@ public class Octopussy implements IOctopus {
 
 	private WatchSlotChargeHelperThread wd = null;
 
-	private static synchronized Octopussy getInstance() {
+	public static synchronized Octopussy getInstance() {
 
 		if (null == instance) {
 
@@ -4075,6 +4075,8 @@ public class Octopussy implements IOctopus {
 
 		int[] powers = new int[numberInSchedule];
 
+		int[] defaultPowers = new int[numberInSchedule];
+
 		int targetPower = 0;
 
 		for (int s = 0; s < numberInSchedule; s++) {
@@ -4082,6 +4084,8 @@ public class Octopussy implements IOctopus {
 			targetPower += defaultPower;
 
 			powers[s] = defaultPower;
+
+			defaultPowers[s] = defaultPower;
 		}
 
 		// S1 is cheapest - increase to maxrate and reduce most expensive
@@ -4143,6 +4147,13 @@ public class Octopussy implements IOctopus {
 		int power = 0;
 		float cost = 0f;
 
+		float withOptPrice = 0f;
+		float withoutOptPrice = 0f;
+
+		float accWith = 0f;
+
+		float accWithout = 0f;
+
 		for (int s = 0; s < numberInSchedule; s++) {
 
 			prices[s] -= kludge;
@@ -4151,13 +4162,31 @@ public class Octopussy implements IOctopus {
 
 			cost += (powers[s] * prices[s]);
 
+			withOptPrice = (float) powers[s] / 2000f * prices[s];
+
+			accWith += withOptPrice;
+
+			withoutOptPrice = (float) defaultPower / 2000f * prices[s];
+
+			accWithout += withoutOptPrice;
+
 			logErrTime((index == s ? "*" : " ") + WatchSlotChargeHelperThread.SN(s) + "Power:"
-					+ String.format("%5d", powers[s]) + " @ " + String.format("%5.2f", prices[s]) + "p");
+					+ String.format("%5d", powers[s]) + " @ " + String.format("%5.2f", prices[s]) + "p ("
+					+ String.format("%5.2f", withOptPrice) + " instead of " + String.format("%5.2f", withoutOptPrice)
+					+ ")");
 		}
 
 		float costOfPower = cost / power;
 
-		logErrTime("Tot Power:" + String.format("%5d", power) + "   " + String.format("%5.2f", costOfPower) + "p");
+		logErrTime("Tot Power:" + String.format("%5d", power) + "   " + String.format("%5.2f", costOfPower) + "p ("
+				+ String.format("%5.2f", accWith) + " instead of " + String.format("%5.2f", accWithout) + ")");
+
+		if (accWithout <= accWith) {
+
+			logErrTime("Speculative optimisation no better: reseting power to default " + defaultPower);
+
+			powers = defaultPowers;
+		}
 
 		return powers;
 	}
