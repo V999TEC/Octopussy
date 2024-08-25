@@ -4183,7 +4183,7 @@ public class Octopussy implements IOctopus {
 
 		if (accWithout <= accWith) {
 
-			logErrTime("Speculative optimisation no better: reseting power to default " + defaultPower);
+			logErrTime("Speculative power optimisation no better: reseting power to default " + defaultPower);
 
 			powers = defaultPowers;
 		}
