@@ -3516,8 +3516,19 @@ public class Octopussy implements IOctopus {
 
 					defaultChargeRate = optimisePowerCost(Integer.parseInt(maxRate), schedulePrices, s);
 
-					logErrTime("ALERT: Overiding limit " + maxPercent + "% / @ " + powers[p] + "W with 100% / @ "
-							+ defaultChargeRate + " W");
+					if (defaultChargeRate < 1) {
+
+						logErrTime(
+								"Unscheduling S" + (1 + s) + " Power optimisation suggests charging slot not required"
+										+ " Resetting begin/end to " + rangeEndTime);
+
+						resetSlot(s, rangeEndTime, rangeEndTime, 100);
+
+						break; // do not drop through to new WatchSlotChargeHelperThread
+					}
+
+					logErrTime("ALERT: Negative Price! Overiding S" + (1 + s) + " start time & limit " + maxPercent
+							+ "% / @ " + powers[p] + "W with 100% / @ " + defaultChargeRate + " W");
 
 					minPercent = 100; // will trigger a restart:true within the WatchSlotChargeHelperThread
 					maxPercent = 100;
@@ -3610,6 +3621,17 @@ public class Octopussy implements IOctopus {
 							// have been established for the slots in the schedule
 
 							chargingSlotPower = optimisePowerCost(powers[p], schedulePrices, s);
+
+							if (chargingSlotPower < 1) {
+
+								logErrTime("Unscheduling S" + (1 + s)
+										+ " Power optimisation suggests charging slot not required"
+										+ " Resetting begin/end to " + rangeEndTime);
+
+								resetSlot(s, rangeEndTime, rangeEndTime, 100);
+
+								break; // do not drop through to new WatchSlotChargeHelperThread
+							}
 
 						} else {
 
@@ -4141,6 +4163,13 @@ public class Octopussy implements IOctopus {
 		diff = sumPower - targetPower;
 
 		powers[numberInSchedule - 1] -= diff;
+
+		if (powers[numberInSchedule - 1] < 0) {
+
+			powers[numberInSchedule - 2] += powers[numberInSchedule - 1];
+
+			powers[numberInSchedule - 1] = 0;
+		}
 
 		// debug logging
 
