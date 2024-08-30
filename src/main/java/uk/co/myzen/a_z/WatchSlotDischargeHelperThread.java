@@ -5,13 +5,11 @@ import java.time.format.DateTimeFormatter;
 
 import uk.co.myzen.a_z.json.ChargeDischarge;
 
-public class WatchSlotChargeHelperThread extends Thread implements Runnable {
+public class WatchSlotDischargeHelperThread extends Thread implements Runnable {
 
 	private final int runTimeoutMinutes;
 	private final int scheduleIndex;
-	private final int maxPercent;
 	private final int minPercent;
-	private final int defaultChargeRate;
 
 	private final String expiryTime;
 
@@ -19,15 +17,13 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 	private final String slotN;
 
-	protected static String SN(int zeroBasedIndex) {
-
-		final char id = 'S';
+	protected static String XN(final char id, int zeroBasedIndex) {
 
 		return String.valueOf(id) + String.valueOf(1 + zeroBasedIndex) + " ";
 	}
 
-	protected WatchSlotChargeHelperThread(IOctopus i, int runTimeoutMinutes, int scheduleIndex, int minPercent,
-			int maxPercent, int defaultChargeRate) {
+	protected WatchSlotDischargeHelperThread(IOctopus i, String expiryTime, int runTimeoutMinutes, int scheduleIndex,
+			int minPercent) {
 
 		this.i = i;
 
@@ -35,14 +31,11 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 		this.scheduleIndex = scheduleIndex;
 
-		this.maxPercent = maxPercent;
 		this.minPercent = minPercent;
 
-		this.defaultChargeRate = defaultChargeRate;
+		this.expiryTime = expiryTime;
 
-		this.expiryTime = Octopussy.chargeSchedule[scheduleIndex];
-
-		slotN = SN(scheduleIndex);
+		slotN = XN('X', scheduleIndex);
 	}
 
 	@Override
@@ -54,13 +47,13 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 		String idHexString = Long.toHexString(currentThread.getId());
 
-		currentThread.setName("Charge-" + idHexString);
+		currentThread.setName("Disharge-" + idHexString);
 
 		i.logErrTime(slotN + "Monitoring starts");
 
 		DateTimeFormatter formatter24HourClock = Octopussy.formatter24HourClock;
 
-		int prevBatLev = 0;
+		int prevBatLev = 100;
 
 		float prevTemperature = 0f;
 
@@ -120,9 +113,9 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 				break;
 			}
 
-			if (prevBatLev >= maxPercent) {
+			if (prevBatLev <= minPercent) {
 
-				i.logErrTime(slotN + "WARNING: Battery >= " + maxPercent + "% terminating charge now");
+				i.logErrTime(slotN + "WARNING: Battery <= " + minPercent + "% terminating discharge now");
 
 				reason = -1;
 				break;
@@ -175,31 +168,11 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 				}
 			}
 
-			// for scheduling, play safe and ensure a future time
-			String soon = LocalDateTime.now().plusMinutes(1l).format(formatter24HourClock);
-
-			if (batteryLevel < minPercent) {
-
-				if (!chargeRestarted) {
-
-					i.logErrTime(slotN + "WARNING: Battery < " + minPercent + "% expedite charging now at "
-							+ defaultChargeRate + " watts");
-
-					i.resetChargingPower(defaultChargeRate);
-
-					i.resetChargingSlot(scheduleIndex, soon, expiryTime, maxPercent);
-
-					chargeRestarted = true;
-				}
-			}
-
 		} while (0 != expiryTime.compareTo(LocalDateTime.now().format(formatter24HourClock)));
 
-		if (reason < 2 || chargeRestarted)
+		if (reason < 2 || chargeRestarted) {
 
-		{
-
-			i.resetChargingSlot(scheduleIndex, expiryTime, expiryTime, 100);
+			i.resetDischargingSlot(scheduleIndex, expiryTime, expiryTime, 100);
 		}
 
 		i.logErrTime(slotN + "Monitoring finished. Reason:" + reason + " Restarted:" + chargeRestarted);

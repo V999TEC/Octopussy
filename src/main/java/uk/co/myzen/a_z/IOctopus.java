@@ -12,7 +12,11 @@ public interface IOctopus {
 
 	public ChargeDischarge execReadChargeDischarge();
 
-	public void resetSlot(int scheduleIndex, String startTime, String expiryTime, Integer maxPercent);
+	public void resetChargingSlot(int scheduleIndex, String startTime, String expiryTime, int socMaxPercent);
 
 	public void resetChargingPower(int power);
+
+	public void resetDischargingSlot(int scheduleIndex, String startTime, String expiryTime, int socMinPercent);
+
+	public void resetDischargingPower(int power);
 }
