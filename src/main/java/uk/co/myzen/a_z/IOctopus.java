@@ -14,9 +14,9 @@ public interface IOctopus {
 
 	public void resetChargingSlot(int scheduleIndex, String startTime, String expiryTime, int socMaxPercent);
 
-	public void resetChargingPower(int power);
+	public void batteryChargePower(int power);
 
 	public void resetDischargingSlot(int scheduleIndex, String startTime, String expiryTime, int socMinPercent);
 
-	public void resetDischargingPower(int power);
+	public void batteryDischargePower(int power);
 }

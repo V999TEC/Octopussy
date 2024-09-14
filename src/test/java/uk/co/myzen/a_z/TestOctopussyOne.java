@@ -5,7 +5,7 @@ import static org.junit.Assert.assertEquals;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-public class TestOctopussy {
+public class TestOctopussyOne {
 
 	private static Octopussy instance = null;
 
@@ -190,6 +190,20 @@ public class TestOctopussy {
 		assertEquals("S1 power should be 6000", result[0], 6000);
 		assertEquals("S2 power should be 2562", result[1], 2559);
 		assertEquals("S3 power should be 1938", result[2], 1440);
+
+	}
+
+	@Test
+	public void test13() {
+
+		defaultPower = 4500;
+
+		prices = new float[] { 13.02f, 14.6f };
+
+		result = instance.testableOPC(defaultPower, prices, index);
+
+		assertEquals("S1 power should be 6000", result[0], 6000);
+		assertEquals("S2 power should be 3000", result[1], 3000);
 
 	}
 

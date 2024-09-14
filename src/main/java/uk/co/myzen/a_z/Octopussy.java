@@ -74,15 +74,15 @@ import uk.co.myzen.a_z.json.forecast.solcast.SolcastMessage;
 
 public class Octopussy implements IOctopus {
 
-	public static final Instant now = Instant.now(); // earliest opportunity to log the time
+	static final Instant now = Instant.now(); // earliest opportunity to log the time
 
-	private final static String slotStartTimes[] = { "00:00", "00:30", "01:00", "01:30", "02:00", "02:30", "03:00",
-			"03:30", "04:00", "04:30", "05:00", "05:30", "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00",
-			"09:30", "10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00",
-			"15:30", "16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00",
-			"21:30", "22:00", "22:30", "23:00", "23:30" };
+	static final String slotStartTimes[] = { "00:00", "00:30", "01:00", "01:30", "02:00", "02:30", "03:00", "03:30",
+			"04:00", "04:30", "05:00", "05:30", "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
+			"10:00", "10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00", "14:30", "15:00", "15:30",
+			"16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
+			"22:00", "22:30", "23:00", "23:30" };
 
-	private static boolean execute = false;
+	static boolean execute = false;
 
 	public static final String ANSI_RESET = "\u001B[0m";
 
@@ -106,7 +106,7 @@ public class Octopussy implements IOctopus {
 	private final static String contentType = "application/json";
 
 	private final static String DEFAULT_PROPERTY_FILENAME = "./octopussy.properties";
-	//
+
 	private final static String KEY_API_SOLCAST = "api.solcast";
 	private final static String KEY_APIKEY = "apiKey";
 	private final static String KEY_BASE_URL = "base.url";
@@ -156,8 +156,8 @@ public class Octopussy implements IOctopus {
 	private final static String KEY_DAY_FROM = "day.from";
 	private final static String KEY_DAY_TO = "day.to";
 
-	private final static String KEY_CHECK = "check";
-	private final static String KEY_EXTRA = "extra";
+	private final static String KEY_SETTING = "setting";
+	private final static String KEY_MACRO = "macro";
 	private final static String KEY_SOLAR = "solar";
 	private final static String KEY_PERCENT = "percent";
 	private final static String KEY_GRID = "grid";
@@ -182,9 +182,9 @@ public class Octopussy implements IOctopus {
 			KEY_ZONE_ID, KEY_HISTORY_IMPORT, KEY_HISTORY_EXPORT, "#", KEY_EXPORT_PRODUCT_CODE, KEY_EXPORT_TARIFF_CODE,
 			KEY_EXPORT_TARIFF_URL, KEY_EXPORT, "#", KEY_BASELINE, KEY_DAYS, KEY_PLUNGE, KEY_TARGET, KEY_WIDTH, KEY_ANSI,
 			KEY_COLOUR, KEY_COLOR, "#", KEY_YEARLY, KEY_MONTHLY, KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO, "#",
-			KEY_CHECK, KEY_EXTRA, KEY_SOLAR, KEY_PERCENT, KEY_GRID, KEY_CONSUMPTION, KEY_TEMPERATURE, KEY_BATTERY, "#",
-			KEY_FORECAST_SOLAR, KEY_FORECAST_SOLCAST, KEY_API_SOLCAST, KEY_FILE_SOLAR, KEY_MAX_SOLAR, KEY_MAX_RATE, "#",
-			KEY_REFERRAL };
+			KEY_SETTING, KEY_MACRO, KEY_SOLAR, KEY_PERCENT, KEY_GRID, KEY_CONSUMPTION, KEY_TEMPERATURE, KEY_BATTERY,
+			"#", KEY_FORECAST_SOLAR, KEY_FORECAST_SOLCAST, KEY_API_SOLCAST, KEY_FILE_SOLAR, KEY_MAX_SOLAR, KEY_MAX_RATE,
+			"#", KEY_REFERRAL };
 
 	private final static String DEFAULT_API_SOLCAST_PROPERTY = "blahblahblah";
 	private final static String DEFAULT_API_OCTOPUS_PROPERTY = "blah_BLAH2pMoreBlahPIXOIO72aIO1blah:";
@@ -206,8 +206,8 @@ public class Octopussy implements IOctopus {
 	private final static String DEFAULT_POSTCODE_PROPERTY = "?";
 	private final static String DEFAULT_REGION_PROPERTY = "H";
 
-	private final static String DEFAULT_CHECK_PROPERTY = "false";
-	private final static String DEFAULT_EXTRA_PROPERTY = "false";
+	private final static String DEFAULT_SETTING_PROPERTY = "false";
+	private final static String DEFAULT_MACRO_PROPERTY = "false";
 	private final static String DEFAULT_SOLAR_PROPERTY = "false";
 	private final static String DEFAULT_PERCENT_PROPERTY = "false";
 	private final static String DEFAULT_GRID_PROPERTY = "false";
@@ -263,7 +263,7 @@ public class Octopussy implements IOctopus {
 
 	private final static DateTimeFormatter formatterSolar = DateTimeFormatter.ofPattern("YYYY-MM-dd");
 
-	private static ZoneId ourZoneId;
+	static ZoneId ourZoneId;
 
 	private static ObjectMapper mapper;
 
@@ -277,13 +277,13 @@ public class Octopussy implements IOctopus {
 
 	private static boolean export;
 
-	private static String check = DEFAULT_CHECK_PROPERTY; // overridden by check=value in properties
+	static String setting = DEFAULT_SETTING_PROPERTY; // overridden by check=value in properties
 
-	private static String extra = DEFAULT_EXTRA_PROPERTY; // overridden by charge=value in properties
+	static String macro = DEFAULT_MACRO_PROPERTY; // overridden by charge=value in properties
 
 	private static String solar = DEFAULT_SOLAR_PROPERTY; // overridden by solar=value in properties
 
-	private static String percent = DEFAULT_PERCENT_PROPERTY; // overridden by battery=value in properties
+	static String percent = DEFAULT_PERCENT_PROPERTY; // overridden by battery=value in properties
 
 	private static String grid = DEFAULT_GRID_PROPERTY; // overridden by grid=value in properties
 
@@ -297,11 +297,11 @@ public class Octopussy implements IOctopus {
 
 	private static String maxSolar = DEFAULT_MAX_SOLAR_PROPERTY;// overridden by max.solar=value in properties
 
-	private static String maxRate = DEFAULT_MAX_RATE_PROPERTY;// overridden by max.solar=value in properties
+	static String maxRate = DEFAULT_MAX_RATE_PROPERTY;// overridden by value in properties
 
-	private static String temperature = DEFAULT_TEMPERATURE_PROPERTY;// overridden by temperature=value in properties
+	static String temperature = DEFAULT_TEMPERATURE_PROPERTY;// overridden by temperature=value in properties
 
-	private static String chargeDischarge = DEFAULT_BATTERY_PROPERTY;// overridden by charge=value in properties
+	static String battery = DEFAULT_BATTERY_PROPERTY;// overridden by battery=value in properties
 
 	private static File fileSolar = null;
 
@@ -326,6 +326,8 @@ public class Octopussy implements IOctopus {
 	private static SortedSet<String> ascendingKeysForPriceMap = null;
 
 	private static int lowerSOCpc = -1;
+
+	private int dayPartPowerDefault = 6000;
 
 	private String dayPartStartsAt24hr = null;
 
@@ -634,11 +636,6 @@ public class Octopussy implements IOctopus {
 
 			while (null != v1ElectricityExported.getNext()) {
 
-//				if (null == v1ElectricityExported.getCount()) {
-//
-//					break;
-//				}
-
 				// we don't yet have all the results - pause and then get the next page
 
 				Thread.sleep(5000); // this is just so we don't bombard the API provider
@@ -940,7 +937,7 @@ public class Octopussy implements IOctopus {
 
 				instance.logErrTime("Resetting charging power to " + maxRate + " watts");
 
-				instance.resetChargingPower(Integer.valueOf(maxRate));
+				instance.batteryChargePower(Integer.valueOf(maxRate));
 			}
 
 			//
@@ -970,12 +967,14 @@ public class Octopussy implements IOctopus {
 					}
 				}
 
+				instance.enableDcDischarge(false);
+
 				// restore discharging rate to maximum (this overrides power[p]) due to day
 				// time when we want to use all the solar energy available to fill battery
 
 				instance.logErrTime("Resetting discharging power to " + maxRate + " watts");
 
-				instance.resetDischargingPower(Integer.valueOf(maxRate));
+				instance.batteryDischargePower(Integer.valueOf(maxRate));
 			}
 
 			System.exit(0);
@@ -996,7 +995,7 @@ public class Octopussy implements IOctopus {
 
 		List<String> endTimes = new ArrayList<String>();
 
-		if (!"false".equalsIgnoreCase(check)) {
+		if (!"false".equalsIgnoreCase(setting)) {
 
 			int tally = 0;
 
@@ -1004,7 +1003,7 @@ public class Octopussy implements IOctopus {
 
 				// what is the current 'to' time in the inverter for Slot 1/2/3/4/5?
 
-				String hhmm = execRead(check, readEndTimesParameter[s]);
+				String hhmm = execRead(setting, readEndTimesParameter[s]);
 
 				try {
 					Thread.sleep(2500l);
@@ -1774,17 +1773,6 @@ public class Octopussy implements IOctopus {
 				Meter meter = meters.get(m);
 
 				result.put(KEY_ELECTRICITY_SN, meter.getSerialNumber());
-
-//				List<Register> registers = meter.getRegisters();
-//
-//				for (int r = 0; r < registers.size(); r++) {
-//
-//					Register register = registers.get(r);
-//
-//					System.out.println("TODO: id[" + r + "]=" + register.getIdentifier());
-//					System.out.println("TODO: rate[" + r + "]=" + register.getRate());
-//					System.out.println("TODO: IsSettlementRegister[" + r + "]=" + register.getIsSettlementRegister());
-//				}
 			}
 
 			String mpan = electricityMeterPoint.getMpan();
@@ -2158,9 +2146,9 @@ public class Octopussy implements IOctopus {
 			}
 		}
 
-		check = properties.getProperty(KEY_CHECK, DEFAULT_CHECK_PROPERTY).trim();
+		setting = properties.getProperty(KEY_SETTING, DEFAULT_SETTING_PROPERTY).trim();
 
-		extra = properties.getProperty(KEY_EXTRA, DEFAULT_EXTRA_PROPERTY).trim();
+		macro = properties.getProperty(KEY_MACRO, DEFAULT_MACRO_PROPERTY).trim();
 
 		solar = properties.getProperty(KEY_SOLAR, DEFAULT_SOLAR_PROPERTY).trim();
 
@@ -2189,7 +2177,7 @@ public class Octopussy implements IOctopus {
 
 		temperature = properties.getProperty(KEY_TEMPERATURE, DEFAULT_TEMPERATURE_PROPERTY).trim();
 
-		chargeDischarge = properties.getProperty(KEY_BATTERY, DEFAULT_BATTERY_PROPERTY).trim();
+		battery = properties.getProperty(KEY_BATTERY, DEFAULT_BATTERY_PROPERTY).trim();
 
 		// expand properties substituting $key$ values
 
@@ -2791,7 +2779,6 @@ public class Octopussy implements IOctopus {
 					// This will highlight (in red) on the analysis the best time for the network
 					// when our provider would like us to export
 
-//					Float exportPrice = pricesPerSlot.get(i).getExportPrice();
 					Float exportPrice = pricesPerSlot.get(i).getImportPrice();
 
 					if (null == exportPrice) {
@@ -2948,7 +2935,7 @@ public class Octopussy implements IOctopus {
 		return result;
 	}
 
-	private static String convertHHmmMinus1Minute(String hhmm) {
+	static String convertHHmmMinus1Minute(String hhmm) {
 
 		LocalDateTime ldtAdjusted = convertHHmm(hhmm).minusMinutes(1L);
 
@@ -3062,11 +3049,7 @@ public class Octopussy implements IOctopus {
 
 				SlotCost sc = pricesPerSlotSinceMidnight.get(si);
 
-				dischargeSlots.add(0, sc);
-
-//				String dischargeEndTime = sc.getSlotEndTime24hr();
-//
-//				dischargeSlots.add(0, dischargeEndTime);
+				dischargeSlots.add(sc);
 			}
 
 			String currentSlotEndTime = pricesPerSlotSinceMidnight.get(currentSlotIndex).getSlotEndTime24hr();
@@ -3083,11 +3066,11 @@ public class Octopussy implements IOctopus {
 
 				result[r] = sc.getSlotEndTime24hr();
 
+				/* TODO see if continual discharge scheduling is effective or even possible */
+
 				if (schedulingTime) {
 
-					int power = 5000;
-
-					resetDischargingPower(power);
+					batteryDischargePower(dayPartPowerDefault);
 
 					int scheduleIndex = r;
 
@@ -3102,20 +3085,29 @@ public class Octopussy implements IOctopus {
 
 				if (0 == currentSlotEndTime.compareTo(result[r])) {
 
-					int runTimeoutMinutes = 29;
-					int scheduleIndex = r;
-					int minPercent = lowerSOCpc;
-
-					dischargeMonitorThread = new WatchSlotDischargeHelperThread(this, currentSlotEndTime,
-							runTimeoutMinutes, scheduleIndex, minPercent);
+					dischargeMonitorThread = new WatchSlotDischargeHelperThread(this, currentSlotEndTime, 29, r,
+							lowerSOCpc, dayPartPowerDefault);
 
 					dischargeMonitorThread.start();
-				}
 
+					enableDcDischarge(true);
+				}
 			}
 		}
 
 		return result;
+	}
+
+	// Enable DC Discharge
+	void enableDcDischarge(boolean value) {
+
+		execWrite(setting, "56", value ? "true" : "false");
+	}
+
+	// AC Charge Enable
+	public void acChargeEnable(boolean value) {
+
+		execWrite(setting, "66", value ? "true" : "false");
 	}
 
 	private String[] scheduleBatteryCharging(List<SlotCost> pricesPerSlotSinceMidnight, int currentSlotIndex,
@@ -3371,7 +3363,7 @@ public class Octopussy implements IOctopus {
 		System.out.println("\t\t\tMost expensive slot(s) may have reduced charge rate according to solar forecast");
 		System.out.println(
 				"No option:\t\tCharging slots full length - no consideration of battery state or solar forecast");
-		System.out.println("Plunge price is set to " + plunge + "p");
+		System.out.println("Plunge price is set to: " + plunge + "p");
 
 		int p = 0;
 
@@ -3384,6 +3376,8 @@ public class Octopussy implements IOctopus {
 				break;
 			}
 		}
+
+		dayPartPowerDefault = powers[p];
 
 		dayPartStartsAt24hr = parts.get(p);
 		dayPartEndsAt24hr = dayPartsEndAt24hr[p];
@@ -3438,11 +3432,9 @@ public class Octopussy implements IOctopus {
 
 			if (0 == comp) {
 
-				power = String.valueOf(powers[p]);
+				power = String.valueOf(dayPartPowerDefault);
 
 				String percent = String.valueOf(maxPercents[p]);
-
-//				String keyToday = ldtRangeStart.format(formatterSolar); // YYYY-MM-DD
 
 				Integer todayWHr = null;
 
@@ -3595,7 +3587,7 @@ public class Octopussy implements IOctopus {
 					// part of the day slots.length will be < numberofChargingSlotsInThisPartOfDay
 					// Exploit this to clear charging slots to 00:29
 
-					char macro = "ABCDEFGHIJ".charAt(s);
+					char macroId = "ABCDEFGHIJ".charAt(s);
 
 					String from = "00:29";
 					String to = "00:29";
@@ -3625,12 +3617,12 @@ public class Octopussy implements IOctopus {
 
 						chargeSchedule[s] = to;
 
-						deferredMacro = macro;
+						deferredMacro = macroId;
 						deferredStartTime = from;
 
 					} else {
 
-						chargeSchedule[s] = execMacro(extra, macro, from, to, maxPercents[p]);
+						chargeSchedule[s] = execMacro(macro, macroId, from, to, maxPercents[p]);
 					}
 				}
 			}
@@ -3704,7 +3696,7 @@ public class Octopussy implements IOctopus {
 					}
 
 					logErrTime("ALERT: Negative Price! Overiding S" + (1 + s) + " start time & limit " + maxPercent
-							+ "% / @ " + powers[p] + "W with 100% / @ " + defaultChargeRate + " W");
+							+ "% / @ " + dayPartPowerDefault + "W with 100% / @ " + defaultChargeRate + " W");
 
 					minPercent = 100; // will trigger a restart:true within the WatchSlotChargeHelperThread
 					maxPercent = 100;
@@ -3727,7 +3719,7 @@ public class Octopussy implements IOctopus {
 						logErrTime("Starting charge soon at " + deferredStartTime + " Battery limit < " + maxPercent
 								+ "%");
 
-						chargeSchedule[s] = execMacro(extra, deferredMacro.charValue(), deferredStartTime, rangeEndTime,
+						chargeSchedule[s] = execMacro(macro, deferredMacro.charValue(), deferredStartTime, rangeEndTime,
 								maxPercent);
 					}
 
@@ -3735,8 +3727,8 @@ public class Octopussy implements IOctopus {
 							"Time matches " + WatchSlotChargeHelperThread.SN(s) + "ending at " + rangeEndTime)
 							.substring(0, 10);
 
-					logErrTime("Adjusting charging power " + powers[p] + " according to selected option " + options[p]
-							+ (null != optionParameters[p] ? ":" + optionParameters[p] : ""));
+					logErrTime("Adjusting charging power " + dayPartPowerDefault + " according to selected option "
+							+ options[p] + (null != optionParameters[p] ? ":" + optionParameters[p] : ""));
 
 					if ('N' == options[p]) { // (night) option - charging will start at beginning of slot
 												// however for at least 1 slot power scaled downwards depending on
@@ -3762,7 +3754,7 @@ public class Octopussy implements IOctopus {
 
 							if (null == cols) {
 
-								chargingSlotPower = Math.round(powers[p] / 2);
+								chargingSlotPower = Math.round(dayPartPowerDefault / 2);
 
 								logErrTime("ERROR: Cannot get solar data for " + dateYYYY_MM_DD + " " + suffix
 										+ " scale 50% by default");
@@ -3780,12 +3772,12 @@ public class Octopussy implements IOctopus {
 
 								int scaled = 30 - scaleSolarForcastRange0to29(WHrToday, pvSolcast, p);
 
-								float chargeRate = (float) powers[p] * (float) scaled / 30.0f;
+								float chargeRate = (float) dayPartPowerDefault * (float) scaled / 30.0f;
 
 								chargingSlotPower = Math.round(chargeRate);
 
-								logErrTime("Part " + (1 + p) + " Sol: " + cols[2] + "/" + maxSolar + " " + powers[p]
-										+ " watts scaled down by (1-30): " + scaled + "/30");
+								logErrTime("Part " + (1 + p) + " Sol: " + cols[2] + "/" + maxSolar + " "
+										+ dayPartPowerDefault + " watts scaled down by (1-30): " + scaled + "/30");
 							}
 						}
 
@@ -3796,7 +3788,7 @@ public class Octopussy implements IOctopus {
 							// we know all the prices in this part of the day
 							// have been established for the slots in the schedule
 
-							chargingSlotPower = optimisePowerCost(powers[p], schedulePrices, s);
+							chargingSlotPower = optimisePowerCost(dayPartPowerDefault, schedulePrices, s);
 
 							if (chargingSlotPower < 1) {
 
@@ -3816,8 +3808,7 @@ public class Octopussy implements IOctopus {
 					}
 				}
 
-				chargeMonitorThread = new WatchSlotChargeHelperThread(this, 29, s, minPercent, maxPercent,
-						defaultChargeRate);
+				chargeMonitorThread = new WatchSlotChargeHelperThread(this, 29, s, minPercent, maxPercent);
 
 				chargeMonitorThread.start(); // this spawned thread will run no longer than HH:MM in schedule[s]
 				// the slot will be reset when task complete
@@ -3827,7 +3818,7 @@ public class Octopussy implements IOctopus {
 					logErrTime("Charging limits set to " + chargingSlotPower + " watts and battery range " + minPercent
 							+ "% - " + maxPercent + "%");
 
-					resetChargingPower(chargingSlotPower);
+					batteryChargePower(chargingSlotPower);
 				}
 
 				break;
@@ -3837,38 +3828,40 @@ public class Octopussy implements IOctopus {
 		return chargeSchedule;
 	}
 
+	// Battery Charge Power
 	@Override
-	public void resetChargingPower(int power) {
+	public void batteryChargePower(int power) {
 
-		execWrite(check, "72", String.valueOf(power));
+		execWrite(setting, "72", String.valueOf(power));
 	}
 
+	// Battery Discharge Power
 	@Override
-	public void resetDischargingPower(int power) {
+	public void batteryDischargePower(int power) {
 
-		execWrite(check, "73", String.valueOf(power));
+		execWrite(setting, "73", String.valueOf(power));
 	}
 
 	@Override
 	public void resetChargingSlot(int scheduleIndex, String startTime, String expiryTime, int socMaxPercent) {
 
-		char macro = "ABCDEFGHIJ".charAt(scheduleIndex);
+		char macroId = "ABCDEFGHIJ".charAt(scheduleIndex);
 
 		logErrTime(WatchSlotChargeHelperThread.SN(scheduleIndex) + "Reset " + startTime + "-" + expiryTime
 				+ " Upper SOC limit " + socMaxPercent + "%");
 
-		execMacro(extra, macro, startTime, expiryTime, socMaxPercent);
+		execMacro(macro, macroId, startTime, expiryTime, socMaxPercent);
 	}
 
 	@Override
 	public void resetDischargingSlot(int scheduleIndex, String startTime, String expiryTime, int socMinPercent) {
 
-		char macro = "KLMNOPQRST".charAt(scheduleIndex);
+		char macroId = "KLMNOPQRST".charAt(scheduleIndex);
 
 		logErrTime(WatchSlotDischargeHelperThread.XN('X', scheduleIndex) + "Reset " + startTime + "-" + expiryTime
 				+ " Lower SOC limit " + socMinPercent + "%");
 
-		execMacro(extra, macro, startTime, expiryTime, socMinPercent);
+		execMacro(macro, macroId, startTime, expiryTime, socMinPercent);
 	}
 
 	private Float pvGuesstimate(SolcastMessage solcastForecast, String beginAt24hrHHMM, String endAt24hrHHMM) {
@@ -4577,9 +4570,9 @@ public class Octopussy implements IOctopus {
 
 		ChargeDischarge result = null;
 
-		if (!"false".equalsIgnoreCase(chargeDischarge)) {
+		if (!"false".equalsIgnoreCase(battery)) {
 
-			String[] cmdarray = chargeDischarge.split(" ");
+			String[] cmdarray = battery.split(" ");
 
 			String json = exec(cmdarray);
 
@@ -4656,7 +4649,7 @@ public class Octopussy implements IOctopus {
 
 	private String execRead(String template, String p1) {
 
-		String[] cmdarray = check.split(" ");
+		String[] cmdarray = setting.split(" ");
 
 		for (int n = 0; n < cmdarray.length; n++) {
 
@@ -4698,7 +4691,7 @@ public class Octopussy implements IOctopus {
 
 	private String execWrite(String template, String p1, String p2) {
 
-		String[] cmdarray = check.split(" ");
+		String[] cmdarray = setting.split(" ");
 
 		for (int n = 0; n < cmdarray.length; n++) {
 
@@ -4752,7 +4745,7 @@ public class Octopussy implements IOctopus {
 		return result;
 	}
 
-	static String execMacro(String template, char macro, String from, String to, int soc) {
+	static String execMacro(String template, char macroId, String from, String to, int soc) {
 
 		// assume extra contains a cmdarray to execute in a separate process
 		// java -jar plugs.jar ./SwindonIcarus.properties inverter setting %1 %2 %3 %4
@@ -4765,7 +4758,7 @@ public class Octopussy implements IOctopus {
 
 			if ("%1".equalsIgnoreCase(cmdarray[n])) {
 
-				cmdarray[n] = String.valueOf(macro);
+				cmdarray[n] = String.valueOf(macroId);
 
 			} else if ("%2".equalsIgnoreCase(cmdarray[n])) {
 
@@ -5030,8 +5023,6 @@ public class Octopussy implements IOctopus {
 		// key is fixed width string YYYY-MM-DDTHH:MM
 
 		Map<String, ImportExportData> priceMap = new HashMap<String, ImportExportData>();
-
-//		String validTo = null;
 
 		// deal with import tariffs
 
@@ -5697,8 +5688,6 @@ public class Octopussy implements IOctopus {
 				}
 			}
 
-//			LocalDateTime ldt = LocalDateTime.parse(intervalStart);
-
 			Integer weekOfYear = Long.valueOf(from.getLong(ChronoField.ALIGNED_WEEK_OF_YEAR)).intValue();
 
 			ImportExportData importExportData = importExportPriceMap.get(intervalStart);
@@ -5818,15 +5807,11 @@ public class Octopussy implements IOctopus {
 				}
 			}
 
-//			LocalDateTime ldt = LocalDateTime.parse(intervalStart);
-
 			Integer weekOfYear = Long.valueOf(from.getLong(ChronoField.ALIGNED_WEEK_OF_YEAR)).intValue();
 
 			ImportExportData importExportData = importExportPriceMap.get(intervalStart);
 
 			if (null == importExportData) {
-
-//				elecMapDaily.put(key, null); // flag this day as incomplete - ignore all time slots on this day
 
 				continue;
 			}
@@ -5835,8 +5820,6 @@ public class Octopussy implements IOctopus {
 
 			if (null == halfHourExportPrice) {
 
-//				elecMapDaily.put(key, null); // flag this day as incomplete - ignore all time slots on this day
-
 				continue;
 			}
 
@@ -5844,11 +5827,7 @@ public class Octopussy implements IOctopus {
 
 			ConsumptionHistory latestConsumption = historyExport.get(epochKey);
 
-			if (null == latestConsumption) {
-
-				// System.err.println("error at " + v1PeriodConsumption.getIntervalStart());
-
-			} else {
+			if (null != latestConsumption) {
 
 				latestConsumption.setConsumption(consumption);
 				latestConsumption.setPriceImportedOrExported(halfHourExportPrice);
@@ -5875,8 +5854,6 @@ public class Octopussy implements IOctopus {
 
 					dayValues.setHighestExportPrice(halfHourImportPrice);
 				}
-
-//				dayValues.setSlotCount(1 + dayValues.getSlotCount());
 
 				dayValues.setDailyExport(consumption + dayValues.getDailyExport());
 

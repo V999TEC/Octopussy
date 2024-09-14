@@ -9,9 +9,8 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 	private final int runTimeoutMinutes;
 	private final int scheduleIndex;
-	private final int maxPercent;
-	private final int minPercent;
-	private final int defaultChargeRate;
+	private final int socMaxPercent;
+	private final int socMinPercent;
 
 	private final String expiryTime;
 
@@ -26,8 +25,8 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 		return String.valueOf(id) + String.valueOf(1 + zeroBasedIndex) + " ";
 	}
 
-	protected WatchSlotChargeHelperThread(IOctopus i, int runTimeoutMinutes, int scheduleIndex, int minPercent,
-			int maxPercent, int defaultChargeRate) {
+	protected WatchSlotChargeHelperThread(IOctopus i, int runTimeoutMinutes, int scheduleIndex, int socMinPercent,
+			int socMaxPercent) {
 
 		this.i = i;
 
@@ -35,10 +34,8 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 		this.scheduleIndex = scheduleIndex;
 
-		this.maxPercent = maxPercent;
-		this.minPercent = minPercent;
-
-		this.defaultChargeRate = defaultChargeRate;
+		this.socMaxPercent = socMaxPercent;
+		this.socMinPercent = socMinPercent;
 
 		this.expiryTime = Octopussy.chargeSchedule[scheduleIndex];
 
@@ -56,7 +53,7 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 		currentThread.setName("Charge-" + idHexString);
 
-		i.logErrTime(slotN + "Monitoring starts");
+		i.logErrTime(slotN + "Monitoring starts min:" + socMinPercent + "% max:" + socMaxPercent + "%");
 
 		DateTimeFormatter formatter24HourClock = Octopussy.formatter24HourClock;
 
@@ -120,9 +117,9 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 				break;
 			}
 
-			if (prevBatLev >= maxPercent) {
+			if (prevBatLev >= socMaxPercent) {
 
-				i.logErrTime(slotN + "WARNING: Battery >= " + maxPercent + "% terminating charge now");
+				i.logErrTime(slotN + "WARNING: Battery >= " + socMaxPercent + "% terminating charge now");
 
 				reason = -1;
 				break;
@@ -178,16 +175,16 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 			// for scheduling, play safe and ensure a future time
 			String soon = LocalDateTime.now().plusMinutes(1l).format(formatter24HourClock);
 
-			if (batteryLevel < minPercent) {
+			if (batteryLevel < socMinPercent) {
 
 				if (!chargeRestarted) {
 
-					i.logErrTime(slotN + "WARNING: Battery < " + minPercent + "% expedite charging now at "
-							+ defaultChargeRate + " watts");
+					i.logErrTime(slotN + "WARNING: Battery < " + socMinPercent + "% expedite charging now at "
+							+ Octopussy.maxRate + " watts");
 
-					i.resetChargingPower(defaultChargeRate);
+					i.batteryChargePower(Integer.parseInt(Octopussy.maxRate));
 
-					i.resetChargingSlot(scheduleIndex, soon, expiryTime, maxPercent);
+					i.resetChargingSlot(scheduleIndex, soon, expiryTime, socMaxPercent);
 
 					chargeRestarted = true;
 				}

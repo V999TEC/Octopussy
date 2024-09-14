@@ -9,7 +9,8 @@ public class WatchSlotDischargeHelperThread extends Thread implements Runnable {
 
 	private final int runTimeoutMinutes;
 	private final int scheduleIndex;
-	private final int minPercent;
+	private final int socMinPercent;
+	private final int power;
 
 	private final String expiryTime;
 
@@ -23,7 +24,7 @@ public class WatchSlotDischargeHelperThread extends Thread implements Runnable {
 	}
 
 	protected WatchSlotDischargeHelperThread(IOctopus i, String expiryTime, int runTimeoutMinutes, int scheduleIndex,
-			int minPercent) {
+			int socMinPercent, int power) {
 
 		this.i = i;
 
@@ -31,7 +32,9 @@ public class WatchSlotDischargeHelperThread extends Thread implements Runnable {
 
 		this.scheduleIndex = scheduleIndex;
 
-		this.minPercent = minPercent;
+		this.socMinPercent = socMinPercent;
+
+		this.power = power;
 
 		this.expiryTime = expiryTime;
 
@@ -47,9 +50,9 @@ public class WatchSlotDischargeHelperThread extends Thread implements Runnable {
 
 		String idHexString = Long.toHexString(currentThread.getId());
 
-		currentThread.setName("Disharge-" + idHexString);
+		currentThread.setName("Discharge-" + idHexString);
 
-		i.logErrTime(slotN + "Monitoring starts");
+		i.logErrTime(slotN + "Monitoring starts min:" + socMinPercent + "% rate: " + power + " watts");
 
 		DateTimeFormatter formatter24HourClock = Octopussy.formatter24HourClock;
 
@@ -89,6 +92,12 @@ public class WatchSlotDischargeHelperThread extends Thread implements Runnable {
 
 				ChargeDischarge chargeAndDischargeUnits = i.execReadChargeDischarge();
 
+				if (null == chargeAndDischargeUnits || null == temperatureDegreesC || null == batteryLevel) {
+
+					reason = -2;
+					break;
+				}
+
 				chargeUnits = chargeAndDischargeUnits.getCharge();
 
 				dischargeUnits = chargeAndDischargeUnits.getDischarge();
@@ -113,9 +122,9 @@ public class WatchSlotDischargeHelperThread extends Thread implements Runnable {
 				break;
 			}
 
-			if (prevBatLev <= minPercent) {
+			if (prevBatLev <= socMinPercent) {
 
-				i.logErrTime(slotN + "WARNING: Battery <= " + minPercent + "% terminating discharge now");
+				i.logErrTime(slotN + "WARNING: Battery <= " + socMinPercent + "% terminating discharge now");
 
 				reason = -1;
 				break;
@@ -141,9 +150,9 @@ public class WatchSlotDischargeHelperThread extends Thread implements Runnable {
 
 					if (temperatureDegreesC.intValue() != Float.valueOf(prevTemperature).intValue()) {
 
-						log = true;
-
 						prevTemperature = temperatureDegreesC.floatValue();
+
+						log = true;
 					}
 
 					if (chargeUnits.intValue() != Float.valueOf(prevChargeUnits).intValue()) {
@@ -172,7 +181,7 @@ public class WatchSlotDischargeHelperThread extends Thread implements Runnable {
 
 		if (reason < 2 || chargeRestarted) {
 
-			i.resetDischargingSlot(scheduleIndex, expiryTime, expiryTime, 100);
+			i.resetDischargingSlot(scheduleIndex, expiryTime, expiryTime, 4);
 		}
 
 		i.logErrTime(slotN + "Monitoring finished. Reason:" + reason + " Restarted:" + chargeRestarted);
