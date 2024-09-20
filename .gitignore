@@ -26,6 +26,7 @@ replay_pid*
 /bin/
 /target/
 /test/
+g.sh
 Icarus.properties
 SwindonIcarus.properties
 solar.csv
