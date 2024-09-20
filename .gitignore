@@ -20,15 +20,16 @@
 *.rar
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+*.tmp
 hs_err_pid*
 replay_pid*
 /bin/
 /target/
+/test/
 Icarus.properties
-octopus.import.csv
-*.tmp
-plugs.jar
 SwindonIcarus.properties
 solar.csv
-/test/
+octopus.import.csv
 octopus.export.csv
+plugs.jar
+icarus.jar
