@@ -329,6 +329,8 @@ public class Octopussy implements IOctopus {
 
 	private int dayPartPowerDefault = 6000;
 
+	private List<String> parts = null;
+
 	private String dayPartStartsAt24hr = null;
 
 	private String dayPartEndsAt24hr = null;
@@ -922,7 +924,7 @@ public class Octopussy implements IOctopus {
 
 					if (instance.chargeMonitorThread.isAlive()) {
 
-						instance.logErrTime("Forcing Watch thread interrupt 10s before next slot starts");
+						instance.logErrTime("Forcing monitoring interrupt 10s before next slot starts");
 
 						instance.chargeMonitorThread.interrupt();
 
@@ -957,7 +959,7 @@ public class Octopussy implements IOctopus {
 
 					if (instance.dischargeMonitorThread.isAlive()) {
 
-						instance.logErrTime("Forcing Watch thread interrupt 10s before next slot starts");
+						instance.logErrTime("Forcing monitoring interrupt 10s before next slot starts");
 
 						instance.dischargeMonitorThread.interrupt();
 
@@ -3139,7 +3141,7 @@ public class Octopussy implements IOctopus {
 
 		LocalDateTime ldtPrevious = convertHHmm("00:00").minusMinutes(1L);
 
-		List<String> parts = new ArrayList<String>();
+		parts = new ArrayList<String>();
 
 		int[] sunRisenAndSetIndicies = hasSunRisenAndSet(ldtRangeStart.format(formatterSolar), kWhrSolar,
 				rangeStartTime);
@@ -3341,7 +3343,7 @@ public class Octopussy implements IOctopus {
 				}
 			}
 
-			System.out.println("Part" + (1 + p) + ": " + parts.get(p) + " to " + dayPartsEndAt24hr[p] + "\t"
+			System.out.println("Part{" + (1 + p) + "} " + parts.get(p) + " to " + dayPartsEndAt24hr[p] + "\t"
 					+ slotsPerDayPart[p] + " half-hour slot(s) @ " + powers[p] + " watts (" + Math.round(wattHours)
 					+ " Whr)\tBattery " + String.valueOf(minPercents[p]) + "% to " + String.valueOf(maxPercents[p])
 					+ "%\t"
@@ -5359,6 +5361,8 @@ public class Octopussy implements IOctopus {
 
 			String[] period = startAndFinishTimeOfSlotCost(slotCost, 0);
 
+			String from = period[0];
+
 			String to = period[1];
 
 			Float importValueIncVat = slotCost.getImportPrice();
@@ -5579,6 +5583,22 @@ public class Octopussy implements IOctopus {
 						}
 					}
 				}
+			}
+
+			if (parts.contains(from)) {
+
+				int x = 0;
+
+				for (; x < parts.size(); x++) {
+
+					if (from.equals(parts.get(x))) {
+
+						x++;
+						break;
+					}
+				}
+
+				System.out.println("------------------{" + x + "}-------------------");
 			}
 
 			System.out.println(optionalExport + slotCost.getSimpleTimeStamp() + "  "
