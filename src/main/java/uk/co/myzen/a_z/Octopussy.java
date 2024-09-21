@@ -3263,7 +3263,8 @@ public class Octopussy implements IOctopus {
 
 		float units = 0;
 
-		System.out.println("\nConfigured charging schedule as follows:");
+		System.out.println(
+				"\nConfigured charging schedule as follows. The day has been split into " + numberOfParts + " parts:");
 
 		for (int p = 0; p < numberOfParts; p++) {
 
@@ -3356,8 +3357,8 @@ public class Octopussy implements IOctopus {
 
 		units = units / 2000;
 
-		System.out.println(
-				"\nImport constrained to " + units + " kWhr and restricted further by selected options below:");
+		System.out.println("\nImport constrained to " + units
+				+ " kWhr and restricted further by selected options detailed below:");
 		System.out.println(
 				"For option:D(ay)\t30-min slot charging will be reduced in minutes according to solar forecast");
 		System.out.println(
@@ -5172,8 +5173,6 @@ public class Octopussy implements IOctopus {
 
 			float difference = (flatImportPrice + flatStandingCharge) - agileCost;
 
-			float lowestPrice = dayValues.getLowestImportPrice();
-
 			float dailyAverageUnitPrice = agilePrice / consumption;
 
 			String values = map.get(key);
@@ -5187,14 +5186,20 @@ public class Octopussy implements IOctopus {
 				dailyExportUnits = Float.valueOf(cols[10]);
 			}
 
-			// + " @ " + String.format("%.2f", dailyAverageUnitPrice)+ "p"
+			float agileCostInGBP = agileCost / 100;
 
-			System.out.println(dayValues.getDayOfWeek() + (lowestPrice < plunge ? " * " : "   ") + key + "  £"
-					+ String.format("%5.2f", agileCost / 100) + " " + String.format("%7.3f", consumption) + " kWhr @ "
-					+ String.format("%5.2f", dailyAverageUnitPrice) + "p" + " A: " + String.format("%8.4f", agilePrice)
+			float differeceInGBP = difference / 100;
+
+			float exportInGBP = (dailyExportUnits * 15f) / 100;
+
+			boolean quidsIn = (differeceInGBP + exportInGBP) > agileCostInGBP;
+
+			System.out.println(dayValues.getDayOfWeek() + (quidsIn ? "   " : " * ") + key + " £"
+					+ String.format("%5.2f", agileCostInGBP) + String.format("%7.3f", consumption) + " kWhr @ "
+					+ String.format("%5.2f", dailyAverageUnitPrice) + "p" + " A:" + String.format("%8.4f", agilePrice)
 					+ "p +" + agileStandingCharge + "p (X: " + String.format("%8.4f", flatImportPrice) + "p +"
-					+ flatStandingCharge + "p) Save: £" + String.format("%5.2f", (difference / 100)) + " + Export:"
-					+ dailyExportUnits);
+					+ flatStandingCharge + "p) Save: £" + String.format("%5.2f", differeceInGBP) + " + Export:"
+					+ String.format("%4.1f", dailyExportUnits) + " kWhr £" + String.format("%5.2f", exportInGBP));
 
 			accumulateDifference += difference;
 
@@ -5286,7 +5291,7 @@ public class Octopussy implements IOctopus {
 				+ flatRateExport + "p  yielding £" + valueExported + " recently)");
 		System.out.println("\t\t\t\t=====");
 		System.out.println("Total daily saving:\t£" + historicDailyCostInclStandingCharge + " - £" + totalSaving
-				+ "\t= £" + actualCost + " (cost per day on average)");
+				+ "\t= £" + actualCost + " (recent cost per day on average)");
 		System.out.println("\t\t\t\t=====");
 
 	}
