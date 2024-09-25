@@ -3437,7 +3437,8 @@ public class Octopussy implements IOctopus {
 
 				power = String.valueOf(dayPartPowerDefault);
 
-				String percent = String.valueOf(maxPercents[p]);
+				String percentMin = String.valueOf(minPercents[p]);
+				String percentMax = String.valueOf(maxPercents[p]);
 
 				Integer todayWHr = null;
 
@@ -3560,7 +3561,7 @@ public class Octopussy implements IOctopus {
 				}
 
 				logErrTime("Part " + (1 + p) + "/" + numberOfParts + " Schedule " + power + " W x "
-						+ String.valueOf(chargeSchedule.length) + " slot(s) " + percent + "% "
+						+ String.valueOf(chargeSchedule.length) + " slot(s) " + percentMin + "% to " + percentMax + "% "
 						+ (minsDelayStart > 0 ? "delay:" + minsDelayStart + "m " : "") + "Solar:" + todayWHr + " / "
 						+ maxSolar);
 
@@ -3730,8 +3731,9 @@ public class Octopussy implements IOctopus {
 							"Time matches " + WatchSlotChargeHelperThread.SN(s) + "ending at " + rangeEndTime)
 							.substring(0, 10);
 
-					logErrTime("Adjusting charging power " + dayPartPowerDefault + " according to selected option "
-							+ options[p] + (null != optionParameters[p] ? ":" + optionParameters[p] : ""));
+					logErrTime(
+							"Adjusting average charging power " + dayPartPowerDefault + " according to selected option "
+									+ options[p] + (null != optionParameters[p] ? ":" + optionParameters[p] : ""));
 
 					if ('N' == options[p]) { // (night) option - charging will start at beginning of slot
 												// however for at least 1 slot power scaled downwards depending on
@@ -5295,8 +5297,8 @@ public class Octopussy implements IOctopus {
 		System.out.println("Average daily export worth:\t£" + exportSaving + " (from " + unitsExported + " units @ "
 				+ flatRateExport + "p  yielding £" + valueExported + " recently)");
 		System.out.println("\t\t\t\t=====");
-		System.out.println("Total daily saving:\t£" + historicDailyCostInclStandingCharge + " - £" + totalSaving
-				+ "\t= £" + actualCost + " (recent cost per day on average)");
+		System.out.println("Historical comparison:\t£" + historicDailyCostInclStandingCharge + " - £" + totalSaving
+				+ "\t= £" + actualCost + " (represents effective recent cost per day on average)");
 		System.out.println("\t\t\t\t=====");
 
 	}
