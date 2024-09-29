@@ -3690,9 +3690,8 @@ public class Octopussy implements IOctopus {
 
 					if (defaultChargeRate < 1) {
 
-						logErrTime(
-								"Unscheduling S" + (1 + s) + " Power optimisation suggests charging slot not required"
-										+ " Resetting begin/end to " + rangeEndTime);
+						logErrTime("Unscheduling S" + (1 + s)
+								+ " Power optimisation suggests this charging slot not required");
 
 						resetChargingSlot(s, rangeEndTime, rangeEndTime, 100);
 
@@ -5196,7 +5195,7 @@ public class Octopussy implements IOctopus {
 
 			boolean quidsIn = exportInGBP > agileCostInGBP;
 
-			System.out.println(dayValues.getDayOfWeek() + (quidsIn ? " ↑ " : "   ") + key + " £"
+			System.out.println(dayValues.getDayOfWeek() + (quidsIn ? " * " : "   ") + key + " £"
 					+ String.format("%5.2f", agileCostInGBP) + String.format("%7.3f", consumption) + " kWhr @ "
 					+ String.format("%5.2f", dailyAverageUnitPrice) + "p" + " A:" + String.format("%8.4f", agilePrice)
 					+ "p +" + agileStandingCharge + "p (X: " + String.format("%8.4f", flatImportPrice) + "p +"
