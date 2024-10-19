@@ -970,6 +970,7 @@ public class Octopussy implements IOctopus {
 				}
 
 				instance.enableDcDischarge(false);
+				instance.acChargeEnable(true);
 
 				// restore discharging rate to maximum (this overrides power[p]) due to day
 				// time when we want to use all the solar energy available to fill battery
@@ -3068,9 +3069,14 @@ public class Octopussy implements IOctopus {
 
 				result[r] = sc.getSlotEndTime24hr();
 
-				/* TODO see if continual discharge scheduling is effective or even possible */
+				/*
+				 * TODO still to investigate why setting the start/end time for discharge at the
+				 * scheduling point seems ineffective
+				 */
 
-				if (schedulingTime) {
+				// if (schedulingTime) {
+
+				if (0 == currentSlotEndTime.compareTo(result[r])) {
 
 					batteryDischargePower(dayPartPowerDefault);
 
@@ -3092,6 +3098,7 @@ public class Octopussy implements IOctopus {
 
 					dischargeMonitorThread.start();
 
+					acChargeEnable(false);
 					enableDcDischarge(true);
 				}
 			}
@@ -3263,8 +3270,7 @@ public class Octopussy implements IOctopus {
 
 		float units = 0;
 
-		System.out.println(
-				"\nConfigured charging schedule as follows. The day has been split into " + numberOfParts + " parts:");
+		System.out.println("\nThe day has been configured as " + numberOfParts + " parts:");
 
 		for (int p = 0; p < numberOfParts; p++) {
 
