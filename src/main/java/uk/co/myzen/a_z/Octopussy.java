@@ -920,17 +920,24 @@ public class Octopussy implements IOctopus {
 
 					long millis = 1000 * (futureSlotStart - Instant.now().getEpochSecond() - 10); // knock of 10 seconds
 
-					instance.chargeMonitorThread.join(millis); // expect thread to die within millis
+					if (millis <= 0) { // assume slow terminating thread
 
-					if (instance.chargeMonitorThread.isAlive()) {
-
-						instance.logErrTime("Forcing monitoring interrupt 10s before next slot starts");
-
-						instance.chargeMonitorThread.interrupt();
+						instance.logErrTime("WARNING: missed opportunity to interrupt charge thread");
 
 					} else {
 
-						instance.logErrTime("Confirmation charge thread no longer alive");
+						instance.chargeMonitorThread.join(millis); // expect thread to die within millis
+
+						if (instance.chargeMonitorThread.isAlive()) {
+
+							instance.logErrTime("Forcing monitoring interrupt 10s before next slot starts");
+
+							instance.chargeMonitorThread.interrupt();
+
+						} else {
+
+							instance.logErrTime("Confirmation charge thread no longer alive");
+						}
 					}
 				}
 
@@ -955,17 +962,24 @@ public class Octopussy implements IOctopus {
 
 					long millis = 1000 * (futureSlotStart - Instant.now().getEpochSecond() - 10); // knock of 10 seconds
 
-					instance.dischargeMonitorThread.join(millis); // expect thread to die within millis
+					if (millis <= 0) { // assume slow terminating thread
 
-					if (instance.dischargeMonitorThread.isAlive()) {
-
-						instance.logErrTime("Forcing monitoring interrupt 10s before next slot starts");
-
-						instance.dischargeMonitorThread.interrupt();
+						instance.logErrTime("WARNING: missed opportunity to interrupt discharge thread");
 
 					} else {
 
-						instance.logErrTime("Confirmation discharge thread no longer alive");
+						instance.dischargeMonitorThread.join(millis); // expect thread to die within millis
+
+						if (instance.dischargeMonitorThread.isAlive()) {
+
+							instance.logErrTime("Forcing monitoring interrupt 10s before next slot starts");
+
+							instance.dischargeMonitorThread.interrupt();
+
+						} else {
+
+							instance.logErrTime("Confirmation discharge thread no longer alive");
+						}
 					}
 				}
 
@@ -3688,7 +3702,7 @@ public class Octopussy implements IOctopus {
 
 				// if price negative - charge now *irrespective* of profile
 
-				if (schedulePrices[s] < 0) {
+				if (schedulePrices[s] <= 0) {
 
 					// higher charge rate for lowest cost slot
 
@@ -3704,13 +3718,13 @@ public class Octopussy implements IOctopus {
 						break; // do not drop through to new WatchSlotChargeHelperThread
 					}
 
-					logErrTime("ALERT: Negative Price! Overiding S" + (1 + s) + " start time & limit " + maxPercent
+					logErrTime("ALERT: Free energy! Overiding S" + (1 + s) + " start time & limit " + maxPercent
 							+ "% / @ " + dayPartPowerDefault + "W with 100% / @ " + defaultChargeRate + " W");
 
-					minPercent = 100; // will trigger a restart:true within the WatchSlotChargeHelperThread
+					minPercent = 100; // will trigger a expedite:true within the WatchSlotChargeHelperThread
 					maxPercent = 100;
 
-					chargingSlotPower = -1; // special indicator for current electricity price negative
+					chargingSlotPower = -1; // special indicator for current electricity price free
 
 				} else if (null != percentBattery && percentBattery >= maxPercents[p]) {
 
@@ -3802,9 +3816,8 @@ public class Octopussy implements IOctopus {
 
 							if (chargingSlotPower < 1) {
 
-								logErrTime("Unscheduling S" + (1 + s)
-										+ " Power optimisation suggests charging slot not required"
-										+ " Resetting begin/end to " + rangeEndTime);
+								logErrTime("Charging slot S" + (1 + s) + " not required." + " Resetting begin/end to "
+										+ rangeEndTime);
 
 								resetChargingSlot(s, rangeEndTime, rangeEndTime, 100);
 
@@ -3818,18 +3831,11 @@ public class Octopussy implements IOctopus {
 					}
 				}
 
-				chargeMonitorThread = new WatchSlotChargeHelperThread(this, 29, s, minPercent, maxPercent);
+				chargeMonitorThread = new WatchSlotChargeHelperThread(this, 29, s, minPercent, maxPercent,
+						chargingSlotPower);
 
 				chargeMonitorThread.start(); // this spawned thread will run no longer than HH:MM in schedule[s]
 				// the slot will be reset when task complete
-
-				if (chargingSlotPower > 0) {
-
-					logErrTime("Charging limits set to " + chargingSlotPower + " watts and battery range " + minPercent
-							+ "% - " + maxPercent + "%");
-
-					batteryChargePower(chargingSlotPower);
-				}
 
 				break;
 			}
@@ -4399,13 +4405,16 @@ public class Octopussy implements IOctopus {
 			logErrTime((index == s ? "*" : " ") + WatchSlotChargeHelperThread.SN(s) + "Power:"
 					+ String.format("%5d", powers[s]) + " @ " + String.format("%5.2f", prices[s]) + "p ("
 					+ String.format("%5.2f", withOptPrice) + " instead of " + String.format("%5.2f", withoutOptPrice)
-					+ ")");
+					+ ") " + defaultPower + " @ " + String.format("%5.2f", prices[s]) + "p");
 		}
 
 		float costOfPower = cost / power;
 
-		logErrTime("Tot Power:" + String.format("%5d", power) + "   " + String.format("%5.2f", costOfPower) + "p ("
-				+ String.format("%5.2f", accWith) + " instead of " + String.format("%5.2f", accWithout) + ")");
+		float nonOptCostOfPower = accWithout * 2000f / power;
+
+		logErrTime("Tot Power:" + String.format("%5d", power) + " = " + String.format("%5.2f", costOfPower) + "p ("
+				+ String.format("%5.2f", accWith) + " instead of " + String.format("%5.2f", accWithout) + ")"
+				+ String.format("%5d", power) + " = " + String.format("%5.2f", nonOptCostOfPower) + "p");
 
 		if (accWithout <= accWith) {
 

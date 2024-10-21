@@ -14,6 +14,8 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 	private final String expiryTime;
 
+	private final int power;
+
 	private final IOctopus i;
 
 	private final String slotN;
@@ -26,7 +28,7 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 	}
 
 	protected WatchSlotChargeHelperThread(IOctopus i, int runTimeoutMinutes, int scheduleIndex, int socMinPercent,
-			int socMaxPercent) {
+			int socMaxPercent, int power) {
 
 		this.i = i;
 
@@ -38,6 +40,8 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 		this.socMinPercent = socMinPercent;
 
 		this.expiryTime = Octopussy.chargeSchedule[scheduleIndex];
+
+		this.power = power;
 
 		slotN = SN(scheduleIndex);
 	}
@@ -53,7 +57,12 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 		currentThread.setName("Charge-" + idHexString);
 
-		i.logErrTime(slotN + "Monitoring starts min:" + socMinPercent + "% max:" + socMaxPercent + "%");
+		i.logErrTime(slotN + "Monitoring starts min:" + socMinPercent + "% max:" + socMaxPercent + "% power:" + power
+				+ " watts");
+
+		i.batteryChargePower(power);
+
+		boolean chargeLevelNotDefault = false;
 
 		DateTimeFormatter formatter24HourClock = Octopussy.formatter24HourClock;
 
@@ -67,7 +76,7 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 		int reason = 0;
 
-		boolean chargeRestarted = false;
+		boolean chargeExpedited = false;
 
 		do { // repeat loop every 45 seconds or so
 
@@ -177,28 +186,47 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 			if (batteryLevel < socMinPercent) {
 
-				if (!chargeRestarted) {
+				if (!chargeExpedited) {
 
 					i.logErrTime(slotN + "WARNING: Battery < " + socMinPercent + "% expedite charging now at "
 							+ Octopussy.maxRate + " watts");
 
 					i.batteryChargePower(Integer.parseInt(Octopussy.maxRate));
 
+					chargeLevelNotDefault = true;
+
 					i.resetChargingSlot(scheduleIndex, soon, expiryTime, socMaxPercent);
 
-					chargeRestarted = true;
+					chargeExpedited = true;
+				}
+
+			} else {
+
+				if (chargeExpedited && chargeLevelNotDefault) {
+
+					if (power >= -1) {
+
+						i.logErrTime(slotN + "Battery reached " + socMinPercent + "% returning charging level to "
+								+ power + " watts");
+
+						i.batteryChargePower(power);
+
+					} else {
+
+						i.logErrTime(slotN + "Battery reached " + socMinPercent + "%");
+					}
+
+					chargeLevelNotDefault = false;
 				}
 			}
 
 		} while (0 != expiryTime.compareTo(LocalDateTime.now().format(formatter24HourClock)));
 
-		if (reason < 2 || chargeRestarted)
-
-		{
+		if (reason < 2 || chargeExpedited) {
 
 			i.resetChargingSlot(scheduleIndex, expiryTime, expiryTime, 100);
 		}
 
-		i.logErrTime(slotN + "Monitoring finished. Reason:" + reason + " Restarted:" + chargeRestarted);
+		i.logErrTime(slotN + "Monitoring finished. Reason:" + reason + " Expedited:" + chargeExpedited);
 	}
 }

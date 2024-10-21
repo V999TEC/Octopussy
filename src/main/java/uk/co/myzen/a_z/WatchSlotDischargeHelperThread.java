@@ -52,7 +52,7 @@ public class WatchSlotDischargeHelperThread extends Thread implements Runnable {
 
 		currentThread.setName("Discharge-" + idHexString);
 
-		i.logErrTime(slotN + "Monitoring starts min:" + socMinPercent + "% rate: " + power + " watts");
+		i.logErrTime(slotN + "Monitoring starts min:" + socMinPercent + "% power: " + power + " watts");
 
 		DateTimeFormatter formatter24HourClock = Octopussy.formatter24HourClock;
 
