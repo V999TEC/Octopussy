@@ -155,6 +155,7 @@ public class Octopussy implements IOctopus {
 
 	private final static String KEY_DAY_FROM = "day.from";
 	private final static String KEY_DAY_TO = "day.to";
+	private final static String KEY_SHOW_SAVINGS = "show.savings";
 
 	private final static String KEY_SETTING = "setting";
 	private final static String KEY_MACRO = "macro";
@@ -181,10 +182,10 @@ public class Octopussy implements IOctopus {
 			KEY_IMPORT_PRODUCT_CODE, KEY_IMPORT_TARIFF_CODE, KEY_IMPORT_TARIFF_URL, KEY_REGION, KEY_POSTCODE,
 			KEY_ZONE_ID, KEY_HISTORY_IMPORT, KEY_HISTORY_EXPORT, "#", KEY_EXPORT_PRODUCT_CODE, KEY_EXPORT_TARIFF_CODE,
 			KEY_EXPORT_TARIFF_URL, KEY_EXPORT, "#", KEY_BASELINE, KEY_DAYS, KEY_PLUNGE, KEY_TARGET, KEY_WIDTH, KEY_ANSI,
-			KEY_COLOUR, KEY_COLOR, "#", KEY_YEARLY, KEY_MONTHLY, KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO, "#",
-			KEY_SETTING, KEY_MACRO, KEY_SOLAR, KEY_PERCENT, KEY_GRID, KEY_CONSUMPTION, KEY_TEMPERATURE, KEY_BATTERY,
-			"#", KEY_FORECAST_SOLAR, KEY_FORECAST_SOLCAST, KEY_API_SOLCAST, KEY_FILE_SOLAR, KEY_MAX_SOLAR, KEY_MAX_RATE,
-			"#", KEY_REFERRAL };
+			KEY_COLOUR, KEY_COLOR, "#", KEY_YEARLY, KEY_MONTHLY, KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO,
+			KEY_SHOW_SAVINGS, "#", KEY_SETTING, KEY_MACRO, KEY_SOLAR, KEY_PERCENT, KEY_GRID, KEY_CONSUMPTION,
+			KEY_TEMPERATURE, KEY_BATTERY, "#", KEY_FORECAST_SOLAR, KEY_FORECAST_SOLCAST, KEY_API_SOLCAST,
+			KEY_FILE_SOLAR, KEY_MAX_SOLAR, KEY_MAX_RATE, "#", KEY_REFERRAL };
 
 	private final static String DEFAULT_API_SOLCAST_PROPERTY = "blahblahblah";
 	private final static String DEFAULT_API_OCTOPUS_PROPERTY = "blah_BLAH2pMoreBlahPIXOIO72aIO1blah:";
@@ -244,6 +245,7 @@ public class Octopussy implements IOctopus {
 
 	private final static String DEFAULT_DAY_FROM_PROPERTY = "";
 	private final static String DEFAULT_DAY_TO_PROPERTY = "";
+	private final static String DEFAULT_SHOW_SAVINGS_PROPERTY = "false";
 
 	private final static String DEFAULT_REFERRAL_PROPERTY = "https://share.octopus.energy/ice-camel-111";
 
@@ -276,6 +278,8 @@ public class Octopussy implements IOctopus {
 	private static boolean ansi;
 
 	private static boolean export;
+
+	private static boolean showSavings;
 
 	static String setting = DEFAULT_SETTING_PROPERTY; // overridden by check=value in properties
 
@@ -2752,6 +2756,9 @@ public class Octopussy implements IOctopus {
 					.get(properties.getProperty(KEY_COLOUR, DEFAULT_COLOUR_PROPERTY).trim());
 			ANSI_COLOR_HI = colourMapForeground.get(properties.getProperty(KEY_COLOR, DEFAULT_COLOR_PROPERTY).trim());
 
+			showSavings = Boolean
+					.valueOf(properties.getProperty(KEY_SHOW_SAVINGS, DEFAULT_SHOW_SAVINGS_PROPERTY).trim());
+
 			execute = 0 == DEFAULT_REFERRAL_PROPERTY.compareTo(properties.getProperty(KEY_REFERRAL, "false").trim());
 
 		} catch (Exception e) {
@@ -4404,8 +4411,8 @@ public class Octopussy implements IOctopus {
 
 			logErrTime((index == s ? "*" : " ") + WatchSlotChargeHelperThread.SN(s) + "Power:"
 					+ String.format("%5d", powers[s]) + " @ " + String.format("%5.2f", prices[s]) + "p ("
-					+ String.format("%5.2f", withOptPrice) + " instead of " + String.format("%5.2f", withoutOptPrice)
-					+ ") " + defaultPower + " @ " + String.format("%5.2f", prices[s]) + "p");
+					+ String.format("%5.2f", withOptPrice) + ") instead of: " + defaultPower + " @ "
+					+ String.format("%5.2f", prices[s]) + "p (" + String.format("%5.2f", withoutOptPrice) + ")");
 		}
 
 		float costOfPower = cost / power;
@@ -4413,8 +4420,8 @@ public class Octopussy implements IOctopus {
 		float nonOptCostOfPower = accWithout * 2000f / power;
 
 		logErrTime("Tot Power:" + String.format("%5d", power) + " = " + String.format("%5.2f", costOfPower) + "p ("
-				+ String.format("%5.2f", accWith) + " instead of " + String.format("%5.2f", accWithout) + ")"
-				+ String.format("%5d", power) + " = " + String.format("%5.2f", nonOptCostOfPower) + "p");
+				+ String.format("%5.2f", accWith) + ") instead of:" + String.format("%5d", power) + " = "
+				+ String.format("%5.2f", nonOptCostOfPower) + "p (" + String.format("%5.2f", accWithout) + ")");
 
 		if (accWithout <= accWith) {
 
@@ -5228,8 +5235,11 @@ public class Octopussy implements IOctopus {
 
 		Float unitCostAverage = accumulateCost / accumulatePower;
 
-		renderSummaryB(agileStandingCharge, flatStandingCharge, flatRateImport, flatRateExport, countDays,
-				unitCostAverage, accumulatePower, accumulateDifference, accumulateExportUnits);
+		if (showSavings) {
+
+			renderSummaryB(agileStandingCharge, flatStandingCharge, flatRateImport, flatRateExport, countDays,
+					unitCostAverage, accumulatePower, accumulateDifference, accumulateExportUnits);
+		}
 
 		return unitCostAverage.intValue();
 	}
