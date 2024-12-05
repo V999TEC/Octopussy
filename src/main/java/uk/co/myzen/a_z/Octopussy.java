@@ -3367,7 +3367,7 @@ public class Octopussy implements IOctopus {
 						sbScaledDown.append(WatchSlotChargeHelperThread.SN(index));
 					}
 
-					sbScaledDown.append("reduced)");
+					sbScaledDown.append("limited)");
 				}
 			}
 
