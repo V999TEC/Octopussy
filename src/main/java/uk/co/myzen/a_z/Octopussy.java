@@ -343,6 +343,8 @@ public class Octopussy implements IOctopus {
 
 	static String[] chargeSchedule = null;
 
+	private final List<String> ranges = new ArrayList<String>();
+
 	private WatchSlotChargeHelperThread chargeMonitorThread = null;
 
 	private WatchSlotDischargeHelperThread dischargeMonitorThread = null;
@@ -2449,7 +2451,6 @@ public class Octopussy implements IOctopus {
 		} catch (java.net.SocketException e) {
 
 			System.err.println("API not available temporarily.  Please try again.");
-			System.exit(-1);
 		}
 
 		String json = "";
@@ -3371,10 +3372,13 @@ public class Octopussy implements IOctopus {
 				}
 			}
 
+			String range = String.valueOf(minPercents[p]) + "% to " + String.valueOf(maxPercents[p]) + "%";
+
+			ranges.add(range);
+
 			System.out.println("Part{" + (1 + p) + "} " + parts.get(p) + " to " + dayPartsEndAt24hr[p] + "\t"
 					+ slotsPerDayPart[p] + " half-hour slot(s) @ " + powers[p] + " watts (" + Math.round(wattHours)
-					+ " Whr)\tBattery " + String.valueOf(minPercents[p]) + "% to " + String.valueOf(maxPercents[p])
-					+ "%\t"
+					+ " Whr)\tBattery " + range + "\t"
 					+ (' ' == options[p] ? " - no option"
 							: " + option:" + options[p] + (null == optionParameters[p] ? ""
 									: ":" + optionParameters[p] + sbScaledDown.toString())));
@@ -3785,10 +3789,10 @@ public class Octopussy implements IOctopus {
 
 							if (null == cols) {
 
-								chargingSlotPower = Math.round(dayPartPowerDefault / 2);
+								chargingSlotPower = Math.round(dayPartPowerDefault * 2 / 3);
 
 								logErrTime("ERROR: Cannot get solar data for " + dateYYYY_MM_DD + " " + suffix
-										+ " scale 50% by default");
+										+ " scale 67% by default");
 
 							} else {
 
@@ -5634,7 +5638,7 @@ public class Octopussy implements IOctopus {
 					}
 				}
 
-				System.out.println("------------------{" + x + "}-------------------");
+				System.out.println("---{" + x + "}---  " + ranges.get(x - 1) + "  ----");
 			}
 
 			System.out.println(optionalExport + slotCost.getSimpleTimeStamp() + "  "
