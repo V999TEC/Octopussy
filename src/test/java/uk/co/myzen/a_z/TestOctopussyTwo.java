@@ -97,4 +97,20 @@ public class TestOctopussyTwo {
 
 		instance.acChargeEnable(true);
 	}
+
+	@Test
+	public void test02() {
+
+		String test1 = WatchSlotChargeHelperThread.SN(1, false);
+		String test2 = WatchSlotChargeHelperThread.SN(2, true);
+
+		char longSolidusOverlay = '̸';
+
+		String test3 = WatchSlotChargeHelperThread.SN(3, longSolidusOverlay);
+
+		System.out.println("def" + test1 + "abc");
+		System.out.println("abc" + test2 + "def");
+		System.out.println("xyz" + test3 + "abc");
+
+	}
 }

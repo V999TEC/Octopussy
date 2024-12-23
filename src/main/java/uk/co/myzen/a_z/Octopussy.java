@@ -349,6 +349,8 @@ public class Octopussy implements IOctopus {
 
 	private WatchSlotDischargeHelperThread dischargeMonitorThread = null;
 
+	boolean slotIsCancelled = false;
+
 	public static synchronized Octopussy getInstance() {
 
 		if (null == instance) {
@@ -881,13 +883,10 @@ public class Octopussy implements IOctopus {
 			//
 			//
 
-			if (execute) {
+			chargeSchedule = instance.scheduleBatteryCharging(pricesPerSlotSinceMidnight, currentSlotIndex, kWhrSolar,
+					gridImportExport, kWhrConsumption, percentBattery, chargeAndDischarge, timestamp);
 
-				chargeSchedule = instance.scheduleBatteryCharging(pricesPerSlotSinceMidnight, currentSlotIndex,
-						kWhrSolar, gridImportExport, kWhrConsumption, percentBattery, chargeAndDischarge, timestamp);
-
-				dischargeSchedule = instance.scheduleBatteryDischarging(pricesPerSlotSinceMidnight, currentSlotIndex);
-			}
+			dischargeSchedule = instance.scheduleBatteryDischarging(pricesPerSlotSinceMidnight, currentSlotIndex);
 
 			//
 			//
@@ -3377,8 +3376,8 @@ public class Octopussy implements IOctopus {
 			ranges.add(range);
 
 			System.out.println("Part{" + (1 + p) + "} " + parts.get(p) + " to " + dayPartsEndAt24hr[p] + "\t"
-					+ slotsPerDayPart[p] + " half-hour slot(s) @ " + powers[p] + " watts (" + Math.round(wattHours)
-					+ " Whr)\tBattery " + range + "\t"
+					+ slotsPerDayPart[p] + " half-hour slot(s) @ " + powers[p] + " watts (Up to "
+					+ Math.round(wattHours) + " Whr)\tBattery range " + range + "\t"
 					+ (' ' == options[p] ? " - no option"
 							: " + option:" + options[p] + (null == optionParameters[p] ? ""
 									: ":" + optionParameters[p] + sbScaledDown.toString())));
@@ -3399,17 +3398,17 @@ public class Octopussy implements IOctopus {
 				"No option:\t\tCharging slots full length - no consideration of battery state or solar forecast");
 		System.out.println("Plunge price is set to: " + plunge + "p");
 
-		int p = 0;
+		int p = whatPartfTheDay(rangeStartTime);
 
 		// what part of the day are we in?
 
-		for (; p < numberOfParts - 1; p++) {
-
-			if (rangeStartTime.compareTo(parts.get(1 + p)) < 0) {
-
-				break;
-			}
-		}
+//		for (; p < numberOfParts - 1; p++) {
+//
+//			if (rangeStartTime.compareTo(parts.get(1 + p)) < 0) {
+//
+//				break;
+//			}
+//		}
 
 		dayPartPowerDefault = powers[p];
 
@@ -3703,6 +3702,39 @@ public class Octopussy implements IOctopus {
 
 		int chargingSlotPower = defaultChargeRate;
 
+		// have we gone past all the scheduled time slots in this part of the day?
+
+		boolean allChargeSlotsDone = true;
+
+		for (int s = 0; s < chargeSchedule.length; s++) {
+
+			int comp = rangeEndTime.compareTo(chargeSchedule[s]);
+
+			if (comp <= 0) {
+
+				allChargeSlotsDone = false;
+				break;
+			}
+		}
+
+		float currentSlotPrice = currentSlotCost.getImportPrice();
+
+		// if no more scheduled slots in this part of the day, but the current price is
+		// free or better still negative
+		// replace S1 with the current time and force a charge immediately
+
+		if (allChargeSlotsDone && currentSlotPrice <= 0) {
+
+			schedulePrices[0] = currentSlotCost.getImportPrice();
+
+			chargeSchedule[0] = rangeEndTime;
+
+			logErrTime("At " + rangeEndTime + " " + penceImport + "p allSlotsDone:"
+					+ (allChargeSlotsDone ? "true" : "false"));
+		}
+
+		slotIsCancelled = false;
+
 		// is the current time a charging slot according to the current schedule?
 
 		for (int s = 0; s < chargeSchedule.length; s++) {
@@ -3726,6 +3758,8 @@ public class Octopussy implements IOctopus {
 
 						resetChargingSlot(s, rangeEndTime, rangeEndTime, 100);
 
+						slotIsCancelled = true;
+
 						break; // do not drop through to new WatchSlotChargeHelperThread
 					}
 
@@ -3743,6 +3777,8 @@ public class Octopussy implements IOctopus {
 							+ "% Resetting begin/end to " + rangeEndTime);
 
 					resetChargingSlot(s, rangeEndTime, rangeEndTime, 100);
+
+					slotIsCancelled = true;
 
 					break; // do not drop through to new WatchSlotChargeHelperThread
 
@@ -3832,6 +3868,8 @@ public class Octopussy implements IOctopus {
 
 								resetChargingSlot(s, rangeEndTime, rangeEndTime, 100);
 
+								slotIsCancelled = true;
+
 								break; // do not drop through to new WatchSlotChargeHelperThread
 							}
 
@@ -3853,6 +3891,25 @@ public class Octopussy implements IOctopus {
 		}
 
 		return chargeSchedule;
+	}
+
+	private int whatPartfTheDay(String rangeStartTime) {
+
+		int p = 0;
+
+		// what part of the day are we in?
+
+		final int numberOfParts = parts.size();
+
+		for (; p < numberOfParts - 1; p++) {
+
+			if (rangeStartTime.compareTo(parts.get(1 + p)) < 0) {
+
+				break;
+			}
+		}
+
+		return p;
 	}
 
 	// Battery Charge Power
@@ -5334,8 +5391,6 @@ public class Octopussy implements IOctopus {
 	private void showAnalysis(List<SlotCost> pricesPerSlot, int averageUnitCost, ArrayList<Long> bestImportTime,
 			ArrayList<Long> bestExportTime) {// , String[] chargeSchedule) {
 
-		// schedule gives the end times of up to 5 slots
-
 		int maxWidth = 0;
 
 		for (SlotCost slotCost : pricesPerSlot) {
@@ -5404,6 +5459,13 @@ public class Octopussy implements IOctopus {
 			String from = period[0];
 
 			String to = period[1];
+
+			if (0 == index) {
+
+				int partIndex = whatPartfTheDay(from);
+
+				System.out.println("---{" + (1 + partIndex) + "}---  " + ranges.get(partIndex) + "  ----");
+			}
 
 			Float importValueIncVat = slotCost.getImportPrice();
 
@@ -5618,27 +5680,30 @@ public class Octopussy implements IOctopus {
 
 						if (0 == to.compareTo(chargeSchedule[s])) {
 
-							chargeOrdischargeSlot = WatchSlotChargeHelperThread.SN(s);
+							chargeOrdischargeSlot = WatchSlotChargeHelperThread.SN(s, slotIsCancelled);
 							break;
 						}
 					}
 				}
 			}
 
-			if (parts.contains(from)) {
+			if (index > 0) {
 
-				int x = 0;
+				if (parts.contains(from)) {
 
-				for (; x < parts.size(); x++) {
+					int x = 0;
 
-					if (from.equals(parts.get(x))) {
+					for (; x < parts.size(); x++) {
 
-						x++;
-						break;
+						if (from.equals(parts.get(x))) {
+
+							x++;
+							break;
+						}
 					}
-				}
 
-				System.out.println("---{" + x + "}---  " + ranges.get(x - 1) + "  ----");
+					System.out.println("---{" + x + "}---  " + ranges.get(x - 1) + "  ----");
+				}
 			}
 
 			System.out.println(optionalExport + slotCost.getSimpleTimeStamp() + "  "
@@ -5649,7 +5714,6 @@ public class Octopussy implements IOctopus {
 					+ (ansi && cheapestImport ? ANSI_COLOUR_LO : "") + asterisks
 					+ (ansi && cheapestImport ? ANSI_RESET : "") + padding + prices + clockHHMM);
 		}
-
 	}
 
 	/*

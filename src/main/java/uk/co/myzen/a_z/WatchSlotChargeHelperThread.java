@@ -7,6 +7,14 @@ import uk.co.myzen.a_z.json.ChargeDischarge;
 
 public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
+	// See https://symbl.cc/en/unicode/blocks/combining-diacritical-marks/
+
+	private static char longStrokeOverlay = '̶';
+
+	private static char longSolidusOverlay = '̸';
+
+	private static char xAbove = '̽';
+
 	private final int runTimeoutMinutes;
 	private final int scheduleIndex;
 	private final int socMaxPercent;
@@ -22,9 +30,21 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 	protected static String SN(int zeroBasedIndex) {
 
-		final char id = 'S';
+		char[] regular = { 'S', String.valueOf(1 + zeroBasedIndex).charAt(0), ' ' };
 
-		return String.valueOf(id) + String.valueOf(1 + zeroBasedIndex) + " ";
+		return String.valueOf(regular);
+	}
+
+	protected static String SN(int zeroBasedIndex, boolean cancelled) {
+
+		return cancelled ? SN(zeroBasedIndex, longStrokeOverlay) : SN(zeroBasedIndex);
+	}
+
+	protected static String SN(int zeroBasedIndex, char overlay) {
+
+		char[] strikeThrough = { overlay, 'S', overlay, SN(zeroBasedIndex).charAt(1), ' ' };
+
+		return String.valueOf(strikeThrough);
 	}
 
 	protected WatchSlotChargeHelperThread(IOctopus i, int runTimeoutMinutes, int scheduleIndex, int socMinPercent,
