@@ -155,6 +155,7 @@ public class Octopussy implements IOctopus {
 
 	private final static String KEY_DAY_FROM = "day.from";
 	private final static String KEY_DAY_TO = "day.to";
+	private final static String KEY_SHOW_RECENT = "show.recent";
 	private final static String KEY_SHOW_SAVINGS = "show.savings";
 
 	private final static String KEY_SETTING = "setting";
@@ -183,9 +184,9 @@ public class Octopussy implements IOctopus {
 			KEY_ZONE_ID, KEY_HISTORY_IMPORT, KEY_HISTORY_EXPORT, "#", KEY_EXPORT_PRODUCT_CODE, KEY_EXPORT_TARIFF_CODE,
 			KEY_EXPORT_TARIFF_URL, KEY_EXPORT, "#", KEY_BASELINE, KEY_DAYS, KEY_PLUNGE, KEY_TARGET, KEY_WIDTH, KEY_ANSI,
 			KEY_COLOUR, KEY_COLOR, "#", KEY_YEARLY, KEY_MONTHLY, KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO,
-			KEY_SHOW_SAVINGS, "#", KEY_SETTING, KEY_MACRO, KEY_SOLAR, KEY_PERCENT, KEY_GRID, KEY_CONSUMPTION,
-			KEY_TEMPERATURE, KEY_BATTERY, "#", KEY_FORECAST_SOLAR, KEY_FORECAST_SOLCAST, KEY_API_SOLCAST,
-			KEY_FILE_SOLAR, KEY_MAX_SOLAR, KEY_MAX_RATE, "#", KEY_REFERRAL };
+			KEY_SHOW_RECENT, KEY_SHOW_SAVINGS, "#", KEY_SETTING, KEY_MACRO, KEY_SOLAR, KEY_PERCENT, KEY_GRID,
+			KEY_CONSUMPTION, KEY_TEMPERATURE, KEY_BATTERY, "#", KEY_FORECAST_SOLAR, KEY_FORECAST_SOLCAST,
+			KEY_API_SOLCAST, KEY_FILE_SOLAR, KEY_MAX_SOLAR, KEY_MAX_RATE, "#", KEY_REFERRAL };
 
 	private final static String DEFAULT_API_SOLCAST_PROPERTY = "blahblahblah";
 	private final static String DEFAULT_API_OCTOPUS_PROPERTY = "blah_BLAH2pMoreBlahPIXOIO72aIO1blah:";
@@ -245,6 +246,7 @@ public class Octopussy implements IOctopus {
 
 	private final static String DEFAULT_DAY_FROM_PROPERTY = "";
 	private final static String DEFAULT_DAY_TO_PROPERTY = "";
+	private final static String DEFAULT_SHOW_RECENT_PROPERTY = "true";
 	private final static String DEFAULT_SHOW_SAVINGS_PROPERTY = "false";
 
 	private final static String DEFAULT_REFERRAL_PROPERTY = "https://share.octopus.energy/ice-camel-111";
@@ -278,6 +280,8 @@ public class Octopussy implements IOctopus {
 	private static boolean ansi;
 
 	private static boolean export;
+
+	private static boolean showRecent;
 
 	private static boolean showSavings;
 
@@ -2756,6 +2760,8 @@ public class Octopussy implements IOctopus {
 					.get(properties.getProperty(KEY_COLOUR, DEFAULT_COLOUR_PROPERTY).trim());
 			ANSI_COLOR_HI = colourMapForeground.get(properties.getProperty(KEY_COLOR, DEFAULT_COLOR_PROPERTY).trim());
 
+			showRecent = Boolean.valueOf(properties.getProperty(KEY_SHOW_RECENT, DEFAULT_SHOW_RECENT_PROPERTY).trim());
+
 			showSavings = Boolean
 					.valueOf(properties.getProperty(KEY_SHOW_SAVINGS, DEFAULT_SHOW_SAVINGS_PROPERTY).trim());
 
@@ -3387,8 +3393,8 @@ public class Octopussy implements IOctopus {
 
 		units = units / 2000;
 
-		System.out.println("\nImport constrained to " + units
-				+ " kWhr and restricted further by selected options detailed below:");
+		System.out.println("\nDaily import restricted to a maximum of " + units
+				+ " kWhr and further constrained by selected options detailed below:");
 		System.out.println(
 				"For option:D(ay)\t30-min slot charging will be reduced in minutes according to solar forecast");
 		System.out.println(
@@ -3396,7 +3402,8 @@ public class Octopussy implements IOctopus {
 		System.out.println("\t\t\tMost expensive slot(s) may have reduced charge rate according to solar forecast");
 		System.out.println(
 				"No option:\t\tCharging slots full length - no consideration of battery state or solar forecast");
-		System.out.println("Plunge price is set to: " + plunge + "p");
+		System.out.println("Plunge price is set to: " + plunge
+				+ "p  System may export to grid from battery when import prices have plunged");
 
 		int p = whatPartfTheDay(rangeStartTime);
 
@@ -5177,26 +5184,29 @@ public class Octopussy implements IOctopus {
 		// field [9] of value will hold the export units
 		// however, there is also a key without "_"+part giving the totals for that date
 
-		StringBuffer sb = new StringBuffer();
+		if (showRecent) {
 
-		sb.append("\nRecent daily costs (in week ");
+			StringBuffer sb = new StringBuffer();
 
-		Iterator<Integer> iterator = weekNumbers.iterator();
+			sb.append("\nRecent daily costs (in week ");
 
-		// there will be at least one week in set
+			Iterator<Integer> iterator = weekNumbers.iterator();
 
-		sb.append(iterator.next());
-
-		while (iterator.hasNext()) {
-
-			sb.append(',');
+			// there will be at least one week in set
 
 			sb.append(iterator.next());
+
+			while (iterator.hasNext()) {
+
+				sb.append(',');
+
+				sb.append(iterator.next());
+			}
+
+			sb.append("):");
+
+			System.out.println(sb.toString());
 		}
-
-		sb.append("):");
-
-		System.out.println(sb.toString());
 
 		int countDays = 0;
 
@@ -5278,12 +5288,16 @@ public class Octopussy implements IOctopus {
 
 			boolean quidsIn = exportInGBP > agileCostInGBP;
 
-			System.out.println(dayValues.getDayOfWeek() + (quidsIn ? " * " : "   ") + key + " £"
-					+ String.format("%5.2f", agileCostInGBP) + String.format("%7.3f", consumption) + " kWhr @ "
-					+ String.format("%5.2f", dailyAverageUnitPrice) + "p" + " A:" + String.format("%8.4f", agilePrice)
-					+ "p +" + agileStandingCharge + "p (X: " + String.format("%8.4f", flatImportPrice) + "p +"
-					+ flatStandingCharge + "p) Save: £" + String.format("%5.2f", differeceInGBP) + " + Export:"
-					+ String.format("%4.1f", dailyExportUnits) + " kWhr £" + String.format("%5.2f", exportInGBP));
+			if (showRecent) {
+
+				System.out.println(dayValues.getDayOfWeek() + (quidsIn ? " * " : "   ") + key + " £"
+						+ String.format("%5.2f", agileCostInGBP) + String.format("%7.3f", consumption) + " kWhr @ "
+						+ String.format("%5.2f", dailyAverageUnitPrice) + "p" + " A:"
+						+ String.format("%8.4f", agilePrice) + "p +" + agileStandingCharge + "p (X: "
+						+ String.format("%8.4f", flatImportPrice) + "p +" + flatStandingCharge + "p) Save: £"
+						+ String.format("%5.2f", differeceInGBP) + " + Export:"
+						+ String.format("%4.1f", dailyExportUnits) + " kWhr £" + String.format("%5.2f", exportInGBP));
+			}
 
 			accumulateDifference += difference;
 
