@@ -285,6 +285,10 @@ public class Octopussy implements IOctopus {
 
 	private static boolean showSavings;
 
+	private static float flatRateImport;
+
+	private static float flatRateExport;
+
 	static String setting = DEFAULT_SETTING_PROPERTY; // overridden by check=value in properties
 
 	static String macro = DEFAULT_MACRO_PROPERTY; // overridden by charge=value in properties
@@ -597,6 +601,8 @@ public class Octopussy implements IOctopus {
 				tariff = instance.getV1ElectricityTariffExport(48 * howManyDaysHistory, beginRecentPeriod, null);
 
 				exportTariffs = tariff.getTariffResults();
+
+				flatRateExport = exportTariffs.get(0).getValueExcVat();
 			}
 
 			importExportPriceMap = instance.createPriceMap(importTariffs, exportTariffs);
@@ -888,7 +894,7 @@ public class Octopussy implements IOctopus {
 			//
 
 			chargeSchedule = instance.scheduleBatteryCharging(pricesPerSlotSinceMidnight, currentSlotIndex, kWhrSolar,
-					gridImportExport, kWhrConsumption, percentBattery, chargeAndDischarge, timestamp);
+					gridImportExport, kWhrConsumption, percentBattery, chargeAndDischarge, timestamp, averageUnitCost);
 
 			dischargeSchedule = instance.scheduleBatteryDischarging(pricesPerSlotSinceMidnight, currentSlotIndex);
 
@@ -2765,6 +2771,9 @@ public class Octopussy implements IOctopus {
 			showSavings = Boolean
 					.valueOf(properties.getProperty(KEY_SHOW_SAVINGS, DEFAULT_SHOW_SAVINGS_PROPERTY).trim());
 
+			flatRateImport = Float.valueOf(
+					properties.getProperty(KEY_FLEXIBLE_ELECTRICITY_UNIT, DEFAULT_FLEXIBLE_ELECTRICITY_UNIT_PROPERTY));
+
 			execute = 0 == DEFAULT_REFERRAL_PROPERTY.compareTo(properties.getProperty(KEY_REFERRAL, "false").trim());
 
 		} catch (Exception e) {
@@ -3148,7 +3157,7 @@ public class Octopussy implements IOctopus {
 
 	private String[] scheduleBatteryCharging(List<SlotCost> pricesPerSlotSinceMidnight, int currentSlotIndex,
 			Float kWhrSolar, ImportExport gridImportExport, Float kWhrConsumption, Integer percentBattery,
-			ChargeDischarge chargeAndDischarge, String timestamp) {
+			ChargeDischarge chargeAndDischarge, String timestamp, int averageUnitCost) {
 
 		SlotCost currentSlotCost = pricesPerSlotSinceMidnight.get(currentSlotIndex);
 
@@ -3382,8 +3391,8 @@ public class Octopussy implements IOctopus {
 			ranges.add(range);
 
 			System.out.println("Part{" + (1 + p) + "} " + parts.get(p) + " to " + dayPartsEndAt24hr[p] + "\t"
-					+ slotsPerDayPart[p] + " half-hour slot(s) @ " + powers[p] + " watts (Up to "
-					+ Math.round(wattHours) + " Whr)\tBattery range " + range + "\t"
+					+ slotsPerDayPart[p] + " half-hour slot(s) @ " + powers[p] + " watts (~ " + Math.round(wattHours)
+					+ " Whr)\tBattery range " + range + "\t"
 					+ (' ' == options[p] ? " - no option"
 							: " + option:" + options[p] + (null == optionParameters[p] ? ""
 									: ":" + optionParameters[p] + sbScaledDown.toString())));
@@ -3403,19 +3412,12 @@ public class Octopussy implements IOctopus {
 		System.out.println(
 				"No option:\t\tCharging slots full length - no consideration of battery state or solar forecast");
 		System.out.println("Plunge price is set to: " + plunge
-				+ "p  System may export to grid from battery when import prices have plunged");
+				+ "p (System may schedule slots to export to grid from battery when import prices have plunged <= "
+				+ plunge + "p)");
+		System.out.println("Running (A)verage price:" + averageUnitCost
+				+ "p (for Agile import, 15p for Fixed export) Non-Agile import comparison (X) " + flatRateImport + "p");
 
 		int p = whatPartfTheDay(rangeStartTime);
-
-		// what part of the day are we in?
-
-//		for (; p < numberOfParts - 1; p++) {
-//
-//			if (rangeStartTime.compareTo(parts.get(1 + p)) < 0) {
-//
-//				break;
-//			}
-//		}
 
 		dayPartPowerDefault = powers[p];
 
@@ -5214,11 +5216,6 @@ public class Octopussy implements IOctopus {
 		float accumulatePower = 0;
 		float accumulateCost = 0;
 		float accumulateExportUnits = 0;
-
-		float flatRateExport = Float.valueOf(15);
-
-		float flatRateImport = Float.valueOf(
-				properties.getProperty(KEY_FLEXIBLE_ELECTRICITY_UNIT, DEFAULT_FLEXIBLE_ELECTRICITY_UNIT_PROPERTY));
 
 		SortedSet<String> setOfDays = new TreeSet<String>();
 
