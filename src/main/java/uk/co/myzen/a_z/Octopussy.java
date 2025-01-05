@@ -364,8 +364,6 @@ public class Octopussy implements IOctopus {
 
 	private static String bannerMessage = "";
 
-	private static Integer solarForecastWhr = null;
-
 	public static synchronized Octopussy getInstance() {
 
 		if (null == instance) {
@@ -3449,8 +3447,8 @@ public class Octopussy implements IOctopus {
 		System.out.println("Daily import restricted to a maximum of " + units
 				+ " kWhr and further constrained by selected options detailed below:");
 		System.out.println(
-				"For option:D(ay)\t30-min slot charging will be reduced in minutes according to solar forecast: "
-						+ solarForecastWhr);
+				"For option:D(ay)\t30-min slot charging will be reduced in minutes according to solar forecast");
+
 		System.out.println(
 				"For option:N(ight)\t30-min slot charging will be reduced in minutes according to battery level");
 		System.out.println("\t\t\tMost expensive slot(s) may have reduced charge rate according to solar forecast");
@@ -3541,7 +3539,7 @@ public class Octopussy implements IOctopus {
 				String percentMin = String.valueOf(minPercents[p]);
 				String percentMax = String.valueOf(maxPercents[p]);
 
-				solarForecastWhr = execReadForecastSolar();
+				Integer solarForecastWhr = execReadForecastSolar();
 
 				String substitute = csv.replace("SOLAR", String.valueOf(solarForecastWhr.intValue()));
 
