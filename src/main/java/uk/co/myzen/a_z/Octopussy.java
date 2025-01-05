@@ -3442,12 +3442,15 @@ public class Octopussy implements IOctopus {
 
 		units = units / 2000;
 
+		Integer solarForecastWhr = execReadForecastSolar();
+
 		System.out.println(bannerMessage);
 
 		System.out.println("Daily import restricted to a maximum of " + units
 				+ " kWhr and further constrained by selected options detailed below:");
 		System.out.println(
-				"For option:D(ay)\t30-min slot charging will be reduced in minutes according to solar forecast");
+				"For option:D(ay)\t30-min slot charging will be reduced in minutes according to solar forecast: "
+						+ solarForecastWhr);
 
 		System.out.println(
 				"For option:N(ight)\t30-min slot charging will be reduced in minutes according to battery level");
@@ -3519,9 +3522,9 @@ public class Octopussy implements IOctopus {
 			event = "SET:" + sunEvents[2];
 		}
 
-		String csv = rangeStartTime + "," + "SOLAR" + "," + (1 + p) + "," + numberOfParts + "," + percentBattery + ","
-				+ kWhrSolar + "," + kWhrGridImport + "," + chargeDischarge + "," + kWhrConsumption + ","
-				+ kWhrGridExport + "," + event;
+		String csv = rangeStartTime + "," + String.valueOf(solarForecastWhr.intValue()) + "," + (1 + p) + ","
+				+ numberOfParts + "," + percentBattery + "," + kWhrSolar + "," + kWhrGridImport + "," + chargeDischarge
+				+ "," + kWhrConsumption + "," + kWhrGridExport + "," + event;
 
 		for (int n = p; n < numberOfParts; n++) {
 
@@ -3538,12 +3541,6 @@ public class Octopussy implements IOctopus {
 
 				String percentMin = String.valueOf(minPercents[p]);
 				String percentMax = String.valueOf(maxPercents[p]);
-
-				Integer solarForecastWhr = execReadForecastSolar();
-
-				String substitute = csv.replace("SOLAR", String.valueOf(solarForecastWhr.intValue()));
-
-				csv = substitute;
 
 				//
 
