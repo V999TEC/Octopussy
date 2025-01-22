@@ -344,6 +344,8 @@ public class Octopussy implements IOctopus {
 
 	private List<String> parts = null;
 
+	private Set<String> dfs = null;
+
 	private String dayPartStartsAt24hr = null;
 
 	private String dayPartEndsAt24hr = null;
@@ -3102,6 +3104,32 @@ public class Octopussy implements IOctopus {
 				dischargeSlots.add(sc);
 			}
 
+			// Deal with ad-hoc Demand Flexibility Service (DFS) events typically as
+			// advertised by energy provider
+			// These events typically occur when there is insufficient grid power/reserves
+			// in some or all DNO regions
+			//
+			// Strategy is to read properties file and add 1 or more discharge slots as
+			// required. Assumption that some manual intervention has added dfs1=hh:mm
+
+			for (int si = currentSlotIndex; si < pricesPerSlotSinceMidnight.size(); si++) {
+
+				SlotCost sc = pricesPerSlotSinceMidnight.get(si);
+
+				String slotStartTime24hr = sc.getSlotStartTime24hr();
+
+				if (dfs.contains(slotStartTime24hr)) {
+
+					dischargeSlots.add(sc);
+				}
+
+				// only check DFS slots on the current day - to avoid duplication tomorrow
+				if ("23:30".equals(slotStartTime24hr)) {
+
+					break;
+				}
+			}
+
 			String currentSlotEndTime = pricesPerSlotSinceMidnight.get(currentSlotIndex).getSlotEndTime24hr();
 
 //			String currentSlotStartTime = pricesPerSlotSinceMidnight.get(currentSlotIndex).getSlotStartTime24hr();
@@ -3125,7 +3153,7 @@ public class Octopussy implements IOctopus {
 
 				if (0 == currentSlotEndTime.compareTo(result[r])) {
 
-					batteryDischargePower(dayPartPowerDefault);
+					batteryDischargePower(Integer.valueOf(maxRate));
 
 					int scheduleIndex = r;
 
@@ -3141,7 +3169,7 @@ public class Octopussy implements IOctopus {
 				if (0 == currentSlotEndTime.compareTo(result[r])) {
 
 					dischargeMonitorThread = new WatchSlotDischargeHelperThread(this, currentSlotEndTime, 29, r,
-							lowerSOCpc, dayPartPowerDefault);
+							lowerSOCpc, Integer.valueOf(maxRate));
 
 					dischargeMonitorThread.start();
 
@@ -3172,12 +3200,6 @@ public class Octopussy implements IOctopus {
 
 		SlotCost currentSlotCost = pricesPerSlotSinceMidnight.get(currentSlotIndex);
 
-//		Long sEpoch = currentSlotCost.getEpochSecond();
-
-//		Instant instantRangeStart = Instant.ofEpochSecond(sEpoch);
-
-//		LocalDateTime ldtRangeStart = LocalDateTime.ofInstant(instantRangeStart, ourZoneId);
-
 		String rangeStartTime = currentSlotCost.getSlotStartTime24hr();
 
 		String rangeEndTime = currentSlotCost.getSlotEndTime24hr();
@@ -3194,9 +3216,6 @@ public class Octopussy implements IOctopus {
 		LocalDateTime ldtPrevious = convertHHmm("00:00").minusMinutes(1L);
 
 		parts = new ArrayList<String>();
-
-//		int[] sunRisenAndSetIndicies = hasSunRisenAndSet(ldtRangeStart.format(formatterSolar), kWhrSolar,
-//				rangeStartTime);
 
 		// what slot index is the time now?
 
@@ -3326,6 +3345,21 @@ public class Octopussy implements IOctopus {
 			key = "part" + String.valueOf(++partNumber);
 		}
 
+		dfs = new HashSet<String>();
+
+		key = "dfs1";
+
+		while (properties.containsKey(key)) {
+
+			String defsEventStartAt = properties.getProperty(key);
+
+			dfs.add(defsEventStartAt);
+
+			int nextIndex = 1 + dfs.size();
+
+			key = "dfs" + nextIndex;
+		}
+
 		final int numberOfParts = parts.size();
 
 		final String dayPartsEndAt24hr[] = new String[numberOfParts];
@@ -3345,6 +3379,8 @@ public class Octopussy implements IOctopus {
 		final int minPercents[] = new int[numberOfParts];
 
 		float units = 0;
+
+		StringBuffer sbScaledDown = null;
 
 		System.out.println("\nThe day has been configured as " + numberOfParts + " parts:");
 
@@ -3407,7 +3443,7 @@ public class Octopussy implements IOctopus {
 
 			float wattHours = slotsPerDayPart[p] * powers[p] / 2;
 
-			StringBuffer sbScaledDown = new StringBuffer(" ");
+			sbScaledDown = new StringBuffer(" ");
 
 			if (null != optionParameters[p] && 'N' == options[p]) {
 
@@ -3422,7 +3458,7 @@ public class Octopussy implements IOctopus {
 						sbScaledDown.append(WatchSlotChargeHelperThread.SN(index));
 					}
 
-					sbScaledDown.append("limited)");
+					sbScaledDown.append("charge limited)");
 				}
 			}
 
@@ -3432,7 +3468,7 @@ public class Octopussy implements IOctopus {
 
 			System.out.println("Part{" + (1 + p) + "} " + parts.get(p) + " to " + dayPartsEndAt24hr[p] + "\t"
 					+ slotsPerDayPart[p] + " half-hour slot(s) @ " + powers[p] + " watts (~ " + Math.round(wattHours)
-					+ " Whr)\tBattery range " + range + "\t"
+					+ " Whr)\tBattery " + range + "\t"
 					+ (' ' == options[p] ? " - no option"
 							: " + option:" + options[p] + (null == optionParameters[p] ? ""
 									: ":" + optionParameters[p] + sbScaledDown.toString())));
@@ -3444,13 +3480,18 @@ public class Octopussy implements IOctopus {
 
 		Integer solarForecastWhr = execReadForecastSolar();
 
+		int p = whatPartfTheDay(rangeStartTime);
+
+		int dayMinutesReduction = scaleSolarForcastRange0to29(solarForecastWhr, p);
+
+		int nightMinutesReduction = scaleBatteryRange0to29(percentBattery);
+
 		System.out.println(bannerMessage);
 
 		System.out.println("Daily import restricted to a maximum of " + units
 				+ " kWhr and further constrained by selected options detailed below:");
-		System.out.println(
-				"For option:D(ay)\t30-min slot charging will be reduced in minutes according to solar forecast: "
-						+ solarForecastWhr);
+		System.out.println("For option:D(ay)\t30-min slot charging will be reduced by " + dayMinutesReduction
+				+ " minutes according to solar forecast: " + solarForecastWhr + " / " + maxSolar);
 
 		System.out.println(
 				"For option:N(ight)\t30-min slot charging will be reduced in minutes according to battery level");
@@ -3463,7 +3504,15 @@ public class Octopussy implements IOctopus {
 		System.out.println("Recent (A)verage price: " + averageUnitCost
 				+ "p (for Agile import, 15p for Fixed export) Non-Agile import comparison (X) " + flatRateImport + "p");
 
-		int p = whatPartfTheDay(rangeStartTime);
+		if (dfs.size() > 0) {
+
+			System.out.println(dfs.size() + " Demand Flexibility Service event(s) have been configured:");
+
+			for (String startAt : dfs) {
+
+				System.out.println("\t\t" + startAt);
+			}
+		}
 
 		dayPartPowerDefault = powers[p];
 
@@ -3549,12 +3598,12 @@ public class Octopussy implements IOctopus {
 					if ('D' == options[p]) { // (day) option - delay start time by N minutes for a sunny day
 												// more sunshine predicted: more delay
 
-						minsDelayStart = scaleSolarForcastRange0to29(solarForecastWhr, p);
+						minsDelayStart = dayMinutesReduction;
 
 					} else if ('N' == options[p]) { // (night) option - depending on battery state
 													// delay start time - more battery: more delay.
 
-						minsDelayStart = scaleBatteryRange0to29(percentBattery);
+						minsDelayStart = nightMinutesReduction;
 					}
 				}
 
@@ -3822,7 +3871,7 @@ public class Octopussy implements IOctopus {
 
 								chargingSlotPower = Math.round(chargeRate);
 
-								logErrTime("Part " + (1 + p) + " Sol: " + cols[2] + "/" + maxSolar + " "
+								logErrTime(sbScaledDown.toString() + " Sol: " + cols[2] + "/" + maxSolar + " "
 										+ dayPartPowerDefault + " watts scaled down by (1-30): " + scaled + "/30");
 							}
 						}
