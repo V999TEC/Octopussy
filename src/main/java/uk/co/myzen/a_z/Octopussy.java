@@ -316,6 +316,8 @@ public class Octopussy implements IOctopus {
 
 	static String limit = DEFAULT_LIMIT_PROPERTY; // overridden by limit=value in properties
 
+	static String propertyFileName = DEFAULT_PROPERTY_FILENAME;
+
 	private static File fileSolar = null;
 
 	private static boolean usingExternalPropertyFile = false;
@@ -415,8 +417,6 @@ public class Octopussy implements IOctopus {
 		File importData = null;
 		File exportData = null;
 
-		String propertyFileName = DEFAULT_PROPERTY_FILENAME;
-
 		String propertyAccountId = null; // the default
 
 		try {
@@ -467,6 +467,8 @@ public class Octopussy implements IOctopus {
 			//
 
 			int[] sunData = hasSunRisenAndSet(today); // an array of 3 slot indexes for sunrise/noon/sunset
+
+			System.out.println(bannerMessage);
 
 			//
 			// Each of the following execs takes significant seconds
@@ -3267,8 +3269,8 @@ public class Octopussy implements IOctopus {
 
 							value = slotStartTimes[sunIndex];
 
-							System.out.println("Selected option (" + timeDynamic.charAt(5) + ") changed " + key
-									+ " start time from " + defaultValue + " to " + value + " due to sun position");
+							System.out.println("Due to selected option (" + timeDynamic.charAt(5) + ") adjusted " + key
+									+ "=" + defaultValue + "R start time to " + value + " due to earlier sunrise time");
 						}
 					}
 
@@ -3295,8 +3297,9 @@ public class Octopussy implements IOctopus {
 
 							value = slotStartTimes[sunIndex];
 
-							System.out.println("Selected option (" + timeDynamic.charAt(5) + ") changed " + key
-									+ " start time from " + defaultValue + " to " + value + " due to sun position");
+							System.out.println("Due to selected option (" + timeDynamic.charAt(5) + ") adjusted " + key
+									+ "=" + defaultValue + "N start time to " + value
+									+ " due to later solar noon time");
 						}
 					}
 
@@ -3323,8 +3326,8 @@ public class Octopussy implements IOctopus {
 
 							value = slotStartTimes[sunIndex];
 
-							System.out.println("Selected option (" + timeDynamic.charAt(5) + ") changed " + key
-									+ " start time from " + defaultValue + " to " + value + " due to sun position");
+							System.out.println("Selected option (" + timeDynamic.charAt(5) + ") adjusted " + key + "="
+									+ defaultValue + "S start time to " + value + " due to later sunset time");
 						}
 					}
 
@@ -3345,6 +3348,14 @@ public class Octopussy implements IOctopus {
 			key = "part" + String.valueOf(++partNumber);
 		}
 
+		final int numberOfParts = parts.size();
+
+		System.out.println("The day and night has been configured as " + numberOfParts + " parts:");
+
+		//
+		//
+		//
+
 		dfs = new HashSet<String>();
 
 		key = "dfs1";
@@ -3360,7 +3371,9 @@ public class Octopussy implements IOctopus {
 			key = "dfs" + nextIndex;
 		}
 
-		final int numberOfParts = parts.size();
+		//
+		//
+		//
 
 		final String dayPartsEndAt24hr[] = new String[numberOfParts];
 
@@ -3381,8 +3394,6 @@ public class Octopussy implements IOctopus {
 		float units = 0;
 
 		StringBuffer sbScaledDown = null;
-
-		System.out.println("\nThe day has been configured as " + numberOfParts + " parts:");
 
 		for (int p = 0; p < numberOfParts; p++) {
 
@@ -3458,7 +3469,7 @@ public class Octopussy implements IOctopus {
 						sbScaledDown.append(WatchSlotChargeHelperThread.SN(index));
 					}
 
-					sbScaledDown.append("charge limited)");
+					sbScaledDown.append("reduced charge)");
 				}
 			}
 
@@ -3480,22 +3491,26 @@ public class Octopussy implements IOctopus {
 
 		Integer solarForecastWhr = execReadForecastSolar();
 
+		if (solarForecastWhr > Integer.parseInt(maxSolar)) {
+
+			System.out.println("INFORMATION: Latest solar forcast " + solarForecastWhr + " exceeds value in property "
+					+ KEY_MAX_SOLAR + "=" + maxSolar + " Advisable to update property file " + propertyFileName);
+		}
+
 		int p = whatPartfTheDay(rangeStartTime);
 
 		int dayMinutesReduction = scaleSolarForcastRange0to29(solarForecastWhr, p);
 
 		int nightMinutesReduction = scaleBatteryRange0to29(percentBattery);
 
-		System.out.println(bannerMessage);
-
 		System.out.println("Daily import restricted to a maximum of " + units
-				+ " kWhr and further constrained by selected options detailed below:");
+				+ " kWhr but constrained by selected options detailed below:");
 		System.out.println("For option:D(ay)\t30-min slot charging will be reduced by " + dayMinutesReduction
 				+ " minutes according to solar forecast: " + solarForecastWhr + " / " + maxSolar);
 
 		System.out.println(
 				"For option:N(ight)\t30-min slot charging will be reduced in minutes according to battery level");
-		System.out.println("\t\t\tMost expensive slot(s) may have reduced charge rate according to solar forecast");
+		System.out.println("\t\t\tThe most expensive slot(s) may have reduced charge rate according to solar forecast");
 		System.out.println(
 				"No option:\t\tCharging slots full length - no consideration of battery state or solar forecast");
 		System.out.println("Plunge price is set to: " + plunge
@@ -4198,14 +4213,25 @@ public class Octopussy implements IOctopus {
 			}
 		}
 
+		int dayLengthSeconds = ltSunset.toSecondOfDay() - ltSunrise.toSecondOfDay();
+
+		int hours = dayLengthSeconds / 3600;
+
+		int remainder1 = dayLengthSeconds % 3600; // 0 to 3599
+
+		int minutes = remainder1 / 60; // 0 to 59
+
+		int seconds = remainder1 % 60; // 0 to 59
+
 		LocalDateTime ldt = LocalDateTime.now();
 
 		LocalTime ltNow = ldt.toLocalTime();
 
 		bannerMessage = "\nToday is " + DayOfWeek.of(ldt.get(ChronoField.DAY_OF_WEEK)).toString().substring(0, 3) + " "
-				+ today + "\tSunrise " + (ltNow.compareTo(ltSunrise) > 0 ? "was" : "is") + " at " + sunEvents[0]
-				+ " Solar Noon " + (ltNow.compareTo(ltCulmination) > 0 ? "was" : "is") + " at " + sunEvents[1]
-				+ " Sunset " + (ltNow.compareTo(ltSunset) > 0 ? "was" : "is") + " at " + sunEvents[2];
+				+ today + "\tSun is up for " + hours + " hours " + minutes + " mins " + seconds + " secs. Sunrise "
+				+ (ltNow.compareTo(ltSunrise) > 0 ? "was" : "is") + " at " + sunEvents[0] + " Solar Noon "
+				+ (ltNow.compareTo(ltCulmination) > 0 ? "was" : "is") + " at " + sunEvents[1] + " Sunset "
+				+ (ltNow.compareTo(ltSunset) > 0 ? "was" : "is") + " at " + sunEvents[2];
 
 		return sunRisenAndSet;
 	}
@@ -4569,8 +4595,18 @@ public class Octopussy implements IOctopus {
 
 			if (null != value) {
 
-				result = Integer.valueOf(value.trim());
+				String trimmed = value.trim();
+
+				if (trimmed.length() > 0) {
+
+					result = Integer.valueOf(trimmed);
+				}
 			}
+		}
+
+		if (null == result) {
+
+			result = Integer.valueOf(0);
 		}
 
 		return result;
@@ -5410,7 +5446,7 @@ public class Octopussy implements IOctopus {
 		{
 			StringBuffer sb = new StringBuffer();
 
-			sb.append('\n');
+			//// sb.append('\n');
 
 			if (export) {
 
