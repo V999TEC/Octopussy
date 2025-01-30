@@ -3720,14 +3720,28 @@ public class Octopussy implements IOctopus {
 
 			if (!found) {
 
-				if (0 == "23:64".compareTo(chargeSchedule[n])) {
+				// If a manual forced charge is occurring initiated by Inverter app
+				// it will typically override the first slot with an invalid 23:64 or 23.72 etc
+				// To detect/defend against this, if the hour is 23 and minutes NN are >59
+				// assume we are
+				// subject to this particular manual intervention
 
-					logErrTime("WARNING: Assume manual charging in progress");
+				String slot = chargeSchedule[n];
+
+				String slotHH = slot.substring(0, 2);
+				Integer slotMM = Integer.parseInt(slot.substring(2, 2));
+
+				if (0 == "23".compareTo(slotHH) && slotMM > 59) {
+
+					logErrTime("WARNING: Assume manually controlled charging in progress and has overriden schedule");
 
 				} else {
 
-					Exception e = new Exception(
-							"logic error: no match for time " + chargeSchedule[n] + " schedule[" + n + "]");
+					// We always expect to get a match within the current day part
+					// Failure to match *probably* means the most recent scheduling has failed
+
+					Exception e = new Exception("ERROR: Possible scheduling failure: no match for time "
+							+ chargeSchedule[n] + " schedule[" + n + "]");
 
 					e.printStackTrace();
 				}
@@ -4624,8 +4638,18 @@ public class Octopussy implements IOctopus {
 
 			if (null != value) {
 
-				result = Float.valueOf(value.trim());
+				String trimmed = value.trim();
+
+				if (trimmed.length() > 0) {
+
+					result = Float.valueOf(trimmed);
+				}
 			}
+		}
+
+		if (null == result) {
+
+			result = Float.valueOf(0);
 		}
 
 		return result;
