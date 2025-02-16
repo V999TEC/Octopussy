@@ -75,38 +75,108 @@ After editing the property file just created to fix the apiKey etc., remember to
 java -jar octopussy.jar 7 My.properties
 ```
 
-Setting the properties by hand can be a burden, so it is possible to get many of the required settings by passing the Account ID as the third parameter.  
+Setting the properties by hand can be a burden, so it is possible to get many of the required settings by passing another parameter blah  
 This need only happen once.
 
 ```
-java -jar octopussy.jar 7 A-12345678
+java -jar octopussy.jar 5 My.properties blah
 ```
 
-Substitute the A-12345678 for your Octopus Energy account number.  The program will then generate the actual values taken from the account, for example:
+The program may validate existing property values in My.properties and check the products and tariffs implied
+This feature is experimental and subject to change.
 
 ```
+api.solcast=blah_blah_blah
+apiKey=blah_BLAH2pMoreBlahPIXOIO72aIO1blah:
+#
 base.url=https://api.octopus.energy
-electricity.mprn=200001010163
+electricity.mpan.export=2098765432109
+electricity.mpan.import=2012345678901
 electricity.sn=21L010101
-gas.mprn=8870000400
-gas.sn=E6S10000061961
-flexible.electricity.via.direct.debit=true
-flexible.electricity.product.code=VAR-22-11-01
-flexible.electricity.unit=30.295124
-flexible.electricity.standing=47.9535
-agile.electricity.standing=42.7665
-import.product.code=AGILE-FLEX-22-11-25
-tariff.code=E-1R-AGILE-FLEX-22-11-25-H
-tariff.url=https://api.octopus.energy/v1/products/AGILE-FLEX-22-11-25/electricity-tariffs/E-1R-AGILE-FLEX-22-11-25-H
+#
 region=H
-#postcode=SN5
+#
+# fixed just used for price comparison (Loyal Octopus 16M Fixed February 2025 v1) in region H
+fixed.electricity.unit=23.789
+fixed.electricity.standing=59.2617
+#
+fixed.product.code=OE-LOYAL-FIX-16M-25-02-12
+fixed.tariff.code=E-1R-$fixed.product.code$-$region$
+fixed.tariff.url=$base.url$/v1/products/$fixed.product.code$/electricity-tariffs/$fixed.tariff.code$
+#
+# Agile Octopus October 2024 v1 - Ending 15/02/2026 
+import.electricity.standing=47.9535
+import.product.code=AGILE-24-10-01
+import.tariff.code=E-1R-$import.product.code$-$region$
+import.tariff.url=$base.url$/v1/products/$import.product.code$/electricity-tariffs/$import.tariff.code$
+#
+# Outgoing Octopus
+export.product.code=OUTGOING-VAR-24-10-26
+export.tariff.code=E-1R-$export.product.code$-$region$
+export.tariff.url=$base.url$/v1/products/$export.product.code$/electricity-tariffs/$export.tariff.code$
+export=true
+#
+zone.id=Europe/London
+history.import=./octopus.import.csv
+history.export=./octopus.export.csv
+baseline=14.75
+#
+days=10
+plunge=3
+target=27
+width=46
+#
+# in Windows console to show ANSI update Registry set REG_DWORD VirtualTerminalLevel=1 for Computer\HKEY_CURRENT_USER\Console
+#
+ansi=true
+colour=GREEN
+color=RED
+#
+yearly=false
+monthly=false
+weekly=false
+daily=false
+#day.from=2023-08-11
+#day.to=2023-09-08
+show.recent=true
+show.savings=true
+limit=30
+#
+setting=java -jar icarus.jar ./Icarus.properties inverter setting %1 %2 %3
+macro=java -jar icarus.jar ./Icarus.properties inverter macro %1 %2 %3 %4
+solar=java -jar icarus.jar ./Icarus.properties inverter meter today solar
+temperature=java -jar icarus.jar ./Icarus.properties inverter system inverter temperature
+battery=java -jar icarus.jar ./Icarus.properties inverter meter today battery
+grid=java -jar icarus.jar ./Icarus.properties inverter meter today grid
+consumption=java -jar icarus.jar ./Icarus.properties inverter meter today consumption
+percent=java -jar icarus.jar ./Icarus.properties inverter system battery percent
+forecast=java -jar icarus.jar ./Icarus.properties forecast solar
+sun=java -jar icarus.jar ./Icarus.properties sun
+#
+file.solar=./solar.csv
+max.solar=22000
+#
+max.rate=6000
+#
+#dfs1=17:30
+#dfs2=18:00
+#
+part1=00:00
+part2=08:00R
+part3=12:00N
+part4=19:00S
+#
+slots1=4:Night:2
+slots2=3:Day
+slots3=2:d
+slots4=1
+#
+power1=5000:100:15
+power2=2500:50:25
+power3=2500:40:20
+power4=3000:30:15
+#
 ```
-
-The above values are matched to the specified property file and a warning is given for any discrepencies.
-
-Copy the values into the property file and run the program again.
-
-Once no discrepencies are noted then the Account ID can be dropped from the 3rd parameter.
 
 ## History data
 
@@ -135,35 +205,3 @@ The recent data is used to calculate the running average (A) price which dictate
 
 When the consumption results for a day are incomplete, the day is dropped, so the days=N will not always match the number of days actually shown. 
 
-
-## Other settings in properties file
-
-Most of these should be self explanatory
-
-```
-zone.id=Europe/London
-history=./octopus.import.csv
-#
-export.product.code=AGILE-OUTGOING-19-05-13
-export.tariff.code=E-1R-AGILE-OUTGOING-19-05-13-H
-export.tariff.url=https://api.octopus.energy/v1/products/AGILE-OUTGOING-19-05-13/electricity-tariffs/E-1R-AGILE-OUTGOING-19-05-13-H
-export=false
-#
-days=10
-plunge=3
-target=30
-width=46
-#
-# in Windows console to show ANSI update Registry set REG_DWORD VirtualTerminalLevel=1 for Computer\HKEY_CURRENT_USER\Console
-#
-ansi=true
-colour=GREEN
-color=RED
-#
-yearly=false
-monthly=false
-weekly=true
-#
-extra=false
-referral=https://share.octopus.energy/ice-camel-111
-```
