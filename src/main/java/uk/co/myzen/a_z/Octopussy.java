@@ -55,7 +55,6 @@ import uk.co.myzen.a_z.json.Tariff;
 import uk.co.myzen.a_z.json.V1Charges;
 import uk.co.myzen.a_z.json.V1ElectricityConsumption;
 import uk.co.myzen.a_z.json.V1ElectricityTariff;
-import uk.co.myzen.a_z.json.V1GSP;
 import uk.co.myzen.a_z.json.V1GridSupplyPoints;
 import uk.co.myzen.a_z.json.V1PeriodConsumption;
 import uk.co.myzen.a_z.json.V1ProductSpecific;
@@ -71,6 +70,8 @@ public class Octopussy implements IOctopus {
 	static final Instant now = Instant.now(); // earliest opportunity to log the time
 
 	public final static String DEFAULT_REFERRAL_PROPERTY = "https://share.octopus.energy/ice-camel-111";
+
+	public final static String DEFAULT_VERSION_PROPERTY = "${project.version}";
 
 	static final String slotStartTimes[] = { "00:00", "00:30", "01:00", "01:30", "02:00", "02:30", "03:00", "03:30",
 			"04:00", "04:30", "05:00", "05:30", "06:00", "06:30", "07:00", "07:30", "08:00", "08:30", "09:00", "09:30",
@@ -103,7 +104,7 @@ public class Octopussy implements IOctopus {
 
 	private final static String DEFAULT_PROPERTY_FILENAME = "./octopussy.properties";
 
-	private final static String KEY_API_SOLCAST = "api.solcast";
+//	private final static String KEY_API_SOLCAST = "api.solcast";
 	private final static String KEY_APIKEY = "apiKey";
 	private final static String KEY_BASE_URL = "base.url";
 	private final static String KEY_ELECTRICITY_MPAN_IMPORT = "electricity.mpan.import";
@@ -111,25 +112,29 @@ public class Octopussy implements IOctopus {
 
 	private final static String KEY_ELECTRICITY_SN = "electricity.sn";
 
-	private final static String KEY_FIXED_ELECTRICITY_UNIT = "fixed.electricity.unit";
-	private final static String KEY_FIXED_ELECTRICITY_STANDING = "fixed.electricity.standing";
+	private final static String KEY_REGION = "region";
 
-	private final static String KEY_IMPORT_ELECTRICITY_STANDING = "import.electricity.standing";
+	private final static String KEY_FIXED_PRODUCT_CODE = "fixed.product.code";
+	private final static String KEY_FIXED_TARIFF_CODE = "fixed.tariff.code";
+	private final static String KEY_FIXED_TARIFF_URL = "fixed.tariff.url";
+	private final static String KEY_FIXED_ELECTRICITY_STANDING = "fixed.electricity.standing";
+	private final static String KEY_FIXED_ELECTRICITY_UNIT = "fixed.electricity.unit";
 
 	private final static String KEY_IMPORT_PRODUCT_CODE = "import.product.code";
 	private final static String KEY_IMPORT_TARIFF_CODE = "import.tariff.code";
 	private final static String KEY_IMPORT_TARIFF_URL = "import.tariff.url";
-
-	private final static String KEY_REGION = "region";
-	private final static String KEY_POSTCODE = "postcode";
-
-	private final static String KEY_ZONE_ID = "zone.id";
-	private final static String KEY_HISTORY_IMPORT = "history.import";
-	private final static String KEY_HISTORY_EXPORT = "history.export";
+	private final static String KEY_IMPORT_ELECTRICITY_STANDING = "import.electricity.standing";
 
 	private final static String KEY_EXPORT_PRODUCT_CODE = "export.product.code";
 	private final static String KEY_EXPORT_TARIFF_CODE = "export.tariff.code";
 	private final static String KEY_EXPORT_TARIFF_URL = "export.tariff.url";
+	private final static String KEY_EXPORT_ELECTRICITY_STANDING = "export.electricity.standing";
+
+	private final static String KEY_ZONE_ID = "zone.id";
+
+	private final static String KEY_HISTORY_IMPORT = "history.import";
+	private final static String KEY_HISTORY_EXPORT = "history.export";
+
 	private final static String KEY_EXPORT = "export";
 
 	private final static String KEY_BASELINE = "baseline";
@@ -170,17 +175,18 @@ public class Octopussy implements IOctopus {
 	private final static String KEY_LIMIT = "limit";
 
 	private final static String KEY_REFERRAL = "referral";
+	private final static String KEY_VERSION = "version";
 
-	private final static String[] defaultPropertyKeys = { KEY_API_SOLCAST, KEY_APIKEY, "#", KEY_BASE_URL, "#",
-			KEY_ELECTRICITY_MPAN_IMPORT, KEY_ELECTRICITY_MPAN_EXPORT, KEY_ELECTRICITY_SN, KEY_FIXED_ELECTRICITY_UNIT,
-			KEY_FIXED_ELECTRICITY_STANDING, KEY_IMPORT_ELECTRICITY_STANDING, KEY_IMPORT_PRODUCT_CODE,
-			KEY_IMPORT_TARIFF_CODE, KEY_IMPORT_TARIFF_URL, KEY_REGION, KEY_POSTCODE, KEY_ZONE_ID, KEY_HISTORY_IMPORT,
-			KEY_HISTORY_EXPORT, "#", KEY_EXPORT_PRODUCT_CODE, KEY_EXPORT_TARIFF_CODE, KEY_EXPORT_TARIFF_URL, KEY_EXPORT,
-			"#", KEY_BASELINE, KEY_DAYS, KEY_PLUNGE, KEY_TARGET, KEY_WIDTH, KEY_ANSI, KEY_COLOUR, KEY_COLOR, "#",
-			KEY_YEARLY, KEY_MONTHLY, KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO, KEY_SHOW_RECENT, KEY_SHOW_SAVINGS,
-			"#", KEY_SETTING, KEY_MACRO, KEY_SOLAR, KEY_PERCENT, KEY_GRID, KEY_CONSUMPTION, KEY_TEMPERATURE,
-			KEY_BATTERY, "#", KEY_SUN, KEY_FORECAST, KEY_FILE_SOLAR, KEY_MAX_SOLAR, KEY_MAX_RATE, "#", KEY_LIMIT,
-			KEY_REFERRAL };
+	private final static String[] defaultPropertyKeys = { KEY_APIKEY, "#", KEY_BASE_URL, "#",
+			KEY_ELECTRICITY_MPAN_IMPORT, KEY_ELECTRICITY_MPAN_EXPORT, KEY_ELECTRICITY_SN, "#", KEY_FIXED_PRODUCT_CODE,
+			KEY_IMPORT_PRODUCT_CODE, KEY_EXPORT_PRODUCT_CODE, "#", KEY_FIXED_ELECTRICITY_UNIT,
+			KEY_FIXED_ELECTRICITY_STANDING, KEY_IMPORT_ELECTRICITY_STANDING, KEY_IMPORT_TARIFF_CODE,
+			KEY_IMPORT_TARIFF_URL, KEY_REGION, KEY_ZONE_ID, KEY_HISTORY_IMPORT, KEY_HISTORY_EXPORT, "#",
+			KEY_EXPORT_TARIFF_CODE, KEY_EXPORT_TARIFF_URL, KEY_EXPORT, "#", KEY_BASELINE, KEY_DAYS, KEY_PLUNGE,
+			KEY_TARGET, KEY_WIDTH, KEY_ANSI, KEY_COLOUR, KEY_COLOR, "#", KEY_YEARLY, KEY_MONTHLY, KEY_WEEKLY, KEY_DAILY,
+			KEY_DAY_FROM, KEY_DAY_TO, KEY_SHOW_RECENT, KEY_SHOW_SAVINGS, KEY_LIMIT, "#", KEY_SETTING, KEY_MACRO,
+			KEY_SOLAR, KEY_PERCENT, KEY_GRID, KEY_CONSUMPTION, KEY_TEMPERATURE, KEY_BATTERY, KEY_SUN, KEY_FORECAST, "#",
+			KEY_FILE_SOLAR, KEY_MAX_SOLAR, KEY_MAX_RATE, "#", KEY_REFERRAL, "#", KEY_VERSION };
 
 	private final static String DEFAULT_API_SOLCAST_PROPERTY = "blahblahblah";
 	private final static String DEFAULT_API_OCTOPUS_PROPERTY = "blah_BLAH2pMoreBlahPIXOIO72aIO1blah:";
@@ -197,7 +203,7 @@ public class Octopussy implements IOctopus {
 	private final static String DEFAULT_FIXED_ELECTRICITY_UNIT_PROPERTY = "30.295124";
 	private final static String DEFAULT_FIXED_ELECTRICITY_STANDING_PROPERTY = "47.9535";
 	private final static String DEFAULT_IMPORT_ELECTRICITY_STANDING_PROPERTY = "42.7665";
-	private final static String DEFAULT_POSTCODE_PROPERTY = "?";
+
 	private final static String DEFAULT_REGION_PROPERTY = "H";
 
 	private final static String DEFAULT_SETTING_PROPERTY = "false";
@@ -388,6 +394,255 @@ public class Octopussy implements IOctopus {
 	private Octopussy() {
 	}
 
+	private static void bootStrap(boolean verify) throws MalformedURLException, IOException {
+
+		String region = "?";
+
+		String mpan = properties.getProperty(KEY_ELECTRICITY_MPAN_IMPORT);
+
+//		System.out.println(KEY_API_SOLCAST + "=" + properties.getProperty(KEY_API_SOLCAST));
+		System.out.println(KEY_APIKEY + "=" + properties.getProperty(KEY_APIKEY));
+		System.out.println("#");
+		System.out.println(KEY_BASE_URL + "=" + properties.getProperty(KEY_BASE_URL));
+		System.out.println("#");
+		System.out.println(KEY_ELECTRICITY_MPAN_IMPORT + "=" + properties.getProperty(KEY_ELECTRICITY_MPAN_IMPORT));
+		System.out.println(KEY_ELECTRICITY_MPAN_EXPORT + "=" + properties.getProperty(KEY_ELECTRICITY_MPAN_EXPORT));
+		System.out.println(KEY_ELECTRICITY_SN + "=" + properties.getProperty(KEY_ELECTRICITY_SN));
+		System.out.println("#");
+
+		boolean supportExport = Boolean.parseBoolean(properties.getProperty(KEY_EXPORT, "false"));
+
+		System.out.println(KEY_EXPORT + "=" + supportExport);
+		System.out.println("#");
+
+		if (verify) {
+
+			V1Profile result = instance.getElectricityMeterPointRegion(mpan);
+
+			region = result.getGsp().substring(1);
+
+			System.out.println(KEY_REGION + "=" + region);
+			System.out.println("#");
+
+//			System.out.println("Region: " + result.getGsp() + "\tProfile: " + result.getProfileClass());
+
+			// "OE-FIX-16M-25-02-12",
+
+			// sequence must be fixed / import / export
+
+			String[] products = { properties.getProperty(KEY_FIXED_PRODUCT_CODE),
+					properties.getProperty(KEY_IMPORT_PRODUCT_CODE),
+					supportExport ? properties.getProperty(KEY_EXPORT_PRODUCT_CODE) : null };
+
+			String fullName = null;
+
+			String availableFrom = null;
+			String availableTo = null;
+
+			for (int index = 0; index < products.length; index++) {
+
+				String product = products[index];
+
+				if (null == product) {
+
+					continue;
+				}
+
+				V1ProductSpecific specific = null;
+
+				specific = getV1ProductSpecific(product);
+
+				availableFrom = specific.getAvailableFrom();
+				availableTo = specific.getAvailableTo();
+
+				String tariff = "E-1R-" + product + "-" + region;
+
+				fullName = specific.getFullName();
+
+//			System.out.println("Product: " + product + "\tin region " + properties.getProperty(KEY_REGION)
+//					+ "\t(" + tariff + ") " + fullName);
+//
+//			System.out.println("\t" + specific.getDescription());
+//			System.out.println(
+//					"\tAvailable from: " + availableFrom + "\tto: " + availableTo);
+
+				Integer pageSize = Integer.valueOf(100);
+				String periodFrom = "2010-01-01";
+				String periodTo = "";
+
+//			fixed.product.code=OE-LOYAL-FIX-16M-25-02-12
+//					fixed.tariff.code=E-1R-$fixed.product.code$-$region$
+//					fixed.tariff.url=$base.url$/v1/products/$fixed.product.code$/electricity-tariffs/$fixed.tariff.code$
+
+				V1Charges charges = instance.getV1ElectricityStandingCharges(product, tariff, pageSize, periodFrom,
+						periodTo);
+
+				List<Prices> standingCharges = charges.getPriceResults();
+
+				Float standing = null;
+
+				for (Prices prices : standingCharges) {
+
+					String from = prices.getValidFrom();
+					String to = prices.getValidTo();
+
+					if (null == to) {
+
+						to = "\t\t";
+					}
+
+					Float fExcVAT = prices.getValueExcVAT();
+					Float fIncVAT = prices.getValueIncVAT();
+
+//					System.out.println(
+//							"\t\tStanding Charge: " + from + "\t" + to + "\t" + fExcVAT + "\t" + fIncVAT);
+
+					if (null == standing) {
+
+						standing = fExcVAT;
+					}
+				}
+
+				V1Charges charges2 = instance.getV1ElectricityStandardUnitRates(product, tariff, pageSize, periodFrom,
+						periodTo);
+
+				List<Prices> standardUnitRates = charges2.getPriceResults();
+
+				Float unit = null;
+
+				for (Prices prices : standardUnitRates) {
+
+					String from = prices.getValidFrom();
+					String to = prices.getValidTo();
+
+					if (null == to) {
+
+						to = "\t\t";
+					}
+
+					Float fExcVAT = prices.getValueExcVAT();
+					Float fIncVAT = prices.getValueIncVAT();
+
+//					System.out.println(
+//							"\t\tUnit Rate:       " + from + "\t" + to + "\t" + fExcVAT + "\t" + fIncVAT);
+
+					if (null == unit) {
+
+						unit = fExcVAT;
+					}
+				}
+
+				switch (index) {
+
+				case 0:
+
+					System.out.println("# fixed just used for price comparison (" + fullName + ") in Region " + region);
+					System.out.println(KEY_FIXED_PRODUCT_CODE + "=" + product);
+					System.out.println(KEY_FIXED_ELECTRICITY_UNIT + "=" + unit);
+					System.out.println(KEY_FIXED_ELECTRICITY_STANDING + "=" + standing);
+					System.out.println(
+							KEY_FIXED_TARIFF_CODE + "=E-1R-$" + KEY_FIXED_PRODUCT_CODE + "$-$" + KEY_REGION + "$");
+					System.out.println(KEY_FIXED_TARIFF_URL + "=$" + KEY_BASE_URL + "$/v1/products/$"
+							+ KEY_FIXED_PRODUCT_CODE + "$/electricity-tariffs/$" + KEY_FIXED_TARIFF_CODE + "$");
+					break;
+
+				case 1:
+
+					System.out.println("# " + fullName);
+					System.out.println(KEY_IMPORT_PRODUCT_CODE + "=" + product);
+					System.out.println(KEY_IMPORT_ELECTRICITY_STANDING + "=" + standing);
+					System.out.println(
+							KEY_IMPORT_TARIFF_CODE + "=E-1R-$" + KEY_IMPORT_PRODUCT_CODE + "$-$" + KEY_REGION + "$");
+					System.out.println(KEY_IMPORT_TARIFF_URL + "=$" + KEY_BASE_URL + "$/v1/products/$"
+							+ KEY_IMPORT_PRODUCT_CODE + "$/electricity-tariffs/$" + KEY_IMPORT_TARIFF_CODE + "$");
+					break;
+
+				case 2:
+
+					System.out.println("# " + fullName);
+					System.out.println(KEY_EXPORT_PRODUCT_CODE + "=" + product);
+					System.out.println(KEY_EXPORT_ELECTRICITY_STANDING + "=" + standing);
+					System.out.println(
+							KEY_EXPORT_TARIFF_CODE + "=E-1R-$" + KEY_EXPORT_PRODUCT_CODE + "$-$" + KEY_REGION + "$");
+					System.out.println(KEY_EXPORT_TARIFF_URL + "=$" + KEY_BASE_URL + "$/v1/products/$"
+							+ KEY_EXPORT_PRODUCT_CODE + "$/electricity-tariffs/$" + KEY_EXPORT_TARIFF_CODE + "$");
+					break;
+
+				}
+
+				System.out.println("#");
+			}
+		}
+
+		// HP
+
+		String[] ignoreKeys = { KEY_APIKEY, KEY_BASE_URL, KEY_ELECTRICITY_MPAN_IMPORT, KEY_ELECTRICITY_MPAN_EXPORT,
+				KEY_ELECTRICITY_SN, KEY_BASE_URL, KEY_REGION, verify ? KEY_FIXED_PRODUCT_CODE : null,
+				KEY_FIXED_ELECTRICITY_STANDING, KEY_FIXED_TARIFF_CODE, KEY_FIXED_TARIFF_URL, KEY_FIXED_ELECTRICITY_UNIT,
+				verify ? KEY_IMPORT_PRODUCT_CODE : null, KEY_IMPORT_ELECTRICITY_STANDING, KEY_IMPORT_TARIFF_CODE,
+				KEY_IMPORT_TARIFF_URL, verify ? KEY_EXPORT_PRODUCT_CODE : null, KEY_EXPORT_ELECTRICITY_STANDING,
+				KEY_EXPORT_TARIFF_CODE, KEY_EXPORT_TARIFF_URL, KEY_EXPORT, KEY_VERSION };
+
+		Set<String> ignoreSet = new HashSet<String>(ignoreKeys.length);
+
+		for (String key : ignoreKeys) {
+
+			ignoreSet.add(key);
+		}
+
+		for (String propertyKey : defaultPropertyKeys) {
+
+			if (ignoreSet.contains(propertyKey)) {
+
+				continue;
+			}
+
+			if (KEY_REFERRAL.equals(propertyKey)) {
+
+				System.out.println("#dfs1=17:30");
+				System.out.println("#dfs2=18:00");
+				System.out.println("#");
+				System.out.println("part1=00:00");
+				System.out.println("part2=08:00R");
+				System.out.println("part3=12:00N");
+				System.out.println("part4=19:00S");
+				System.out.println("#");
+				System.out.println("slots1=4:Night:2");
+				System.out.println("slots2=3:Day");
+				System.out.println("slots3=2:d");
+				System.out.println("slots4=1");
+				System.out.println("#");
+				System.out.println("power1=5000:100:15");
+				System.out.println("power2=2500:50:25");
+				System.out.println("power3=2500:40:20");
+				System.out.println("power4=3000:30:15");
+				System.out.println("#");
+				System.out.println(propertyKey + "=" + properties.getProperty(propertyKey, DEFAULT_REFERRAL_PROPERTY));
+
+			} else if (KEY_ANSI.equals(propertyKey)) {
+
+				System.out.println("#");
+				System.out.println(
+						"# in Windows console to show ANSI update Registry set REG_DWORD VirtualTerminalLevel=1 for Computer\\HKEY_CURRENT_USER\\Console");
+				System.out.println("#");
+				System.out.println("ansi=true");
+
+			} else if (KEY_DAY_FROM.equals(propertyKey)) {
+
+				System.out.println("#day.from=" + properties.getProperty(propertyKey, DEFAULT_DAY_FROM_PROPERTY));
+
+			} else if (KEY_DAY_TO.equals(propertyKey)) {
+
+				System.out.println("#day.to=" + properties.getProperty(propertyKey, DEFAULT_DAY_TO_PROPERTY));
+
+			} else {
+
+				System.out.println(
+						propertyKey + ("#".equals(propertyKey) ? "" : "=" + properties.getProperty(propertyKey, "?")));
+			}
+		}
+	}
+
 	/**
 	 * @param args
 	 * @throws Exception
@@ -407,7 +662,7 @@ public class Octopussy implements IOctopus {
 		File importData = null;
 		File exportData = null;
 
-		String experimental = null; // the default
+		String bootstrap = null; // the default
 
 		try {
 			if (args.length > 0) {
@@ -434,116 +689,20 @@ public class Octopussy implements IOctopus {
 
 						// assume the optional third parameter is the account identifier
 
-						experimental = args[2].trim();
+						bootstrap = args[2].trim();
 					}
 				}
 			}
 
-			instance.dealWithProperties(propertyFileName);
+			usingExternalPropertyFile = instance.dealWithProperties(propertyFileName);
 
 			//
 			//
 			//
 
-			if (null != experimental) {
+			if (null != bootstrap || !usingExternalPropertyFile) {
 
-				System.out.println("**********");
-				System.out.println("Experimental");
-				System.out.println("Experimental");
-				System.out.println("Experimental");
-				System.out.println("**********");
-
-				String region = "?";
-
-				try {
-
-					String mpan = properties.getProperty(KEY_ELECTRICITY_MPAN_IMPORT);
-
-					V1Profile result = instance.getElectricityMeterPointRegion(mpan);
-
-					System.out.println("Region: " + result.getGsp() + "\tProfile: " + result.getProfileClass());
-
-					region = result.getGsp().substring(1);
-
-				} catch (Exception e) {
-					// TODO Auto-generated catch block
-					e.printStackTrace();
-				}
-
-				String[] products = { "OE-FIX-16M-25-02-12", "OE-LOYAL-FIX-16M-25-02-12",
-						properties.getProperty(KEY_IMPORT_PRODUCT_CODE),
-						properties.getProperty(KEY_EXPORT_PRODUCT_CODE) };
-
-				for (String product : products) {
-
-					V1ProductSpecific specific = getV1ProductSpecific(product);
-
-					String tariff = "E-1R-" + product + "-" + region;
-
-					System.out.println("Product: " + product + "\tin region " + properties.getProperty(KEY_REGION)
-							+ "\t(" + tariff + ") " + specific.getFullName());
-
-					System.out.println("\t" + specific.getDescription());
-					System.out.println(
-							"\tAvailable from: " + specific.getAvailableFrom() + "\tto: " + specific.getAvailableTo());
-
-					Integer pageSize = Integer.valueOf(100);
-					String periodFrom = "2010-01-01";
-					String periodTo = "";
-
-					try {
-
-						V1Charges charges = instance.getV1ElectricityStandingCharges(product, tariff, pageSize,
-								periodFrom, periodTo);
-
-						List<Prices> standingCharges = charges.getPriceResults();
-
-						for (Prices prices : standingCharges) {
-
-							String from = prices.getValidFrom();
-							String to = prices.getValidTo();
-
-							if (null == to) {
-
-								to = "\t\t";
-							}
-
-							Float fExcVAT = prices.getValueExcVAT();
-							Float fIncVAT = prices.getValueIncVAT();
-
-							System.out.println(
-									"\t\tStanding Charge: " + from + "\t" + to + "\t" + fExcVAT + "\t" + fIncVAT);
-						}
-
-						V1Charges charges2 = instance.getV1ElectricityStandardUnitRates(product, tariff, pageSize,
-								periodFrom, periodTo);
-
-						List<Prices> standardUnitRates = charges2.getPriceResults();
-
-						for (Prices prices : standardUnitRates) {
-
-							String from = prices.getValidFrom();
-							String to = prices.getValidTo();
-
-							if (null == to) {
-
-								to = "\t\t";
-							}
-
-							Float fExcVAT = prices.getValueExcVAT();
-							Float fIncVAT = prices.getValueIncVAT();
-
-							System.out.println(
-									"\t\tUnit Rate:       " + from + "\t" + to + "\t" + fExcVAT + "\t" + fIncVAT);
-						}
-
-						System.out.println("\t");
-
-					} catch (Exception e) {
-						// TODO Auto-generated catch block
-						e.printStackTrace();
-					}
-				}
+				bootStrap(usingExternalPropertyFile);
 
 				System.exit(-1);
 			}
@@ -2017,30 +2176,6 @@ public class Octopussy implements IOctopus {
 
 		properties.load(is);
 
-		// if postcode=value specified, such as postcode=SN5
-		// the region=value will be verified for consistency
-
-		String postcode = properties.getProperty(KEY_POSTCODE, DEFAULT_POSTCODE_PROPERTY);
-
-		if (null != postcode && 0 != postcode.trim().length() && !DEFAULT_POSTCODE_PROPERTY.equals(postcode)) {
-
-			V1GridSupplyPoints points = getV1GridSupplyPoints(postcode);
-
-			ArrayList<V1GSP> pointList = points.getPointResults();
-
-			V1GSP point = pointList.get(0);
-
-			String groupId = point.getGroupId();
-
-			String region = groupId.substring(1);
-
-			if (!properties.getProperty(KEY_REGION, DEFAULT_REGION_PROPERTY).equals(region)) {
-
-				throw new Exception("Region and postcode discrepency");
-
-			}
-		}
-
 		setting = properties.getProperty(KEY_SETTING, DEFAULT_SETTING_PROPERTY).trim();
 
 		macro = properties.getProperty(KEY_MACRO, DEFAULT_MACRO_PROPERTY).trim();
@@ -2407,17 +2542,7 @@ public class Octopussy implements IOctopus {
 
 				for (String propertyKey : defaultPropertyKeys) {
 
-					if (KEY_POSTCODE.equals(propertyKey)) {
-
-						System.out
-								.println("#postcode=" + properties.getProperty(propertyKey, DEFAULT_POSTCODE_PROPERTY));
-						System.out.println("#");
-						System.out.println("# n.b. Southern England is region H");
-						System.out.println("#");
-						System.out.println("# if postcode is uncommented it will verify region=? based on Octopus API");
-						System.out.println("#");
-
-					} else if (KEY_ANSI.equals(propertyKey)) {
+					if (KEY_ANSI.equals(propertyKey)) {
 
 						System.out.println("#");
 						System.out.println(
@@ -2593,11 +2718,13 @@ public class Octopussy implements IOctopus {
 		fw = null;
 	}
 
-	private void dealWithProperties(String propertyFileName) {
+	private Boolean dealWithProperties(String propertyFileName) {
+
+		Boolean result = null;
 
 		String keyValue = null;
 
-		String keyApiSolcast = null;
+//		String keyApiSolcast = null;
 
 		try {
 
@@ -2607,7 +2734,8 @@ public class Octopussy implements IOctopus {
 
 			File externalProperties = new File(propertyFileName);
 
-			usingExternalPropertyFile = loadProperties(externalProperties);
+			// usingExternalPropertyFile
+			result = Boolean.valueOf(loadProperties(externalProperties));
 
 			keyValue = properties.getProperty(KEY_APIKEY, DEFAULT_API_OCTOPUS_PROPERTY).trim();
 
@@ -2616,12 +2744,12 @@ public class Octopussy implements IOctopus {
 				throw new Exception(KEY_APIKEY);
 			}
 
-			keyApiSolcast = properties.getProperty(KEY_API_SOLCAST, DEFAULT_API_SOLCAST_PROPERTY).trim();
+//			keyApiSolcast = properties.getProperty(KEY_API_SOLCAST, DEFAULT_API_SOLCAST_PROPERTY).trim();
 
-			if (null == keyApiSolcast) {
-
-				throw new Exception(KEY_API_SOLCAST);
-			}
+//			if (null == keyApiSolcast) {
+//
+//				throw new Exception(KEY_API_SOLCAST);
+//			}
 
 			properties.setProperty("basic", "Basic " + Base64.getEncoder().encodeToString(keyValue.getBytes()));
 
@@ -2663,6 +2791,7 @@ public class Octopussy implements IOctopus {
 			System.exit(-1);
 		}
 
+		return result;
 	}
 
 	private ArrayList<Long> upcomingExport(List<SlotCost> pricesPerSlot) {
@@ -3382,7 +3511,8 @@ public class Octopussy implements IOctopus {
 				+ "p (System may schedule slots to export to grid from battery when import prices have plunged <= "
 				+ plunge + "p)");
 		System.out.println("Recent (A)verage price: " + averageUnitCost
-				+ "p (for Agile import, 15p for Fixed export) Non-Agile import comparison (X) " + flatRateImport + "p");
+				+ "p (for Agile import, 15p for Fixed export) Non-Agile import comparison (F) " + flatRateImport + "p "
+				+ (ansi ? ANSI_COLOUR_LO : "") + "Solar forecast: " + solarForecastWhr + (ansi ? ANSI_RESET : ""));
 
 		if (dfs.size() > 0) {
 
@@ -5086,7 +5216,7 @@ public class Octopussy implements IOctopus {
 				System.out.println(dayValues.getDayOfWeek() + (quidsIn ? " * " : "   ") + key + " £"
 						+ String.format("%5.2f", agileCostInGBP) + String.format("%7.3f", consumption) + " kWhr @ "
 						+ String.format("%5.2f", dailyAverageUnitPrice) + "p" + " A:"
-						+ String.format("%8.4f", agilePrice) + "p +" + agileStandingCharge + "p (X: "
+						+ String.format("%8.4f", agilePrice) + "p +" + agileStandingCharge + "p (F: "
 						+ String.format("%8.4f", flatImportPrice) + "p +" + flatStandingCharge + "p) Save: £"
 						+ String.format("%5.2f", differeceInGBP) + " + Export:"
 						+ String.format("%4.1f", dailyExportUnits) + " kWhr £" + String.format("%5.2f", exportInGBP));
@@ -5174,15 +5304,15 @@ public class Octopussy implements IOctopus {
 		System.out.println("\n" + String.format("%2d", countDays) + " days (A)gile: £"
 				+ recentAgileExclStandingChargeInGBP + " (" + averagePower + " kWhr @ " + averageCostPerUnit
 				+ "p daily average)   vr   £" + recentFlatExclStandingChargeInGBP + " @ " + flatRateImport
-				+ "p /unit flat rate (X)  excl. standing charges");
+				+ "p /unit flat rate (F)  excl. standing charges");
 
 		System.out.println("Average daily Agile saving:\t£" + averagePounds2DP + " (" + countDays + " x " + subTot0
-				+ "p = " + accumulateDifference + "p = [Σ(X)" + recentFlatExclStandingCharge + " + " + countDays + " x "
+				+ "p = " + accumulateDifference + "p = [Σ(F)" + recentFlatExclStandingCharge + " + " + countDays + " x "
 				+ flatStandingCharge + "]-[Σ(A)" + recentAgileExclStandingCharge + " + " + countDays + " x "
 				+ agileStandingCharge + "])");
 
 		System.out.println("Average solar/battery saving:\t£" + solarSaving + " (" + String.format("%.3f", solarPower)
-				+ " kWhr less vr. historical consumption " + preSolarLongTermAverage + " kWhr @ (X) = £"
+				+ " kWhr less vr. historical consumption " + preSolarLongTermAverage + " kWhr @ (F) = £"
 				+ historicDailyCostMinusStandingCharge + " + " + flatStandingCharge + "p = £"
 				+ historicDailyCostInclStandingCharge + ")");
 
@@ -5314,7 +5444,7 @@ public class Octopussy implements IOctopus {
 							sb1.append(ANSI_COLOR_HI);
 						}
 
-						sb1.append('X');
+						sb1.append('F');
 
 					} else if (averageUnitCost == n) {
 
