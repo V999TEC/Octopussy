@@ -2974,9 +2974,9 @@ public class Octopussy implements IOctopus {
 
 				result[i] = nextIndex.intValue();
 
-				System.out.println(WatchSlotChargeHelperThread.SN(i) + ": "
-						+ pricesPerSlotSinceMidnight.get(nextIndex).getSimpleTimeStamp() + "\t"
-						+ pricesPerSlotSinceMidnight.get(nextIndex).getImportPrice() + "p");
+//				System.out.println(WatchSlotChargeHelperThread.SN(i) + ": "
+//						+ pricesPerSlotSinceMidnight.get(nextIndex).getSimpleTimeStamp() + "\t"
+//						+ pricesPerSlotSinceMidnight.get(nextIndex).getImportPrice() + "p");
 			}
 		}
 
