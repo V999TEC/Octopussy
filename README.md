@@ -56,12 +56,25 @@ The builtin octopussy.properties can be used to generate a template so that you 
 
 To display the template do the following:
 
-delete the octopus.import.csv file if it exists
-
 ```
 java -jar octopussy.jar
 ```
-This will cause the program to just display the properties so that you can copy paste into your own property file (let's say it's called My.properties)
+This will cause the program to just display a minimal set of properties so that you can copy paste into your own property file (let's say it's called My.properties)
+
+```
+apiKey=blah_BLAH2pMoreBlahPIXOIO72aIO1blah:
+#
+base.url=https://api.octopus.energy
+#
+electricity.mpan.import=2012345678901
+electricity.mpan.export=2098765432109
+electricity.sn=21L010101
+#
+export=true
+fixed.product.code=OE-LOYAL-FIX-16M-25-02-12
+import.product.code=AGILE-24-10-01
+export.product.code=OUTGOING-VAR-24-10-26
+```
 
 Alternatively you could just pipe the output directly to a file name of your choice
 
@@ -69,30 +82,20 @@ Alternatively you could just pipe the output directly to a file name of your cho
 java -jar octopussy.jar 1>My.properties
 ```
 
-After editing the property file just created to fix the apiKey etc., remember to specify the file name each time as the second parameter, i.e.:
+Edit the property file just created to fix the apiKey, mpans and serial number etc., 
+Override the product.code values with the actual Octopus product names you intend to use
+
+To verify the product.codes and generate a whole lot more property values (which allows a lot of fine tuning subsequently),  do this:
 
 ```
-java -jar octopussy.jar 7 My.properties
+java -jar octopussy.jar 7 My.properties  verify
 ```
 
-Setting the properties by hand can be a burden, so it is possible to get many of the required settings by passing another parameter blah  
-This need only happen once.
+This will display an expanded set of property values which should be inserted into My.properies 
+For example, here is a subset of the expanded properties. 
+Notice a region value has been generated and some comments expanded.
 
 ```
-java -jar octopussy.jar 5 My.properties blah
-```
-
-The program may validate existing property values in My.properties and check the products and tariffs implied
-This feature is experimental and subject to change.
-
-```
-api.solcast=blah_blah_blah
-apiKey=blah_BLAH2pMoreBlahPIXOIO72aIO1blah:
-#
-base.url=https://api.octopus.energy
-electricity.mpan.export=2098765432109
-electricity.mpan.import=2012345678901
-electricity.sn=21L010101
 #
 region=H
 #
@@ -104,7 +107,7 @@ fixed.product.code=OE-LOYAL-FIX-16M-25-02-12
 fixed.tariff.code=E-1R-$fixed.product.code$-$region$
 fixed.tariff.url=$base.url$/v1/products/$fixed.product.code$/electricity-tariffs/$fixed.tariff.code$
 #
-# Agile Octopus October 2024 v1 - Ending 15/02/2026 
+# Agile Octopus October 2024 v1 
 import.electricity.standing=47.9535
 import.product.code=AGILE-24-10-01
 import.tariff.code=E-1R-$import.product.code$-$region$
@@ -114,68 +117,12 @@ import.tariff.url=$base.url$/v1/products/$import.product.code$/electricity-tarif
 export.product.code=OUTGOING-VAR-24-10-26
 export.tariff.code=E-1R-$export.product.code$-$region$
 export.tariff.url=$base.url$/v1/products/$export.product.code$/electricity-tariffs/$export.tariff.code$
-export=true
-#
-zone.id=Europe/London
-history.import=./octopus.import.csv
-history.export=./octopus.export.csv
-baseline=14.75
-#
-days=10
-plunge=3
-target=27
-width=46
-#
-# in Windows console to show ANSI update Registry set REG_DWORD VirtualTerminalLevel=1 for Computer\HKEY_CURRENT_USER\Console
-#
-ansi=true
-colour=GREEN
-color=RED
-#
-yearly=false
-monthly=false
-weekly=false
-daily=false
-#day.from=2023-08-11
-#day.to=2023-09-08
-show.recent=true
-show.savings=true
-limit=30
-#
-setting=java -jar icarus.jar ./Icarus.properties inverter setting %1 %2 %3
-macro=java -jar icarus.jar ./Icarus.properties inverter macro %1 %2 %3 %4
-solar=java -jar icarus.jar ./Icarus.properties inverter meter today solar
-temperature=java -jar icarus.jar ./Icarus.properties inverter system inverter temperature
-battery=java -jar icarus.jar ./Icarus.properties inverter meter today battery
-grid=java -jar icarus.jar ./Icarus.properties inverter meter today grid
-consumption=java -jar icarus.jar ./Icarus.properties inverter meter today consumption
-percent=java -jar icarus.jar ./Icarus.properties inverter system battery percent
-forecast=java -jar icarus.jar ./Icarus.properties forecast solar
-sun=java -jar icarus.jar ./Icarus.properties sun
-#
-file.solar=./solar.csv
-max.solar=22000
-#
-max.rate=6000
-#
-#dfs1=17:30
-#dfs2=18:00
-#
-part1=00:00
-part2=08:00R
-part3=12:00N
-part4=19:00S
-#
-slots1=4:Night:2
-slots2=3:Day
-slots3=2:d
-slots4=1
-#
-power1=5000:100:15
-power2=2500:50:25
-power3=2500:40:20
-power4=3000:30:15
-#
+```
+
+Once there are no errors and you are satisfied the verify has worked, drop the verify parameter from the command line
+
+```
+java -jar octopussy.jar 7 My.properties
 ```
 
 ## History data
