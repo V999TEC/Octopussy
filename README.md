@@ -56,12 +56,25 @@ The builtin octopussy.properties can be used to generate a template so that you 
 
 To display the template do the following:
 
-delete the octopus.import.csv file if it exists
-
 ```
 java -jar octopussy.jar
 ```
-This will cause the program to just display the properties so that you can copy paste into your own property file (let's say it's called My.properties)
+This will cause the program to just display a minimal set of properties so that you can copy paste into your own property file (let's say it's called My.properties)
+
+```
+apiKey=blah_BLAH2pMoreBlahPIXOIO72aIO1blah:
+#
+base.url=https://api.octopus.energy
+#
+electricity.mpan.import=2012345678901
+electricity.mpan.export=2098765432109
+electricity.sn=21L010101
+#
+export=true
+fixed.product.code=OE-LOYAL-FIX-16M-25-02-12
+import.product.code=AGILE-24-10-01
+export.product.code=OUTGOING-VAR-24-10-26
+```
 
 Alternatively you could just pipe the output directly to a file name of your choice
 
@@ -69,44 +82,48 @@ Alternatively you could just pipe the output directly to a file name of your cho
 java -jar octopussy.jar 1>My.properties
 ```
 
-After editing the property file just created to fix the apiKey etc., remember to specify the file name each time as the second parameter, i.e.:
+Edit the property file just created to fix the apiKey, mpans and serial number etc., 
+Override the product.code values with the actual Octopus product names you intend to use
+
+To verify the product.codes and generate a whole lot more property values (which allows a lot of fine tuning subsequently),  do this:
+
+```
+java -jar octopussy.jar 7 My.properties  verify
+```
+
+This will display an expanded set of property values which should be inserted into My.properies 
+For example, here is a subset of the expanded properties. 
+Notice a region value has been generated and some comments expanded.
+
+```
+#
+region=H
+#
+# fixed just used for price comparison (Loyal Octopus 16M Fixed February 2025 v1) in region H
+fixed.electricity.unit=23.789
+fixed.electricity.standing=59.2617
+#
+fixed.product.code=OE-LOYAL-FIX-16M-25-02-12
+fixed.tariff.code=E-1R-$fixed.product.code$-$region$
+fixed.tariff.url=$base.url$/v1/products/$fixed.product.code$/electricity-tariffs/$fixed.tariff.code$
+#
+# Agile Octopus October 2024 v1 
+import.electricity.standing=47.9535
+import.product.code=AGILE-24-10-01
+import.tariff.code=E-1R-$import.product.code$-$region$
+import.tariff.url=$base.url$/v1/products/$import.product.code$/electricity-tariffs/$import.tariff.code$
+#
+# Outgoing Octopus
+export.product.code=OUTGOING-VAR-24-10-26
+export.tariff.code=E-1R-$export.product.code$-$region$
+export.tariff.url=$base.url$/v1/products/$export.product.code$/electricity-tariffs/$export.tariff.code$
+```
+
+Once there are no errors and you are satisfied the verify has worked, drop the verify parameter from the command line
 
 ```
 java -jar octopussy.jar 7 My.properties
 ```
-
-Setting the properties by hand can be a burden, so it is possible to get many of the required settings by passing the Account ID as the third parameter.  
-This need only happen once.
-
-```
-java -jar octopussy.jar 7 A-12345678
-```
-
-Substitute the A-12345678 for your Octopus Energy account number.  The program will then generate the actual values taken from the account, for example:
-
-```
-base.url=https://api.octopus.energy
-electricity.mprn=200001010163
-electricity.sn=21L010101
-gas.mprn=8870000400
-gas.sn=E6S10000061961
-flexible.electricity.via.direct.debit=true
-flexible.electricity.product.code=VAR-22-11-01
-flexible.electricity.unit=30.295124
-flexible.electricity.standing=47.9535
-agile.electricity.standing=42.7665
-import.product.code=AGILE-FLEX-22-11-25
-tariff.code=E-1R-AGILE-FLEX-22-11-25-H
-tariff.url=https://api.octopus.energy/v1/products/AGILE-FLEX-22-11-25/electricity-tariffs/E-1R-AGILE-FLEX-22-11-25-H
-region=H
-#postcode=SN5
-```
-
-The above values are matched to the specified property file and a warning is given for any discrepencies.
-
-Copy the values into the property file and run the program again.
-
-Once no discrepencies are noted then the Account ID can be dropped from the 3rd parameter.
 
 ## History data
 
@@ -135,35 +152,3 @@ The recent data is used to calculate the running average (A) price which dictate
 
 When the consumption results for a day are incomplete, the day is dropped, so the days=N will not always match the number of days actually shown. 
 
-
-## Other settings in properties file
-
-Most of these should be self explanatory
-
-```
-zone.id=Europe/London
-history=./octopus.import.csv
-#
-export.product.code=AGILE-OUTGOING-19-05-13
-export.tariff.code=E-1R-AGILE-OUTGOING-19-05-13-H
-export.tariff.url=https://api.octopus.energy/v1/products/AGILE-OUTGOING-19-05-13/electricity-tariffs/E-1R-AGILE-OUTGOING-19-05-13-H
-export=false
-#
-days=10
-plunge=3
-target=30
-width=46
-#
-# in Windows console to show ANSI update Registry set REG_DWORD VirtualTerminalLevel=1 for Computer\HKEY_CURRENT_USER\Console
-#
-ansi=true
-colour=GREEN
-color=RED
-#
-yearly=false
-monthly=false
-weekly=true
-#
-extra=false
-referral=https://share.octopus.energy/ice-camel-111
-```
