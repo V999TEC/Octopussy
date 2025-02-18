@@ -13,6 +13,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -68,6 +69,8 @@ import uk.co.myzen.a_z.json.V1Profile;
 public class Octopussy implements IOctopus {
 
 	static final Instant now = Instant.now(); // earliest opportunity to log the time
+
+	private static ZonedDateTime ourTimeNow; // initialised once we know the ZoneId
 
 	public final static String DEFAULT_REFERRAL_PROPERTY = "https://share.octopus.energy/ice-camel-111";
 
@@ -264,9 +267,11 @@ public class Octopussy implements IOctopus {
 
 	private final static DateTimeFormatter formatterLocalDate = DateTimeFormatter.ISO_LOCAL_DATE;
 
-	static ZoneId ourZoneId;
+	static ZoneId ourZoneId; // package visibility for benefit of JUnit test
 
 	private static ObjectMapper mapper;
+
+	private static float agileStandingCharge;
 
 	private static int width;
 
@@ -359,6 +364,8 @@ public class Octopussy implements IOctopus {
 	private WatchSlotDischargeHelperThread dischargeMonitorThread = null;
 
 	boolean slotIsCancelled = false;
+
+	private static float pCummulative = 0.0f; // updated in logSolarData();
 
 	private static String[] sunEvents;
 
@@ -710,7 +717,7 @@ public class Octopussy implements IOctopus {
 			// ASSUMPTION: closest instant to start of hour
 			// (typically controlled by crontab schedule)
 
-			ZonedDateTime ourTimeNow = now.atZone(ourZoneId);
+			ourTimeNow = now.atZone(ourZoneId);
 
 			String timestamp = ourTimeNow.toString().substring(0, 19);
 
@@ -2753,6 +2760,9 @@ public class Octopussy implements IOctopus {
 
 			properties.setProperty("basic", "Basic " + Base64.getEncoder().encodeToString(keyValue.getBytes()));
 
+			agileStandingCharge = Float.valueOf(properties.getProperty(KEY_IMPORT_ELECTRICITY_STANDING,
+					DEFAULT_IMPORT_ELECTRICITY_STANDING_PROPERTY));
+
 			export = Boolean.valueOf(properties.getProperty(KEY_EXPORT, DEFAULT_EXPORT_PROPERTY).trim());
 
 			width = Integer.valueOf(properties.getProperty(KEY_WIDTH, DEFAULT_WIDTH_PROPERTY).trim());
@@ -3583,7 +3593,7 @@ public class Octopussy implements IOctopus {
 
 		String csv = rangeStartTime + "," + String.valueOf(solarForecastWhr.intValue()) + "," + (1 + p) + ","
 				+ numberOfParts + "," + percentBattery + "," + kWhrSolar + "," + kWhrGridImport + "," + chargeDischarge
-				+ "," + kWhrConsumption + "," + kWhrGridExport + "," + event;
+				+ "," + kWhrConsumption + "," + kWhrGridExport + "," + event + "," + penceImport;
 
 		for (int n = p; n < numberOfParts; n++) {
 
@@ -3627,6 +3637,9 @@ public class Octopussy implements IOctopus {
 		}
 
 		logSolarData(timestamp, csv);
+
+		System.out.println("Grid import estimate:   " + pCummulative + "p (today so far) based on " + gridImportUnits
+				+ "kWhr including standing charge");
 
 		int[] slots = null;
 
@@ -3999,13 +4012,84 @@ public class Octopussy implements IOctopus {
 
 			try {
 
-				FileWriter fileWriter = new FileWriter(fileSolar, true);
+				long length;
+
+				RandomAccessFile randomAccessFile = new RandomAccessFile(fileSolar, "r");
+
+				length = randomAccessFile.length();
+
+				randomAccessFile.seek(length - 150);
+
+				long pos = 0;
+
+				String lastLine = null;
+
+				do {
+					lastLine = randomAccessFile.readLine();
+
+					pos = randomAccessFile.getFilePointer();
+
+				} while (pos < length);
+
+				randomAccessFile.close();
+
+				// split the line into fields
+
+				String fields[] = lastLine.split(",");
+
+				// get the previous timestamp
+
+				LocalDateTime ldtPrevious = LocalDateTime.parse(fields[0], DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+
+				ZonedDateTime zdtPrevious = ZonedDateTime.of(ldtPrevious, ourZoneId);
+
+				// difference in seconds
+
+				long sDiff = ourTimeNow.toEpochSecond() - zdtPrevious.toEpochSecond();
+
+				// get the previous power imported (Imp:N.M)
+
+				float kWhrGridImport = Float.parseFloat(fields[7]);
+
+				// get the previous grid price per unit in pence
+
+				float pUnitPrice = fields.length < 13 ? 15.0f : Float.parseFloat(fields[12]);
+
+				String latestData[] = data.split(",");
+
+				// get the previous running total (which we assume resets each midnight on the
+				// 00:00 log entry)
+
+				pCummulative = "00:00".equals(latestData[0]) || fields.length < 17 ? agileStandingCharge
+						: Float.parseFloat(fields[16]);
+
+				// get the current grid power imported from latest data
+
+				float kWhrGridImportNow = Float.parseFloat(latestData[6]);
+
+				float gridUnitsSinceLastLogging = kWhrGridImportNow - kWhrGridImport;
+
+				// estimate the cost of imported power in the last sDiff seconds
+
+				float pEstimate = sDiff / 3600 * pUnitPrice * gridUnitsSinceLastLogging;
+
+				pCummulative += pEstimate;
+
+				FileWriter fileWriter = new FileWriter(fileSolar, true); // append to existing file
 
 				BufferedWriter solarDataWriter = new BufferedWriter(fileWriter);
 
 				solarDataWriter.append(timestamp);
 				solarDataWriter.append(",");
 				solarDataWriter.append(data);
+				solarDataWriter.append(",");
+				solarDataWriter.append(String.valueOf(sDiff));
+				solarDataWriter.append(",");
+				solarDataWriter.append(String.valueOf(gridUnitsSinceLastLogging));
+				solarDataWriter.append(",");
+				solarDataWriter.append(String.valueOf(pEstimate));
+				solarDataWriter.append(",");
+				solarDataWriter.append(String.valueOf(pCummulative));
 				solarDataWriter.newLine();
 
 				solarDataWriter.flush();
@@ -5150,8 +5234,8 @@ public class Octopussy implements IOctopus {
 		float flatStandingCharge = Float.valueOf(
 				properties.getProperty(KEY_FIXED_ELECTRICITY_STANDING, DEFAULT_FIXED_ELECTRICITY_STANDING_PROPERTY));
 
-		float agileStandingCharge = Float.valueOf(
-				properties.getProperty(KEY_IMPORT_ELECTRICITY_STANDING, DEFAULT_IMPORT_ELECTRICITY_STANDING_PROPERTY));
+//		float agileStandingCharge = Float.valueOf(
+//				properties.getProperty(KEY_IMPORT_ELECTRICITY_STANDING, DEFAULT_IMPORT_ELECTRICITY_STANDING_PROPERTY));
 
 		for (String key : setOfDays) {
 
