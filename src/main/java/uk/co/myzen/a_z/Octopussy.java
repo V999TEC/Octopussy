@@ -3638,8 +3638,8 @@ public class Octopussy implements IOctopus {
 
 		logSolarData(timestamp, csv);
 
-		System.out.println("Grid import estimate:   " + pCummulative + "p (today so far) based on " + gridImportUnits
-				+ "kWhr including standing charge");
+		System.out.println("Grid import cumulative: " + pCummulative + "p (cost for today, so far...) based on "
+				+ gridImportUnits + " kWhr imported (including daily standing charge)");
 
 		int[] slots = null;
 
@@ -4014,66 +4014,97 @@ public class Octopussy implements IOctopus {
 
 				long length;
 
-				RandomAccessFile randomAccessFile = new RandomAccessFile(fileSolar, "r");
+				String extraData = "";
 
-				length = randomAccessFile.length();
+				try {
+					RandomAccessFile randomAccessFile = new RandomAccessFile(fileSolar, "r");
 
-				randomAccessFile.seek(length - 150);
+					length = randomAccessFile.length();
 
-				long pos = 0;
+					if (length > 150) {
 
-				String lastLine = null;
+						randomAccessFile.seek(length - 150);
+					}
 
-				do {
-					lastLine = randomAccessFile.readLine();
+					long pos = 0;
 
-					pos = randomAccessFile.getFilePointer();
+					String lastLine = null;
 
-				} while (pos < length);
+					do {
+						lastLine = randomAccessFile.readLine();
 
-				randomAccessFile.close();
+						pos = randomAccessFile.getFilePointer();
 
-				// split the line into fields
+					} while (pos < length);
 
-				String fields[] = lastLine.split(",");
+					randomAccessFile.close();
 
-				// get the previous timestamp
+					System.err.println("lastLine={" + lastLine + "}");
+					System.err.println("data={" + data + "}");
 
-				LocalDateTime ldtPrevious = LocalDateTime.parse(fields[0], DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+					// split the line into fields
 
-				ZonedDateTime zdtPrevious = ZonedDateTime.of(ldtPrevious, ourZoneId);
+					String fields[] = lastLine.split(",");
 
-				// difference in seconds
+					// get the previous timestamp
 
-				long sDiff = ourTimeNow.toEpochSecond() - zdtPrevious.toEpochSecond();
+					LocalDateTime ldtPrevious = LocalDateTime.parse(fields[0], DateTimeFormatter.ISO_LOCAL_DATE_TIME);
 
-				// get the previous power imported (Imp:N.M)
+					ZonedDateTime zdtPrevious = ZonedDateTime.of(ldtPrevious, ourZoneId);
 
-				float kWhrGridImport = Float.parseFloat(fields[7]);
+					// difference in seconds
 
-				// get the previous grid price per unit in pence
+					long sDiff = ourTimeNow.toEpochSecond() - zdtPrevious.toEpochSecond();
 
-				float pUnitPrice = fields.length < 13 ? 15.0f : Float.parseFloat(fields[12]);
+					System.err.println(sDiff + " seconds between timestamps for previous and latest");
 
-				String latestData[] = data.split(",");
+					// get the previous power imported (Imp:N.M)
 
-				// get the previous running total (which we assume resets each midnight on the
-				// 00:00 log entry)
+					float kWhrGridImport = Float.parseFloat(fields[7]);
+					// get the current grid power imported from latest data
 
-				pCummulative = "00:00".equals(latestData[0]) || fields.length < 17 ? agileStandingCharge
-						: Float.parseFloat(fields[16]);
+					String latestData[] = data.split(",");
 
-				// get the current grid power imported from latest data
+					float kWhrGridImportNow = Float.parseFloat(latestData[6]);
 
-				float kWhrGridImportNow = Float.parseFloat(latestData[6]);
+					float gridUnitsSinceLastLogging = kWhrGridImportNow - kWhrGridImport;
 
-				float gridUnitsSinceLastLogging = kWhrGridImportNow - kWhrGridImport;
+					System.err.println("previous Imp:" + kWhrGridImport + "\tlatest Imp:" + kWhrGridImportNow
+							+ "\tused:" + gridUnitsSinceLastLogging);
 
-				// estimate the cost of imported power in the last sDiff seconds
+					// get the previous grid price per unit in pence
 
-				float pEstimate = sDiff / 3600 * pUnitPrice * gridUnitsSinceLastLogging;
+					float pUnitPrice = fields.length < 13 ? 15.0f : Float.parseFloat(fields[12]);
 
-				pCummulative += pEstimate;
+					pCummulative = "00:00".equals(latestData[0]) || fields.length < 17 ? agileStandingCharge
+							: Float.parseFloat(fields[16]);
+
+					System.err.println("previous grid price and cummulative cost:" + pUnitPrice + "\t" + pCummulative);
+
+					// estimate the cost of imported power in the last sDiff seconds
+
+					float pEstimate = (float) sDiff / 3600f * pUnitPrice * gridUnitsSinceLastLogging;
+
+					pCummulative += pEstimate;
+
+					System.err.println("estimate of cost and new cummulative:" + pEstimate + "\t" + pCummulative);
+
+					StringBuffer sb = new StringBuffer();
+
+					sb.append(",");
+					sb.append(String.valueOf(sDiff));
+					sb.append(",");
+					sb.append(String.valueOf(gridUnitsSinceLastLogging));
+					sb.append(",");
+					sb.append(String.valueOf(pEstimate));
+					sb.append(",");
+					sb.append(String.valueOf(pCummulative));
+
+					extraData = sb.toString();
+
+				} catch (FileNotFoundException e) {
+
+				}
 
 				FileWriter fileWriter = new FileWriter(fileSolar, true); // append to existing file
 
@@ -4082,14 +4113,8 @@ public class Octopussy implements IOctopus {
 				solarDataWriter.append(timestamp);
 				solarDataWriter.append(",");
 				solarDataWriter.append(data);
-				solarDataWriter.append(",");
-				solarDataWriter.append(String.valueOf(sDiff));
-				solarDataWriter.append(",");
-				solarDataWriter.append(String.valueOf(gridUnitsSinceLastLogging));
-				solarDataWriter.append(",");
-				solarDataWriter.append(String.valueOf(pEstimate));
-				solarDataWriter.append(",");
-				solarDataWriter.append(String.valueOf(pCummulative));
+
+				solarDataWriter.append(extraData);
 				solarDataWriter.newLine();
 
 				solarDataWriter.flush();
@@ -4249,6 +4274,8 @@ public class Octopussy implements IOctopus {
 				solarDataReader.close();
 
 				fileReader.close();
+
+			} catch (FileNotFoundException e1) {
 
 			} catch (IOException e) {
 
