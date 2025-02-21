@@ -4042,8 +4042,8 @@ public class Octopussy implements IOctopus {
 
 					randomAccessFile.close();
 
-					System.err.println("previous={" + lastLine + "}");
-					System.err.println("latest={" + data + "}");
+//					System.err.println("previous={" + lastLine + "}");
+//					System.err.println("latest={" + data + "}");
 
 					// split the line into fields
 
