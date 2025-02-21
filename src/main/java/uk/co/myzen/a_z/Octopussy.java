@@ -56,7 +56,6 @@ import uk.co.myzen.a_z.json.Tariff;
 import uk.co.myzen.a_z.json.V1Charges;
 import uk.co.myzen.a_z.json.V1ElectricityConsumption;
 import uk.co.myzen.a_z.json.V1ElectricityTariff;
-import uk.co.myzen.a_z.json.V1GridSupplyPoints;
 import uk.co.myzen.a_z.json.V1PeriodConsumption;
 import uk.co.myzen.a_z.json.V1ProductSpecific;
 import uk.co.myzen.a_z.json.V1Profile;
@@ -191,7 +190,7 @@ public class Octopussy implements IOctopus {
 			KEY_SOLAR, KEY_PERCENT, KEY_GRID, KEY_CONSUMPTION, KEY_TEMPERATURE, KEY_BATTERY, KEY_SUN, KEY_FORECAST, "#",
 			KEY_FILE_SOLAR, KEY_MAX_SOLAR, KEY_MAX_RATE, "#", KEY_REFERRAL, "#", KEY_VERSION };
 
-	private final static String DEFAULT_API_SOLCAST_PROPERTY = "blahblahblah";
+//	private final static String DEFAULT_API_SOLCAST_PROPERTY = "blahblahblah";
 	private final static String DEFAULT_API_OCTOPUS_PROPERTY = "blah_BLAH2pMoreBlahPIXOIO72aIO1blah:";
 	private final static String DEFAULT_BASE_URL_PROPERTY = "https://api.octopus.energy";
 	private final static String DEFAULT_HISTORY_IMPORT_PROPERTY = "octopus.import.csv";
@@ -365,7 +364,7 @@ public class Octopussy implements IOctopus {
 
 	boolean slotIsCancelled = false;
 
-	private static float pCummulative = 0.0f; // updated in logSolarData();
+//	private static float pCummulative = 0.0f; // updated in logSolarData();
 
 	private static String[] sunEvents;
 
@@ -443,8 +442,8 @@ public class Octopussy implements IOctopus {
 
 			String fullName = null;
 
-			String availableFrom = null;
-			String availableTo = null;
+//			String availableFrom = null;
+//			String availableTo = null;
 
 			for (int index = 0; index < products.length; index++) {
 
@@ -459,8 +458,8 @@ public class Octopussy implements IOctopus {
 
 				specific = getV1ProductSpecific(product);
 
-				availableFrom = specific.getAvailableFrom();
-				availableTo = specific.getAvailableTo();
+//				availableFrom = specific.getAvailableFrom();
+//				availableTo = specific.getAvailableTo();
 
 				String tariff = "E-1R-" + product + "-" + region;
 
@@ -490,7 +489,7 @@ public class Octopussy implements IOctopus {
 
 				for (Prices prices : standingCharges) {
 
-					String from = prices.getValidFrom();
+//					String from = prices.getValidFrom();
 					String to = prices.getValidTo();
 
 					if (null == to) {
@@ -499,7 +498,7 @@ public class Octopussy implements IOctopus {
 					}
 
 					Float fExcVAT = prices.getValueExcVAT();
-					Float fIncVAT = prices.getValueIncVAT();
+//					Float fIncVAT = prices.getValueIncVAT();
 
 //					System.out.println(
 //							"\t\tStanding Charge: " + from + "\t" + to + "\t" + fExcVAT + "\t" + fIncVAT);
@@ -2427,17 +2426,17 @@ public class Octopussy implements IOctopus {
 		return result;
 	}
 
-	private static V1GridSupplyPoints getV1GridSupplyPoints(String postcode) throws MalformedURLException, IOException {
-
-		String spec = properties.getProperty(KEY_BASE_URL, DEFAULT_BASE_URL_PROPERTY).trim()
-				+ "/v1/industry/grid-supply-points/" + "?postcode=" + postcode;
-
-		String json = getRequest(new URL(spec), false);
-
-		V1GridSupplyPoints result = mapper.readValue(json, V1GridSupplyPoints.class);
-
-		return result;
-	}
+//	private static V1GridSupplyPoints getV1GridSupplyPoints(String postcode) throws MalformedURLException, IOException {
+//
+//		String spec = properties.getProperty(KEY_BASE_URL, DEFAULT_BASE_URL_PROPERTY).trim()
+//				+ "/v1/industry/grid-supply-points/" + "?postcode=" + postcode;
+//
+//		String json = getRequest(new URL(spec), false);
+//
+//		V1GridSupplyPoints result = mapper.readValue(json, V1GridSupplyPoints.class);
+//
+//		return result;
+//	}
 
 	private String getRequest(URL url) throws IOException {
 
@@ -3520,8 +3519,9 @@ public class Octopussy implements IOctopus {
 		System.out.println("Plunge price is set to: " + plunge
 				+ "p (System may schedule slots to export to grid from battery when import prices have plunged <= "
 				+ plunge + "p)");
-		System.out.println("Recent (A)verage price: " + averageUnitCost
-				+ "p (for Agile import, 15p for Fixed export) Non-Agile import comparison (F) " + flatRateImport + "p "
+
+		System.out.println("(A)verage unit price:   " + averageUnitCost
+				+ "p (recently for Agile import) Fixed export:15p Non-Agile import (F) " + flatRateImport + "p "
 				+ (ansi ? ANSI_COLOUR_LO : "") + "Solar forecast: " + solarForecastWhr + (ansi ? ANSI_RESET : ""));
 
 		if (dfs.size() > 0) {
@@ -3636,10 +3636,11 @@ public class Octopussy implements IOctopus {
 			}
 		}
 
-		logSolarData(timestamp, csv);
+		float importCostSoFarToday = logSolarData(timestamp, csv);
 
-		System.out.println("Grid import cumulative: " + pCummulative + "p (cost for today, so far...) based on "
-				+ gridImportUnits + " kWhr imported (including daily standing charge)");
+		System.out.println("Today's import cost:    " + String.format("%5.2f", importCostSoFarToday)
+				+ "p (so far...) based on " + gridImportUnits + " kWhr imported up to " + timestamp.substring(11, 19)
+				+ " (including daily standing charge)");
 
 		int[] slots = null;
 
@@ -4006,7 +4007,9 @@ public class Octopussy implements IOctopus {
 		execMacro(macro, macroId, startTime, expiryTime, socMinPercent);
 	}
 
-	private void logSolarData(String timestamp, String data) {
+	private float logSolarData(String timestamp, String data) {
+
+		float pCummulative = 0.0f;
 
 		if (null != fileSolar) {
 
@@ -4039,16 +4042,17 @@ public class Octopussy implements IOctopus {
 
 					randomAccessFile.close();
 
-					System.err.println("lastLine={" + lastLine + "}");
-					System.err.println("data={" + data + "}");
+					System.err.println("previous={" + lastLine + "}");
+					System.err.println("latest={" + data + "}");
 
 					// split the line into fields
 
-					String fields[] = lastLine.split(",");
+					String previousFields[] = lastLine.split(",");
 
 					// get the previous timestamp
 
-					LocalDateTime ldtPrevious = LocalDateTime.parse(fields[0], DateTimeFormatter.ISO_LOCAL_DATE_TIME);
+					LocalDateTime ldtPrevious = LocalDateTime.parse(previousFields[0],
+							DateTimeFormatter.ISO_LOCAL_DATE_TIME);
 
 					ZonedDateTime zdtPrevious = ZonedDateTime.of(ldtPrevious, ourZoneId);
 
@@ -4056,38 +4060,55 @@ public class Octopussy implements IOctopus {
 
 					long sDiff = ourTimeNow.toEpochSecond() - zdtPrevious.toEpochSecond();
 
-					System.err.println(sDiff + " seconds between timestamps for previous and latest");
+//					System.err.println(sDiff + " seconds between timestamps for previous and latest");
 
 					// get the previous power imported (Imp:N.M)
 
-					float kWhrGridImport = Float.parseFloat(fields[7]);
+					float kWhrGridImport = Float.parseFloat(previousFields[7]);
 					// get the current grid power imported from latest data
 
-					String latestData[] = data.split(",");
+					String latestFields[] = data.split(",");
 
-					float kWhrGridImportNow = Float.parseFloat(latestData[6]);
+					float kWhrGridImportNow = Float.parseFloat(latestFields[6]);
 
 					float gridUnitsSinceLastLogging = kWhrGridImportNow - kWhrGridImport;
 
-					System.err.println("previous Imp:" + kWhrGridImport + "\tlatest Imp:" + kWhrGridImportNow
-							+ "\tused:" + gridUnitsSinceLastLogging);
+//					System.err.println("previous Imp:" + kWhrGridImport + "\tlatest Imp:" + kWhrGridImportNow
+//							+ "\tused:" + gridUnitsSinceLastLogging);
 
 					// get the previous grid price per unit in pence
 
-					float pUnitPrice = fields.length < 13 ? 15.0f : Float.parseFloat(fields[12]);
+					float pUnitPrice = previousFields.length < 13 ? 15.0f : Float.parseFloat(previousFields[12]);
 
-					pCummulative = "00:00".equals(latestData[0]) || fields.length < 17 ? agileStandingCharge
-							: Float.parseFloat(fields[16]);
+					if (gridUnitsSinceLastLogging < 0 || previousFields.length < 17) { // assume new day and meters have
+																						// reset
 
-					System.err.println("previous grid price and cummulative cost:" + pUnitPrice + "\t" + pCummulative);
+						pCummulative = agileStandingCharge;
+
+						gridUnitsSinceLastLogging = kWhrGridImportNow;
+
+					} else {
+
+						pCummulative = Float.parseFloat(previousFields[16]);
+					}
+
+					float fractionOfHour = (float) sDiff / 3600f;
+
+					float rateWatts = gridUnitsSinceLastLogging / fractionOfHour * 1000;
+
+//					System.err.println("previous grid price and cummulative cost:" + pUnitPrice + "\t" + pCummulative
+//							+ "\taverage import rate:" + rateWatts + " Watts");
 
 					// estimate the cost of imported power in the last sDiff seconds
 
-					float pEstimate = (float) sDiff / 3600f * pUnitPrice * gridUnitsSinceLastLogging;
+					// eg if 2.0 units are used in half-an hour (1800 secs) we are imported at a
+					// rate of 4kW, however the rate is not as important as the unit price per kWhr
+
+					float pEstimate = fractionOfHour * pUnitPrice * gridUnitsSinceLastLogging;
 
 					pCummulative += pEstimate;
 
-					System.err.println("estimate of cost and new cummulative:" + pEstimate + "\t" + pCummulative);
+//					System.err.println("estimate of cost and new cummulative:" + pEstimate + "\t" + pCummulative);
 
 					StringBuffer sb = new StringBuffer();
 
@@ -4099,6 +4120,8 @@ public class Octopussy implements IOctopus {
 					sb.append(String.valueOf(pEstimate));
 					sb.append(",");
 					sb.append(String.valueOf(pCummulative));
+					sb.append(",");
+					sb.append(String.valueOf(rateWatts));
 
 					extraData = sb.toString();
 
@@ -4127,6 +4150,8 @@ public class Octopussy implements IOctopus {
 				e.printStackTrace();
 			}
 		}
+
+		return pCummulative;
 	}
 
 	private static Map<String, String> getSolarDataFromFile(Set<Integer> weekNumbers) {
