@@ -3516,13 +3516,14 @@ public class Octopussy implements IOctopus {
 //		System.out.println("\t\t\tThe most expensive slot(s) may have reduced charge rate according to solar forecast");
 //		System.out.println(
 //				"No option:\t\tCharging slots full length - no consideration of battery state or solar forecast");
-		System.out.println("Plunge price is set to: " + plunge
+		System.out.println("Plunge price is set to: " + String.format("%2d", plunge)
 				+ "p (System may schedule slots to export to grid from battery when import prices have plunged <= "
 				+ plunge + "p)");
 
-		System.out.println("(A)verage unit price:   " + averageUnitCost
-				+ "p (recently for Agile import) Fixed export:15p Non-Agile import (F) " + flatRateImport + "p "
-				+ (ansi ? ANSI_COLOUR_LO : "") + "Solar forecast: " + solarForecastWhr + (ansi ? ANSI_RESET : ""));
+		System.out.println("(A)verage unit price:  " + String.format("%3d", averageUnitCost)
+				+ "p (recently for Agile import) Fixed export:15p Non-Agile import (F) " + flatRateImport + "p  "
+				+ (ansi ? ANSI_COLOUR_LO : "") + "Solar forecast: " + String.format("%5d", solarForecastWhr)
+				+ (ansi ? ANSI_RESET : ""));
 
 		if (dfs.size() > 0) {
 
@@ -3636,11 +3637,12 @@ public class Octopussy implements IOctopus {
 			}
 		}
 
-		float importCostSoFarToday = logSolarData(timestamp, csv);
+		float importCostSoFarToday = logPowerInputData(timestamp, csv);
 
-		System.out.println("Today's import cost:    " + String.format("%5.2f", importCostSoFarToday)
+		System.out.println("Today's import cost:" + String.format("%5.2f", importCostSoFarToday)
 				+ "p (so far...) based on " + gridImportUnits + " kWhr imported up to " + timestamp.substring(11, 19)
-				+ " (including daily standing charge)");
+				+ " (including standing charge " + agileStandingCharge + "p)" + (ansi ? ANSI_COLOUR_LO : "")
+				+ String.format("%5.0f", 1000 * kWhrSolar) + (ansi ? ANSI_RESET : ""));
 
 		int[] slots = null;
 
@@ -4007,7 +4009,7 @@ public class Octopussy implements IOctopus {
 		execMacro(macro, macroId, startTime, expiryTime, socMinPercent);
 	}
 
-	private float logSolarData(String timestamp, String data) {
+	private float logPowerInputData(String timestamp, String data) {
 
 		float pCummulative = 0.0f;
 
