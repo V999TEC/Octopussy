@@ -34,10 +34,10 @@ If you have an electrical load that needs several hours to run, then use the ver
 
 We can see from the red banding that 4:00pm to 7:00pm are best avoided (which is usually the case each day).
 
-For example, if we neded to find the best 3-hour period (perhaps to run a domestic apppliance that required a long cycle - such as washing machine or dish washer) then we can easily tell from looking at the 3hr column that the cheapest time to run the appliance will start at noon (average 7.59p / unit) but if we delayed to 4pm it would average 30.68p /unit.  If the program cycle neded a couple of kWhrs then the pricing would be 15p verses 61p and so on.
+For example, if we needed to find the best 3-hour period (perhaps to run a domestic apppliance that required a long cycle - such as washing machine or dish washer) then we can easily tell from looking at the 3hr column that the cheapest time to run the appliance will start at noon (average 7.59p / unit) but if we delayed to 4pm it would average 30.68p /unit.  If the program cycle neded a couple of kWhrs then the pricing would be 15p verses 61p and so on.
 
 The "A" that appears in the rows of asterisks indicates the running average unit price that has been achieved over the last week to 10-days (configurable).
-In the eaxmple the (A)verage unit price: 18p
+In the example the (A)verage unit price: 18p
 
 The display is designed to update every half-hour, so the "Today's import cost" figure is just an estimate based on the number of units imported so far that day, allowing for standing charge.
 
@@ -148,7 +148,7 @@ The columns are
 Consumption (kWh), Start, End, Price
 ```
 
-A corresponding file for export history is on the TODO list.
+A corresponding file for export history will also be generated.
 
 ## Bonus feature
 
