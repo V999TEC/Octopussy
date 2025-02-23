@@ -25,17 +25,26 @@ OOTB the basic configuation will be much simpler and not show export or history 
 
 In the picture below you will see a couple of zones with colour. These are controlled by colour=GREEN and color=RED to signify optimum import and export respectively.
 
-![EXAMPLE](/assets/Octopussy6.JPG?raw=true "Picture 6")
+![EXAMPLE](/assets/example_a.JPG?raw=true "Picture 6")
 
 The zones show the lowest and highest calulated _**average**_ unit prices for the given time period.
 
-For instance, looking at the import average prices (colour=GREEN) while the cheapest 30-min slot appears to be 12:30, as indicated by the green asterisks.  
-If you have an electrical load that needs an hour to run, then it is best to start earlier at 12 noon (where the average price for the two 30-min periods is 16.85p).  
-Going down the same 1hr column, we note that delaying the start to 12:30 would give an average price of 17.08p and 1:00 pm would be 17.53p. At 5:00 pm the average price is over 40p!
+For instance, looking at the import average prices (colour=GREEN) while the cheapest 1-hour period appears to be 10:00pm but the cheapest 4-hour period starts at 11:00am . 
+If you have an electrical load that needs several hours to run, then use the vertical bands of green to guide you to the start of the cheapest contiguous periods.  
 
-In contrast the export prices (color=RED) show the best times to start export activity.  
-A 1hr export is optimal at 6:00pm since the average price is 23.02p (thus 2 x 23.02p per unit exported)  
-However if you have enough stored energy to export to the grid over 3 hours then it is much better to start at 4:00 pm when the average price will be 19.98p ( 6 x 19.98 per unit exported)
+We can see from the red banding that 4:00pm to 7:00pm are best avoided (which is usually the case each day).
+
+For example, if we neded to find the best 3-hour period (perhaps to run a domestic apppliance that required a long cycle - such as washing machine or dish washer) then we can easily tell from looking at the 3hr column that the cheapest time to run the appliance will start at noon (average 7.59p / unit) but if we delayed to 4pm it would average 30.68p /unit.  If the program cycle neded a couple of kWhrs then the pricing would be 15p verses 61p and so on.
+
+The "A" that appears in the rows of asterisks indicates the running average unit price that has been achieved over the last week to 10-days (configurable).
+In the eaxmple the (A)verage unit price: 18p
+
+The display is designed to update every half-hour, so the "Today's import cost" figure is just an estimate based on the number of units imported so far that day, allowing for standing charge.
+
+The "Plunge price is set to: 3p" is a configurable parameter which highlights when there is very cheap import electricity available.
+
+From 10:30pm onwards we do not know the pricing of the following half-hour slots. That is why some of the averge price calculations are not filled in.
+However the pricing usually updates aound 4pm, giving figures up to 10:30pm on the following day.
 
 ```
 java -jar octopussy.jar  N  My.properties
