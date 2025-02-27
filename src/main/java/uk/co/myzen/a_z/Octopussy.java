@@ -4066,9 +4066,9 @@ public class Octopussy implements IOctopus {
 
 					length = randomAccessFile.length();
 
-					if (length > 170) {
+					if (length > 190) {
 
-						randomAccessFile.seek(length - 170);
+						randomAccessFile.seek(length - 190);
 					}
 
 					long pos = 0;
