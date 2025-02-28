@@ -3642,15 +3642,7 @@ public class Octopussy implements IOctopus {
 
 		float importCostSoFarToday = costsSoFarToday[0] / 100;
 		float exportCostSoFarToday = costsSoFarToday[1] / 100;
-
-		float score = exportCostSoFarToday - importCostSoFarToday;
-
-		float systemScore = score / importCostSoFarToday * 100;
-
-		if (systemScore > 100) {
-
-			systemScore -= 100;
-		}
+		float systemScore = costsSoFarToday[2];
 
 		System.out.println("Plunge price is set to: " + String.format("%2d", plunge)
 				+ "p (System schedules e(X)port slots prior to price plunge slots <= " + plunge
@@ -4051,6 +4043,7 @@ public class Octopussy implements IOctopus {
 
 		float pCummulativeImport = 0.0f;
 		float pCummulativeExport = 0.0f;
+		float fSystemScore = 0.0f;
 
 		if (null != fileSolar) {
 
@@ -4101,8 +4094,6 @@ public class Octopussy implements IOctopus {
 
 					long sDiff = ourTimeNow.toEpochSecond() - zdtPrevious.toEpochSecond();
 
-					float fractionOfHour = (float) sDiff / 3600f;
-
 					float kWhrGridImport = Float.parseFloat(previousFields[7]);
 
 					String latestFields[] = data.split(",");
@@ -4127,8 +4118,6 @@ public class Octopussy implements IOctopus {
 
 						pCummulativeImport = Float.parseFloat(previousFields[16]);
 					}
-
-					float rateWattsImport = gridUnitsSinceLastLoggingImport / fractionOfHour * 1000;
 
 					float pEstimateImport = pUnitPrice * gridUnitsSinceLastLoggingImport;
 
@@ -4155,11 +4144,18 @@ public class Octopussy implements IOctopus {
 						pCummulativeExport = Float.parseFloat(previousFields[21]);
 					}
 
-					float rateWattsExport = gridUnitsSinceLastLoggingExport / fractionOfHour * 1000;
-
 					float pEstimateExport = pUnitPriceExport * gridUnitsSinceLastLoggingExport;
 
 					pCummulativeExport += pEstimateExport;
+
+					float score = pCummulativeExport - pCummulativeImport;
+
+					fSystemScore = score / pCummulativeImport * 100;
+
+					if (fSystemScore > 100) {
+
+						fSystemScore -= 100;
+					}
 
 					StringBuffer sb = new StringBuffer();
 
@@ -4174,7 +4170,7 @@ public class Octopussy implements IOctopus {
 					sb.append(",");
 					sb.append(String.valueOf(pCummulativeImport));
 					sb.append(",");
-					sb.append(String.valueOf(rateWattsImport));
+					sb.append(" ");
 					sb.append(",");
 					sb.append(String.valueOf(penceExport));
 					sb.append(",");
@@ -4184,7 +4180,7 @@ public class Octopussy implements IOctopus {
 					sb.append(",");
 					sb.append(String.valueOf(pCummulativeExport));
 					sb.append(",");
-					sb.append(String.valueOf(rateWattsExport));
+					sb.append(String.valueOf(fSystemScore));
 
 					extraData = sb.toString();
 
@@ -4217,7 +4213,7 @@ public class Octopussy implements IOctopus {
 			}
 		}
 
-		float[] result = new float[] { pCummulativeImport, pCummulativeExport };
+		float[] result = new float[] { pCummulativeImport, pCummulativeExport, fSystemScore };
 
 		return result;
 	}
