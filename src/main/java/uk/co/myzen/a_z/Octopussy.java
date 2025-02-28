@@ -149,6 +149,7 @@ public class Octopussy implements IOctopus {
 	private final static String KEY_COLOUR = "colour";
 	private final static String KEY_COLOR = "color";
 	private final static String KEY_SUNSHINE = "sunshine";
+	private final static String KEY_SCORE = "score";
 
 	private final static String KEY_YEARLY = "yearly";
 	private final static String KEY_MONTHLY = "monthly";
@@ -186,11 +187,11 @@ public class Octopussy implements IOctopus {
 			KEY_FIXED_ELECTRICITY_STANDING, KEY_IMPORT_ELECTRICITY_STANDING, KEY_IMPORT_TARIFF_CODE,
 			KEY_IMPORT_TARIFF_URL, KEY_REGION, KEY_ZONE_ID, KEY_HISTORY_IMPORT, KEY_HISTORY_EXPORT, "#",
 			KEY_EXPORT_TARIFF_CODE, KEY_EXPORT_TARIFF_URL, KEY_EXPORT, "#", KEY_BASELINE, KEY_DAYS, KEY_PLUNGE,
-			KEY_TARGET, KEY_WIDTH, KEY_ANSI, KEY_COLOUR, KEY_COLOR, KEY_SUNSHINE, "#", KEY_YEARLY, KEY_MONTHLY,
-			KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO, KEY_SHOW_RECENT, KEY_SHOW_SAVINGS, KEY_LIMIT, "#",
-			KEY_SETTING, KEY_MACRO, KEY_SOLAR, KEY_PERCENT, KEY_GRID, KEY_CONSUMPTION, KEY_TEMPERATURE, KEY_BATTERY,
-			KEY_SUN, KEY_FORECAST, "#", KEY_FILE_SOLAR, KEY_MAX_SOLAR, KEY_MAX_RATE, "#", KEY_REFERRAL, "#",
-			KEY_VERSION };
+			KEY_TARGET, KEY_WIDTH, KEY_ANSI, KEY_COLOUR, KEY_COLOR, KEY_SUNSHINE, KEY_SCORE, "#", KEY_YEARLY,
+			KEY_MONTHLY, KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO, KEY_SHOW_RECENT, KEY_SHOW_SAVINGS, KEY_LIMIT,
+			"#", KEY_SETTING, KEY_MACRO, KEY_SOLAR, KEY_PERCENT, KEY_GRID, KEY_CONSUMPTION, KEY_TEMPERATURE,
+			KEY_BATTERY, KEY_SUN, KEY_FORECAST, "#", KEY_FILE_SOLAR, KEY_MAX_SOLAR, KEY_MAX_RATE, "#", KEY_REFERRAL,
+			"#", KEY_VERSION };
 
 //	private final static String DEFAULT_API_SOLCAST_PROPERTY = "blahblahblah";
 	private final static String DEFAULT_API_OCTOPUS_PROPERTY = "blah_BLAH2pMoreBlahPIXOIO72aIO1blah:";
@@ -244,6 +245,7 @@ public class Octopussy implements IOctopus {
 	private final static String DEFAULT_COLOUR_PROPERTY = "GREEN";
 	private final static String DEFAULT_COLOR_PROPERTY = "RED";
 	private final static String DEFAULT_SUNSHINE_PROPERTY = "YELLOW";
+	private final static String DEFAULT_SCORE_PROPERTY = "CYAN";
 
 	private final static String DEFAULT_PLUNGE_PROPERTY = "3";
 	private final static String DEFAULT_TARGET_PROPERTY = "30";
@@ -336,6 +338,7 @@ public class Octopussy implements IOctopus {
 	private static String ANSI_COLOUR_LO; // typically GREEN
 	private static String ANSI_COLOR_HI; // typically RED
 	private static String ANSI_SUNSHINE; // typically YELLOW
+	private static String ANSI_SCORE; // typically CYAN
 
 	private static long epochFrom = 0;
 
@@ -2797,6 +2800,8 @@ public class Octopussy implements IOctopus {
 			ANSI_SUNSHINE = colourMapForeground
 					.get(properties.getProperty(KEY_SUNSHINE, DEFAULT_SUNSHINE_PROPERTY).trim());
 
+			ANSI_SCORE = colourMapForeground.get(properties.getProperty(KEY_SCORE, DEFAULT_SCORE_PROPERTY).trim());
+
 			showRecent = Boolean.valueOf(properties.getProperty(KEY_SHOW_RECENT, DEFAULT_SHOW_RECENT_PROPERTY).trim());
 
 			showSavings = Boolean
@@ -3638,10 +3643,20 @@ public class Octopussy implements IOctopus {
 		float importCostSoFarToday = costsSoFarToday[0] / 100;
 		float exportCostSoFarToday = costsSoFarToday[1] / 100;
 
+		float score = exportCostSoFarToday - importCostSoFarToday;
+
+		float systemScore = score / importCostSoFarToday * 100;
+
+		if (systemScore > 100) {
+
+			systemScore -= 100;
+		}
+
 		System.out.println("Plunge price is set to: " + String.format("%2d", plunge)
-				+ "p (System may schedule e(X)port slots prior to slots where import prices have plunged <= " + plunge
-				+ "p)\t     " + (ansi ? ANSI_SUNSHINE : "") + "£" + String.format("%5.2f", exportCostSoFarToday)
-				+ (ansi ? ANSI_RESET : ""));
+				+ "p (System schedules e(X)port slots prior to price plunge slots <= " + plunge
+				+ "p)  Today's system score: " + (ansi ? ANSI_SCORE : "") + String.format("%+4.1f", systemScore) + "%"
+				+ (ansi ? ANSI_RESET : "") + " " + (ansi ? ANSI_SUNSHINE : "") + "£"
+				+ String.format("%5.2f", exportCostSoFarToday) + (ansi ? ANSI_RESET : ""));
 
 		System.out.println(String.format("%2d", countDays) + " day (A)verage price:"
 				+ String.format("%3d", averageUnitCost)
@@ -3649,8 +3664,9 @@ public class Octopussy implements IOctopus {
 				+ (ansi ? ANSI_COLOUR_LO : "") + "Solar forecast: " + String.format("%5d", solarForecastWhr)
 				+ (ansi ? ANSI_RESET : "") + (ansi ? ANSI_SUNSHINE : "") + " export" + (ansi ? ANSI_RESET : ""));
 
-		System.out.println("Today's import cost: £" + String.format("%5.2f", importCostSoFarToday)
-				+ " (so far...) based on " + gridImportUnits + " kWhr imported up to " + timestamp.substring(11, 19)
+		System.out.println("Today's import cost: " + (ansi ? ANSI_SCORE : "") + "£"
+				+ String.format("%5.2f", importCostSoFarToday) + (ansi ? ANSI_RESET : "") + " (so far...) based on "
+				+ gridImportUnits + " kWhr imported up to " + timestamp.substring(11, 19)
 				+ " (including standing charge " + String.format("%6.2f", agileImportStandingCharge) + "p)  "
 				+ (ansi ? ANSI_COLOUR_LO : "") + String.format("%5.0f", 1000 * kWhrSolar) + (ansi ? ANSI_RESET : "")
 				+ "  " + (ansi ? ANSI_SUNSHINE : "") + gridExportUnits + (ansi ? ANSI_RESET : ""));
