@@ -376,6 +376,8 @@ public class Octopussy implements IOctopus {
 
 	private static String bannerMessage = "";
 
+	private static int countDays = -1;
+
 	public static synchronized Octopussy getInstance() {
 
 		if (null == instance) {
@@ -1099,7 +1101,7 @@ public class Octopussy implements IOctopus {
 			//
 			//
 
-			int averageUnitCost = instance.dailyResults(today, elecMapDaily);
+			int averageUnitCost = instance.dailyResults(today, elecMapDaily); // updates countDays
 
 			//
 			//
@@ -1144,7 +1146,7 @@ public class Octopussy implements IOctopus {
 
 			chargeSchedule = instance.scheduleBatteryCharging(pricesPerSlotSinceMidnight, currentSlotIndex, kWhrSolar,
 					gridImportExport, kWhrConsumption, percentBattery, chargeAndDischarge, timestamp, averageUnitCost,
-					sunData);
+					sunData, countDays);
 
 			dischargeSchedule = instance.scheduleBatteryDischarging(pricesPerSlotSinceMidnight, currentSlotIndex);
 
@@ -3213,7 +3215,7 @@ public class Octopussy implements IOctopus {
 
 	private String[] scheduleBatteryCharging(List<SlotCost> pricesPerSlotSinceMidnight, int currentSlotIndex,
 			Float kWhrSolar, ImportExport gridImportExport, Float kWhrConsumption, Integer percentBattery,
-			ChargeDischarge chargeAndDischarge, String timestamp, int averageUnitCost, int[] sunData) {
+			ChargeDischarge chargeAndDischarge, String timestamp, int averageUnitCost, int[] sunData, int countDays) {
 
 		SlotCost currentSlotCost = pricesPerSlotSinceMidnight.get(currentSlotIndex);
 
@@ -3518,26 +3520,6 @@ public class Octopussy implements IOctopus {
 
 		int nightMinutesReduction = scaleBatteryRange0to29(percentBattery);
 
-//		System.out.println("Daily import restricted to a maximum of " + units
-//				+ " kWhr but constrained by selected options detailed below:");
-//		System.out.println("For option:D(ay)\t30-min slot charging will be reduced by " + dayMinutesReduction
-//				+ " minutes according to solar forecast: " + solarForecastWhr + " / " + maxSolar);
-//
-//		System.out.println(
-//				"For option:N(ight)\t30-min slot charging will be reduced in minutes according to battery level");
-//		System.out.println("\t\t\tThe most expensive slot(s) may have reduced charge rate according to solar forecast");
-//		System.out.println(
-//				"No option:\t\tCharging slots full length - no consideration of battery state or solar forecast");
-
-//		System.out.println("Plunge price is set to: " + String.format("%2d", plunge)
-//				+ "p (System may schedule slots to export to grid from battery when import prices have plunged <= "
-//				+ plunge + "p)");
-//
-//		System.out.println("(A)verage unit price:  " + String.format("%3d", averageUnitCost)
-//				+ "p (recently for Agile import) Fixed export:15p Non-Agile import (F) " + flatRateImport + "p   "
-//				+ (ansi ? ANSI_COLOUR_LO : "") + "Solar forecast: " + String.format("%5d", solarForecastWhr)
-//				+ (ansi ? ANSI_RESET : "") + (ansi ? ANSI_SUNSHINE : "") + " export" + (ansi ? ANSI_RESET : ""));
-
 		if (dfs.size() > 0) {
 
 			System.out.println(dfs.size() + " Demand Flexibility Service event(s) have been configured:");
@@ -3661,8 +3643,9 @@ public class Octopussy implements IOctopus {
 				+ "p)\t     " + (ansi ? ANSI_SUNSHINE : "") + "£" + String.format("%5.2f", exportCostSoFarToday)
 				+ (ansi ? ANSI_RESET : ""));
 
-		System.out.println("(A)verage unit price:  " + String.format("%3d", averageUnitCost)
-				+ "p (recently for Agile import) Fixed export:15p Non-Agile import (F) " + flatRateImport + "p   "
+		System.out.println(String.format("%2d", countDays) + " day (A)verage price:"
+				+ String.format("%3d", averageUnitCost)
+				+ "p (assuming Octopus Agile import and Fixed export:15p) Fixed rate (F) " + flatRateImport + "p "
 				+ (ansi ? ANSI_COLOUR_LO : "") + "Solar forecast: " + String.format("%5d", solarForecastWhr)
 				+ (ansi ? ANSI_RESET : "") + (ansi ? ANSI_SUNSHINE : "") + " export" + (ansi ? ANSI_RESET : ""));
 
@@ -5348,7 +5331,7 @@ public class Octopussy implements IOctopus {
 			System.out.println(sb.toString());
 		}
 
-		int countDays = 0;
+		countDays = 0;
 
 		float accumulateDifference = 0;
 		float accumulatePower = 0;
