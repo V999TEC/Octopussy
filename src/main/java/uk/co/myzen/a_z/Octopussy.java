@@ -3644,22 +3644,22 @@ public class Octopussy implements IOctopus {
 		float exportCostSoFarToday = costsSoFarToday[1] / 100;
 		float systemScore = costsSoFarToday[2];
 
-		System.out.println("Plunge price is set to: " + String.format("%2d", plunge)
+		System.out.println("\nPlunge price is set to:  " + String.format("%2d", plunge)
 				+ "p (System schedules e(X)port slots prior to price plunge slots <= " + plunge
-				+ "p)  Today's system score: " + (ansi ? ANSI_SCORE : "") + String.format("%+4.1f", systemScore) + "%"
+				+ "p) Today's system score: " + (ansi ? ANSI_SCORE : "") + String.format("%+5.1f", systemScore) + "%"
 				+ (ansi ? ANSI_RESET : "") + " " + (ansi ? ANSI_SUNSHINE : "") + "£"
 				+ String.format("%5.2f", exportCostSoFarToday) + (ansi ? ANSI_RESET : ""));
 
-		System.out.println(String.format("%2d", countDays) + " day (A)verage price:"
+		System.out.println(String.format("%2d", countDays) + " day (A)verage price: "
 				+ String.format("%3d", averageUnitCost)
 				+ "p (assuming Octopus Agile import and Fixed export:15p) Fixed rate (F) " + flatRateImport + "p "
 				+ (ansi ? ANSI_COLOUR_LO : "") + "Solar forecast: " + String.format("%5d", solarForecastWhr)
 				+ (ansi ? ANSI_RESET : "") + (ansi ? ANSI_SUNSHINE : "") + " export" + (ansi ? ANSI_RESET : ""));
 
 		System.out.println("Today's import cost: " + (ansi ? ANSI_SCORE : "") + "£"
-				+ String.format("%5.2f", importCostSoFarToday) + (ansi ? ANSI_RESET : "") + " (so far...) based on "
+				+ String.format("%5.2f", importCostSoFarToday) + (ansi ? ANSI_RESET : "") + "  (so far...) based on "
 				+ gridImportUnits + " kWhr imported up to " + timestamp.substring(11, 19)
-				+ " (including standing charge " + String.format("%6.2f", agileImportStandingCharge) + "p)  "
+				+ " (including standing charge " + String.format("%5.2f", agileImportStandingCharge) + "p)   "
 				+ (ansi ? ANSI_COLOUR_LO : "") + String.format("%5.0f", 1000 * kWhrSolar) + (ansi ? ANSI_RESET : "")
 				+ "  " + (ansi ? ANSI_SUNSHINE : "") + gridExportUnits + (ansi ? ANSI_RESET : ""));
 
