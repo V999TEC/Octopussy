@@ -3646,7 +3646,7 @@ public class Octopussy implements IOctopus {
 
 		System.out.println("\nPlunge price is set to:  " + String.format("%2d", plunge)
 				+ "p (System schedules e(X)port slots prior to price plunge slots <= " + plunge
-				+ "p) Today's system score: " + (ansi ? ANSI_SCORE : "") + String.format("%+5.1f", systemScore) + "%"
+				+ "p)  Today's green score: " + (ansi ? ANSI_SCORE : "") + String.format("%+5.1f", systemScore) + "%"
 				+ (ansi ? ANSI_RESET : "") + " " + (ansi ? ANSI_SUNSHINE : "") + "£"
 				+ String.format("%5.2f", exportCostSoFarToday) + (ansi ? ANSI_RESET : ""));
 
