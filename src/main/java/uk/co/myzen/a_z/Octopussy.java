@@ -1051,7 +1051,7 @@ public class Octopussy implements IOctopus {
 
 				SortedMap<String, PeriodicValues> yearly = accumulateCostsByField(ChronoField.YEAR, upToEpochSecond);
 
-				System.out.println("\nHistorical yearly results:");
+				System.out.println("Historical yearly results:");
 
 				displayPeriodSummary("Year", yearly, null, null);
 			}
@@ -1065,7 +1065,7 @@ public class Octopussy implements IOctopus {
 				SortedMap<String, PeriodicValues> monthly = accumulateCostsByField(ChronoField.MONTH_OF_YEAR,
 						upToEpochSecond);
 
-				System.out.println("\nHistorical monthly results:");
+				System.out.println("Historical monthly results:");
 
 				displayPeriodSummary("Month", monthly, null, null);
 			}
@@ -1079,7 +1079,7 @@ public class Octopussy implements IOctopus {
 				SortedMap<String, PeriodicValues> weekly = accumulateCostsByField(ChronoField.ALIGNED_WEEK_OF_YEAR,
 						upToEpochSecond);
 
-				System.out.println("\nHistorical weekly results:");
+				System.out.println("Historical weekly results:");
 
 				displayPeriodSummary("Week", weekly, null, null);
 			}
@@ -1094,7 +1094,7 @@ public class Octopussy implements IOctopus {
 				SortedMap<String, PeriodicValues> daily = accumulateCostsByField(ChronoField.EPOCH_DAY,
 						requiredEpochSecond < 0 ? upToEpochSecond : requiredEpochSecond);
 
-				System.out.println("\nHistorical daily results: " + ("".equals(filterFrom) ? "" : " from " + filterFrom)
+				System.out.println("Historical daily results: " + ("".equals(filterFrom) ? "" : " from " + filterFrom)
 						+ ("".equals(filterTo) ? "" : " up to " + filterTo));
 
 				displayPeriodSummary("Day", daily, fromEpochDayIncl, toEpochDayIncl);
@@ -2095,10 +2095,14 @@ public class Octopussy implements IOctopus {
 
 			float averageDailyEnergy = tallyEnergy / equivalentDays;
 
-			System.out.println("Totals:\t\t" + String.format("%8.3f", tallyEnergy) + " kWhr\t\t\t\t    "
+			float averageDailyCost = tallyCost / equivalentDays;
+
+			System.out.println("Totals:\t\t" + String.format("%8.3f", tallyEnergy) + " kWhr\t"
+					+ (ansi ? ANSI_SCORE : "") + "Average Daily Cost £"
+					+ String.format("%5.2f", (averageDailyCost / 100)) + (ansi ? ANSI_RESET : "") + "   "
 					+ String.format("%7.2f", equivalentDays) + " days   £" + String.format("%7.2f", (tallyCost / 100))
 					+ "\t     Average: " + String.format("%6.3f", averageDailyEnergy) + " kWhr @ "
-					+ String.format("%5.2f", tallyCost / tallyEnergy) + "p");
+					+ String.format("%5.2f", tallyCost / tallyEnergy) + "p\n");
 		}
 	}
 
@@ -3192,7 +3196,12 @@ public class Octopussy implements IOctopus {
 
 				if (0 == currentSlotEndTime.compareTo(result[r])) {
 
-					dischargeMonitorThread = new WatchSlotDischargeHelperThread(this, currentSlotEndTime, 29, r,
+					dischargeMonitorThread = new WatchSlotDischargeHelperThread(this, currentSlotEndTime, 28, r, // experimental:
+																													// 28
+																													// minutes
+																													// instead
+																													// of
+																													// 29
 							lowerSOCpc, Integer.valueOf(maxRate));
 
 					dischargeMonitorThread.start();
@@ -3646,7 +3655,7 @@ public class Octopussy implements IOctopus {
 
 		System.out.println("\nPlunge price is set to:  " + String.format("%2d", plunge)
 				+ "p (System schedules e(X)port slots prior to price plunge slots <= " + plunge
-				+ "p)  Today's green score: " + (ansi ? ANSI_SCORE : "") + String.format("%+5.1f", systemScore) + "%"
+				+ "p)  Today's green score: " + (ansi ? ANSI_SCORE : "") + String.format("%+6.1f", systemScore) + "%"
 				+ (ansi ? ANSI_RESET : "") + " " + (ansi ? ANSI_SUNSHINE : "") + "£"
 				+ String.format("%5.2f", exportCostSoFarToday) + (ansi ? ANSI_RESET : ""));
 
@@ -3758,10 +3767,11 @@ public class Octopussy implements IOctopus {
 
 				String slot = chargeSchedule[n];
 
-				String slotHH = slot.substring(0, 2);
+				String slotHH = null;
 				Integer slotMM = null;
 
 				try {
+					slotHH = slot.substring(0, 2);
 
 					slotMM = Integer.parseInt(slot.substring(3));
 
