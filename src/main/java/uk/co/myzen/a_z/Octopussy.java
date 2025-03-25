@@ -508,15 +508,15 @@ public class Octopussy implements IOctopus {
 						to = "\t\t";
 					}
 
-					Float fExcVAT = prices.getValueExcVAT();
-//					Float fIncVAT = prices.getValueIncVAT();
+//					Float fExcVAT = prices.getValueExcVAT();
+					Float fIncVAT = prices.getValueIncVAT();
 
 //					System.out.println(
 //							"\t\tStanding Charge: " + from + "\t" + to + "\t" + fExcVAT + "\t" + fIncVAT);
 
 					if (null == standing) {
 
-						standing = fExcVAT;
+						standing = fIncVAT;
 					}
 				}
 
@@ -529,7 +529,7 @@ public class Octopussy implements IOctopus {
 
 				for (Prices prices : standardUnitRates) {
 
-					String from = prices.getValidFrom();
+//					String from = prices.getValidFrom();
 					String to = prices.getValidTo();
 
 					if (null == to) {
@@ -537,7 +537,7 @@ public class Octopussy implements IOctopus {
 						to = "\t\t";
 					}
 
-					Float fExcVAT = prices.getValueExcVAT();
+//					Float fExcVAT = prices.getValueExcVAT();
 					Float fIncVAT = prices.getValueIncVAT();
 
 //					System.out.println(
@@ -545,7 +545,7 @@ public class Octopussy implements IOctopus {
 
 					if (null == unit) {
 
-						unit = fExcVAT;
+						unit = fIncVAT;
 					}
 				}
 
