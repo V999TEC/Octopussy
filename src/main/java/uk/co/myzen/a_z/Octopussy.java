@@ -3651,12 +3651,12 @@ public class Octopussy implements IOctopus {
 
 		float importCostSoFarToday = costsSoFarToday[0] / 100;
 		float exportCostSoFarToday = costsSoFarToday[1] / 100;
-		float systemScore = costsSoFarToday[2];
+		float systemScore = costsSoFarToday[2] / 100;
 
 		System.out.println("\nPlunge price is set to:  " + String.format("%2d", plunge)
 				+ "p (System schedules e(X)port slots prior to price plunge slots <= " + plunge
-				+ "p)  Today's green score: " + (ansi ? ANSI_SCORE : "") + String.format("%+6.1f", systemScore) + "%"
-				+ (ansi ? ANSI_RESET : "") + " " + (ansi ? ANSI_SUNSHINE : "") + "£"
+				+ "p)    Performance today: " + (ansi ? ANSI_SCORE : "") + "£ " + String.format("%+5.2f", systemScore)
+				+ " " + (ansi ? ANSI_RESET : "") + " " + (ansi ? ANSI_SUNSHINE : "") + "£"
 				+ String.format("%5.2f", exportCostSoFarToday) + (ansi ? ANSI_RESET : ""));
 
 		System.out.println(String.format("%2d", countDays) + " day (A)verage price: "
@@ -4160,12 +4160,14 @@ public class Octopussy implements IOctopus {
 
 					float score = pCummulativeExport - pCummulativeImport;
 
-					fSystemScore = score / pCummulativeImport * 100;
+//					fSystemScore = score / pCummulativeImport * 100;
+//
+//					if (fSystemScore > 100) {
+//
+//						fSystemScore -= 100;
+//					}
 
-					if (fSystemScore > 100) {
-
-						fSystemScore -= 100;
-					}
+					fSystemScore = score;
 
 					StringBuffer sb = new StringBuffer();
 
