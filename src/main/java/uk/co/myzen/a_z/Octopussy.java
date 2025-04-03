@@ -3172,42 +3172,42 @@ public class Octopussy implements IOctopus {
 
 				result[r] = sc.getSlotEndTime24hr();
 
-				/*
-				 * TODO still to investigate why setting the start/end time for discharge at the
-				 * scheduling point seems ineffective
-				 */
+				if (sc.getImportPrice() > 0) {
 
-				// if (schedulingTime) {
+					if (0 == currentSlotEndTime.compareTo(result[r])) {
 
-				if (0 == currentSlotEndTime.compareTo(result[r])) {
+						batteryDischargePower(Integer.valueOf(maxRate));
 
-					batteryDischargePower(Integer.valueOf(maxRate));
+						int scheduleIndex = r;
 
-					int scheduleIndex = r;
+						String startTime = sc.getSlotStartTime24hr();
 
-					String startTime = sc.getSlotStartTime24hr();
+						String expiryTime = result[r];
 
-					String expiryTime = result[r];
+						int minPercent = lowerSOCpc;
 
-					int minPercent = lowerSOCpc;
+						resetDischargingSlot(scheduleIndex, startTime, expiryTime, minPercent);
+					}
 
-					resetDischargingSlot(scheduleIndex, startTime, expiryTime, minPercent);
-				}
+					if (0 == currentSlotEndTime.compareTo(result[r])) {
 
-				if (0 == currentSlotEndTime.compareTo(result[r])) {
+						dischargeMonitorThread = new WatchSlotDischargeHelperThread(this, currentSlotEndTime, 28, r,
 
-					dischargeMonitorThread = new WatchSlotDischargeHelperThread(this, currentSlotEndTime, 28, r, // experimental:
-																													// 28
-																													// minutes
-																													// instead
-																													// of
-																													// 29
-							lowerSOCpc, Integer.valueOf(maxRate));
+								// experimental: 28 minutes instead of 29
 
-					dischargeMonitorThread.start();
+								lowerSOCpc, Integer.valueOf(maxRate));
 
-					acChargeEnable(false);
-					enableDcDischarge(true);
+						dischargeMonitorThread.start();
+
+						acChargeEnable(false);
+						enableDcDischarge(true);
+					}
+
+				} else {
+
+					logErrTime("ALERT: Cancelling this export slot because import price indicates free or better");
+
+					slotIsCancelled = true;
 				}
 			}
 		}
@@ -4042,7 +4042,7 @@ public class Octopussy implements IOctopus {
 
 		char macroId = "KLMNOPQRST".charAt(scheduleIndex);
 
-		logErrTime(WatchSlotDischargeHelperThread.XN('X', scheduleIndex) + "Reset " + startTime + "-" + expiryTime
+		logErrTime(WatchSlotDischargeHelperThread.XN(scheduleIndex) + "Reset " + startTime + "-" + expiryTime
 				+ " Lower SOC limit " + socMinPercent + "%");
 
 		execMacro(macro, macroId, startTime, expiryTime, socMinPercent);
@@ -5831,7 +5831,7 @@ public class Octopussy implements IOctopus {
 
 						if (0 == to.compareTo(dischargeSchedule[d])) {
 
-							chargeOrdischargeSlot = WatchSlotDischargeHelperThread.XN('X', d);
+							chargeOrdischargeSlot = WatchSlotDischargeHelperThread.XN(d, slotIsCancelled);
 							break;
 						}
 					}

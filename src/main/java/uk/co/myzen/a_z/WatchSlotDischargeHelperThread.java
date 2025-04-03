@@ -7,6 +7,8 @@ import uk.co.myzen.a_z.json.ChargeDischarge;
 
 public class WatchSlotDischargeHelperThread extends Thread implements Runnable {
 
+	private static final char longStrokeOverlay = '̶';
+
 	private final int runTimeoutMinutes;
 	private final int scheduleIndex;
 	private final int socMinPercent;
@@ -18,9 +20,23 @@ public class WatchSlotDischargeHelperThread extends Thread implements Runnable {
 
 	private final String slotN;
 
-	protected static String XN(final char id, int zeroBasedIndex) {
+	protected static String XN(int zeroBasedIndex) {
 
-		return String.valueOf(id) + String.valueOf(1 + zeroBasedIndex) + " ";
+		char[] regular = { 'X', String.valueOf(1 + zeroBasedIndex).charAt(0), ' ' };
+
+		return String.valueOf(regular);
+	}
+
+	protected static String XN(int zeroBasedIndex, boolean cancelled) {
+
+		return cancelled ? XN(zeroBasedIndex, longStrokeOverlay) : XN(zeroBasedIndex);
+	}
+
+	protected static String XN(int zeroBasedIndex, char overlay) {
+
+		char[] strikeThrough = { overlay, 'X', overlay, XN(zeroBasedIndex).charAt(1), ' ' };
+
+		return String.valueOf(strikeThrough);
 	}
 
 	protected WatchSlotDischargeHelperThread(IOctopus i, String expiryTime, int runTimeoutMinutes, int scheduleIndex,
@@ -38,7 +54,7 @@ public class WatchSlotDischargeHelperThread extends Thread implements Runnable {
 
 		this.expiryTime = expiryTime;
 
-		slotN = XN('X', scheduleIndex);
+		slotN = XN(scheduleIndex);
 	}
 
 	@Override

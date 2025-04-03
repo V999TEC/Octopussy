@@ -9,11 +9,11 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 	// See https://symbl.cc/en/unicode/blocks/combining-diacritical-marks/
 
-	private static char longStrokeOverlay = '̶';
+	private static final char longStrokeOverlay = '̶';
 
-	private static char longSolidusOverlay = '̸';
-
-	private static char xAbove = '̽';
+//	private static char longSolidusOverlay = '̸';
+//
+//	private static char xAbove = '̽';
 
 	private final int runTimeoutMinutes;
 	private final int scheduleIndex;
