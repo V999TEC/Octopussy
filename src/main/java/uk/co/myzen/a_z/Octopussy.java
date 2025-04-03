@@ -1049,11 +1049,19 @@ public class Octopussy implements IOctopus {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_YEARLY, DEFAULT_YEARLY_PROPERTY)))) {
 
-				SortedMap<String, PeriodicValues> yearly = accumulateCostsByField(ChronoField.YEAR, upToEpochSecond);
+				SortedMap<String, PeriodicValues> yearlyImport = accumulateCostsByField(historyImport, ChronoField.YEAR,
+						upToEpochSecond);
 
-				System.out.println("Historical yearly results:");
+				System.out.println("Historical yearly results - import:");
 
-				displayPeriodSummary("Year", yearly, null, null);
+				displayPeriodSummary("Year", yearlyImport, null, null);
+				//
+				SortedMap<String, PeriodicValues> yearlyExport = accumulateCostsByField(historyExport, ChronoField.YEAR,
+						upToEpochSecond);
+
+				System.out.println("Historical yearly results - export:");
+
+				displayPeriodSummary("Year", yearlyExport, null, null);
 			}
 
 			//
@@ -1062,12 +1070,12 @@ public class Octopussy implements IOctopus {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_MONTHLY, DEFAULT_MONTHLY_PROPERTY)))) {
 
-				SortedMap<String, PeriodicValues> monthly = accumulateCostsByField(ChronoField.MONTH_OF_YEAR,
-						upToEpochSecond);
+				SortedMap<String, PeriodicValues> monthlyImport = accumulateCostsByField(historyImport,
+						ChronoField.MONTH_OF_YEAR, upToEpochSecond);
 
 				System.out.println("Historical monthly results:");
 
-				displayPeriodSummary("Month", monthly, null, null);
+				displayPeriodSummary("Month", monthlyImport, null, null);
 			}
 
 			//
@@ -1076,12 +1084,12 @@ public class Octopussy implements IOctopus {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_WEEKLY, DEFAULT_WEEKLY_PROPERTY)))) {
 
-				SortedMap<String, PeriodicValues> weekly = accumulateCostsByField(ChronoField.ALIGNED_WEEK_OF_YEAR,
-						upToEpochSecond);
+				SortedMap<String, PeriodicValues> weeklyImport = accumulateCostsByField(historyImport,
+						ChronoField.ALIGNED_WEEK_OF_YEAR, upToEpochSecond);
 
 				System.out.println("Historical weekly results:");
 
-				displayPeriodSummary("Week", weekly, null, null);
+				displayPeriodSummary("Week", weeklyImport, null, null);
 			}
 			//
 			//
@@ -1091,13 +1099,13 @@ public class Octopussy implements IOctopus {
 
 				// get epochSecond for start of next day of range
 
-				SortedMap<String, PeriodicValues> daily = accumulateCostsByField(ChronoField.EPOCH_DAY,
-						requiredEpochSecond < 0 ? upToEpochSecond : requiredEpochSecond);
+				SortedMap<String, PeriodicValues> dailyImport = accumulateCostsByField(historyImport,
+						ChronoField.EPOCH_DAY, requiredEpochSecond < 0 ? upToEpochSecond : requiredEpochSecond);
 
 				System.out.println("Historical daily results: " + ("".equals(filterFrom) ? "" : " from " + filterFrom)
 						+ ("".equals(filterTo) ? "" : " up to " + filterTo));
 
-				displayPeriodSummary("Day", daily, fromEpochDayIncl, toEpochDayIncl);
+				displayPeriodSummary("Day", dailyImport, fromEpochDayIncl, toEpochDayIncl);
 			}
 
 			//
@@ -2106,11 +2114,12 @@ public class Octopussy implements IOctopus {
 		}
 	}
 
-	private static SortedMap<String, PeriodicValues> accumulateCostsByField(ChronoField field, Long upToEpochSecond) {
+	private static SortedMap<String, PeriodicValues> accumulateCostsByField(Map<Long, ConsumptionHistory> history,
+			ChronoField field, Long upToEpochSecond) {
 
 		SortedMap<String, PeriodicValues> result = new TreeMap<String, PeriodicValues>();
 
-		for (Long key : historyImport.keySet()) {
+		for (Long key : history.keySet()) {
 
 			if (null != upToEpochSecond) {
 
@@ -2120,7 +2129,7 @@ public class Octopussy implements IOctopus {
 				}
 			}
 
-			ConsumptionHistory data = historyImport.get(key);
+			ConsumptionHistory data = history.get(key);
 
 			Float price = data.getPriceImportedOrExported();
 
@@ -3651,18 +3660,19 @@ public class Octopussy implements IOctopus {
 
 		float importCostSoFarToday = costsSoFarToday[0] / 100;
 		float exportCostSoFarToday = costsSoFarToday[1] / 100;
-		float systemScore = costsSoFarToday[2] / 100;
+		float netCostSoFarToday = costsSoFarToday[2] / 100;
 
 		System.out.println("\nPlunge price is set to:  " + String.format("%2d", plunge)
 				+ "p (System schedules e(X)port slots prior to price plunge slots <= " + plunge
-				+ "p)    Performance today: " + (ansi ? ANSI_SCORE : "") + "£ " + String.format("%+5.2f", systemScore)
-				+ " " + (ansi ? ANSI_RESET : "") + " " + (ansi ? ANSI_SUNSHINE : "") + "£"
-				+ String.format("%5.2f", exportCostSoFarToday) + (ansi ? ANSI_RESET : ""));
+				+ "p)      Today's cost: " + (ansi ? ANSI_SCORE : "") + "£ "
+				+ String.format("%+5.2f", netCostSoFarToday) + " " + (ansi ? ANSI_RESET : "") + " "
+				+ (ansi ? ANSI_SUNSHINE : "") + " £" + String.format("%5.2f", exportCostSoFarToday)
+				+ (ansi ? ANSI_RESET : ""));
 
 		System.out.println(String.format("%2d", countDays) + " day (A)verage price: "
 				+ String.format("%3d", averageUnitCost)
 				+ "p (assuming Octopus Agile import and Fixed export:15p) Fixed rate (F) " + flatRateImport + "p "
-				+ (ansi ? ANSI_COLOUR_LO : "") + "Solar forecast: " + String.format("%5d", solarForecastWhr)
+				+ (ansi ? ANSI_COLOUR_LO : "") + "Sun forecast: " + String.format("%5d", solarForecastWhr)
 				+ (ansi ? ANSI_RESET : "") + (ansi ? ANSI_SUNSHINE : "") + " export" + (ansi ? ANSI_RESET : ""));
 
 		System.out.println("Today's import cost: " + (ansi ? ANSI_SCORE : "") + "£"
@@ -4158,16 +4168,7 @@ public class Octopussy implements IOctopus {
 
 					pCummulativeExport += pEstimateExport;
 
-					float score = pCummulativeExport - pCummulativeImport;
-
-//					fSystemScore = score / pCummulativeImport * 100;
-//
-//					if (fSystemScore > 100) {
-//
-//						fSystemScore -= 100;
-//					}
-
-					fSystemScore = score;
+					fSystemScore = pCummulativeImport - pCummulativeExport;
 
 					StringBuffer sb = new StringBuffer();
 
