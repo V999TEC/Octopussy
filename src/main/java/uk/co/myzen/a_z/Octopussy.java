@@ -3518,8 +3518,7 @@ public class Octopussy implements IOctopus {
 			ranges.add(range);
 
 			System.out.println("Part{" + (1 + p) + "} " + parts.get(p) + " to " + dayPartsEndAt24hr[p] + "\t"
-					+ slotsPerDayPart[p] + " half-hour slot(s) @ " + powers[p] + " watts (~ " + Math.round(wattHours)
-					+ " Whr)\tBattery " + range + "\t"
+					+ slotsPerDayPart[p] + " half-hour slot(s) up to " + powers[p] + " watts\tBattery " + range + "\t"
 					+ (' ' == options[p] ? " - no option"
 							: " + option:" + options[p] + (null == optionParameters[p] ? ""
 									: ":" + optionParameters[p] + sbScaledDown.toString())));
@@ -3662,11 +3661,13 @@ public class Octopussy implements IOctopus {
 		float exportCostSoFarToday = costsSoFarToday[1] / 100;
 		float netCostSoFarToday = costsSoFarToday[2] / 100;
 
+		float avUnitPriceToday = (costsSoFarToday[0] - agileImportStandingCharge) / (float) kWhrGridImport;
+
 		System.out.println("\nPlunge price is set to:  " + String.format("%2d", plunge)
-				+ "p (System schedules e(X)port slots prior to price plunge slots <= " + plunge
-				+ "p)      Today's cost: " + (ansi ? ANSI_SCORE : "") + "£ "
-				+ String.format("%+5.2f", netCostSoFarToday) + " " + (ansi ? ANSI_RESET : "") + " "
-				+ (ansi ? ANSI_SUNSHINE : "") + " £" + String.format("%5.2f", exportCostSoFarToday)
+				+ "p (System schedules e(X)port slots prior to price plunge slots <= " + plunge + "p) "
+				+ String.format("%5.2f", avUnitPriceToday) + "p / kWhr Surplus: " + (ansi ? ANSI_SCORE : "") + "£"
+				+ String.format("%+5.2f", netCostSoFarToday) + (ansi ? ANSI_RESET : "") + " "
+				+ (ansi ? ANSI_SUNSHINE : "") + "£" + String.format("%5.2f", exportCostSoFarToday)
 				+ (ansi ? ANSI_RESET : ""));
 
 		System.out.println(String.format("%2d", countDays) + " day (A)verage price: "
@@ -4168,7 +4169,7 @@ public class Octopussy implements IOctopus {
 
 					pCummulativeExport += pEstimateExport;
 
-					fSystemScore = pCummulativeImport - pCummulativeExport;
+					fSystemScore = pCummulativeExport - pCummulativeImport; // negative is deficit; positive is surplus
 
 					StringBuffer sb = new StringBuffer();
 
