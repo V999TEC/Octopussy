@@ -1054,14 +1054,18 @@ public class Octopussy implements IOctopus {
 
 				System.out.println("Historical yearly results - import:");
 
-				displayPeriodSummary("Year", yearlyImport, null, null);
+				float costImportTotal = displayPeriodSummary("Year", yearlyImport, null, null);
 				//
 				SortedMap<String, PeriodicValues> yearlyExport = accumulateCostsByField(historyExport, ChronoField.YEAR,
 						upToEpochSecond);
 
 				System.out.println("Historical yearly results - export:");
 
-				displayPeriodSummary("Year", yearlyExport, null, null);
+				float costExportTotal = displayPeriodSummary("Year", yearlyExport, null, null);
+
+				System.out.println("Running total electricity cost: " + (ansi ? ANSI_SUNSHINE : "") + " £"
+						+ String.format("%6.2f", (costImportTotal - costExportTotal) / 100) + (ansi ? ANSI_RESET : "")
+						+ "\n");
 			}
 
 			//
@@ -2003,7 +2007,7 @@ public class Octopussy implements IOctopus {
 		return accumulatedCost;
 	}
 
-	private static void displayPeriodSummary(String id, SortedMap<String, PeriodicValues> periodic, Integer fromIncl,
+	private static float displayPeriodSummary(String id, SortedMap<String, PeriodicValues> periodic, Integer fromIncl,
 			Integer toIncl) {
 
 		String datestamp = null;
@@ -2112,6 +2116,8 @@ public class Octopussy implements IOctopus {
 					+ "\t     Average: " + String.format("%6.3f", averageDailyEnergy) + " kWhr @ "
 					+ String.format("%5.2f", tallyCost / tallyEnergy) + "p\n");
 		}
+
+		return tallyCost;
 	}
 
 	private static SortedMap<String, PeriodicValues> accumulateCostsByField(Map<Long, ConsumptionHistory> history,
@@ -3309,8 +3315,8 @@ public class Octopussy implements IOctopus {
 
 							value = slotStartTimes[sunIndex];
 
-							System.out.println("Due to selected option (" + timeDynamic.charAt(5) + ") adjusted " + key
-									+ "=" + defaultValue + "R start time to " + value + " due to earlier sunrise time");
+							System.out.println("Due to selected option (R) adjusted " + key + "=" + defaultValue
+									+ "R start time to " + value + " due to earlier sunrise time");
 						}
 					}
 
@@ -3337,9 +3343,8 @@ public class Octopussy implements IOctopus {
 
 							value = slotStartTimes[sunIndex];
 
-							System.out.println("Due to selected option (" + timeDynamic.charAt(5) + ") adjusted " + key
-									+ "=" + defaultValue + "N start time to " + value
-									+ " due to later solar noon time");
+							System.out.println("Due to selected option (N) adjusted " + key + "=" + defaultValue
+									+ "N start time to " + value + " due to later solar noon time");
 						}
 					}
 
@@ -3366,8 +3371,8 @@ public class Octopussy implements IOctopus {
 
 							value = slotStartTimes[sunIndex];
 
-							System.out.println("Selected option (" + timeDynamic.charAt(5) + ") adjusted " + key + "="
-									+ defaultValue + "S start time to " + value + " due to later sunset time");
+							System.out.println("Due to selected option (S) adjusted " + key + "=" + defaultValue
+									+ "S start time to " + value + " due to later sunset time");
 						}
 					}
 
