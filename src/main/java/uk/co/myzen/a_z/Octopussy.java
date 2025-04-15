@@ -924,9 +924,8 @@ public class Octopussy implements IOctopus {
 				periodExportResults.addAll(pagePeriodResults);
 			}
 
-			periodExportResults = instance.updateHistory(historyExport, beginRecentPeriod, periodExportResults,
-					howManyDaysHistory, v1ElectricityExported.getCount());
-
+			periodExportResults = instance.updateHistory(false, historyExport, beginRecentPeriod, periodExportResults,
+					howManyDaysHistory);
 			//
 			//
 			//
@@ -986,8 +985,8 @@ public class Octopussy implements IOctopus {
 				periodImportResults.addAll(pagePeriodResults);
 			}
 
-			periodImportResults = instance.updateHistory(historyImport, beginRecentPeriod, periodImportResults,
-					howManyDaysHistory, v1ElectricityImported.getCount());
+			periodImportResults = instance.updateHistory(true, historyImport, beginRecentPeriod, periodImportResults,
+					howManyDaysHistory);
 
 			//
 			//
@@ -3516,7 +3515,7 @@ public class Octopussy implements IOctopus {
 				maxPercents[p] = 100;
 			}
 
-			float wattHours = slotsPerDayPart[p] * powers[p] / 2;
+//			float wattHours = slotsPerDayPart[p] * powers[p] / 2;
 
 			sbScaledDown = new StringBuffer(" ");
 
@@ -6222,12 +6221,14 @@ public class Octopussy implements IOctopus {
 		return elecMapDaily;
 	}
 
-	private ArrayList<V1PeriodConsumption> updateHistory(Map<Long, ConsumptionHistory> historyMap, String someDaysAgo,
-			ArrayList<V1PeriodConsumption> periodResults, int howManyDaysHistory, int count) {
+	private ArrayList<V1PeriodConsumption> updateHistory(boolean isImport, Map<Long, ConsumptionHistory> historyMap,
+			String someDaysAgo, ArrayList<V1PeriodConsumption> periodResults, int howManyDaysHistory) {// , int count) {
 
 		// Add history data for any non-null consumptions
 
 		boolean blah = "blah!".equals(properties.getProperty("TEST"));
+
+		int count = 0;
 
 		for (int index = 0; index < periodResults.size(); index++) {
 
@@ -6263,7 +6264,7 @@ public class Octopussy implements IOctopus {
 
 				ImportExportData ied = importExportPriceMap.get(importExportPriceMapKey);
 
-				float price = ied.getImportPrice();
+				float price = isImport ? ied.getImportPrice() : ied.getExportPrice();
 
 				consumptionHistory.setPriceImportedOrExported(price);
 
@@ -6284,12 +6285,24 @@ public class Octopussy implements IOctopus {
 
 			if (blah && missingConsumptionHistory) {
 
+				count++;
+
+				if (1 == count) {
+
+					System.err.println(
+							"Adding more consumptionHistory data to the existing " + historyMap.size() + " records");
+				}
+
 				System.err.println(consumptionHistory.getConsumption() + ", " + consumptionHistory.getFrom().toString()
 						+ ", " + consumptionHistory.getTo().toString() + ", "
 						+ consumptionHistory.getPriceImportedOrExported() + ", "
 						+ consumptionHistory.getCostImportedOrExported());
 			}
+		}
 
+		if (0 != count) {
+
+			System.err.println("");
 		}
 
 		return periodResults;
