@@ -3316,7 +3316,26 @@ public class Octopussy implements IOctopus {
 							value = slotStartTimes[sunIndex];
 
 							System.out.println("Due to selected option (R) adjusted " + key + "=" + defaultValue
-									+ "R start time to " + value + " due to earlier sunrise time");
+									+ "R start time to " + value + " due to earlier  sunrise time " + sunEvents[0]);
+						}
+					}
+
+				} else if ('C' == timeDynamic.charAt(5)) { // allow slot to start earlier than default (but not later)
+
+					// culmination yet ? i.e., sun at highest point ?
+
+					sunIndex = sunData[1];
+
+					if (-1 == sunIndex) {
+
+						// is it before our default ?
+
+						if (sunIndex < defaultIndex) {
+
+							value = slotStartTimes[sunIndex];
+
+							System.out.println("Due to selected option (C) adjusted " + key + "=" + defaultValue
+									+ "C start time to " + value + " due to earlier culmination at " + sunEvents[1]);
 						}
 					}
 
@@ -3344,7 +3363,7 @@ public class Octopussy implements IOctopus {
 							value = slotStartTimes[sunIndex];
 
 							System.out.println("Due to selected option (N) adjusted " + key + "=" + defaultValue
-									+ "N start time to " + value + " due to later solar noon time");
+									+ "N start time to " + value + " due to later solar noon time " + sunEvents[1]);
 						}
 					}
 
@@ -3372,7 +3391,7 @@ public class Octopussy implements IOctopus {
 							value = slotStartTimes[sunIndex];
 
 							System.out.println("Due to selected option (S) adjusted " + key + "=" + defaultValue
-									+ "S start time to " + value + " due to later sunset time");
+									+ "S start time to " + value + " due to later  time of sunset " + sunEvents[2]);
 						}
 					}
 
@@ -6208,6 +6227,8 @@ public class Octopussy implements IOctopus {
 
 		// Add history data for any non-null consumptions
 
+		boolean blah = "blah!".equals(properties.getProperty("TEST"));
+
 		for (int index = 0; index < periodResults.size(); index++) {
 
 			V1PeriodConsumption periodResult = periodResults.get(index);
@@ -6218,13 +6239,13 @@ public class Octopussy implements IOctopus {
 
 			Long key = odtStart.toEpochSecond();
 
+			Float consumption = periodResult.getConsumption();
+
 			ConsumptionHistory consumptionHistory;
 
-			if (historyMap.containsKey(key)) {
+			boolean missingConsumptionHistory = !historyMap.containsKey(key);
 
-				consumptionHistory = historyMap.get(key);
-
-			} else {
+			if (missingConsumptionHistory) {
 
 				consumptionHistory = new ConsumptionHistory();
 
@@ -6235,15 +6256,40 @@ public class Octopussy implements IOctopus {
 				OffsetDateTime odtEnd = OffsetDateTime.parse(intervalEnd);
 
 				consumptionHistory.setTo(odtEnd);
-			}
 
-			Float consumption = periodResult.getConsumption();
+				LocalDateTime ldt = odtStart.toLocalDateTime();
+
+				String importExportPriceMapKey = ldt.toString(); // n.b not expecting seconds
+
+				ImportExportData ied = importExportPriceMap.get(importExportPriceMapKey);
+
+				float price = ied.getImportPrice();
+
+				consumptionHistory.setPriceImportedOrExported(price);
+
+				float cost = consumption * price;
+
+				consumptionHistory.setCostImportedOrExported(cost);
+
+			} else {
+
+				consumptionHistory = historyMap.get(key);
+			}
 
 			consumptionHistory.setConsumption(consumption);
 
 			// update the history map
 
 			historyMap.put(key, consumptionHistory);
+
+			if (blah && missingConsumptionHistory) {
+
+				System.err.println(consumptionHistory.getConsumption() + ", " + consumptionHistory.getFrom().toString()
+						+ ", " + consumptionHistory.getTo().toString() + ", "
+						+ consumptionHistory.getPriceImportedOrExported() + ", "
+						+ consumptionHistory.getCostImportedOrExported());
+			}
+
 		}
 
 		return periodResults;
