@@ -6268,13 +6268,20 @@ public class Octopussy implements IOctopus {
 
 				ImportExportData ied = importExportPriceMap.get(importExportPriceMapKey);
 
-				float price = isImport ? ied.getImportPrice() : ied.getExportPrice();
+				if (null == ied) {
 
-				consumptionHistory.setPriceImportedOrExported(price);
+					logErrTime("DEFECT: no ied for key " + importExportPriceMapKey);
 
-				float cost = consumption * price;
+				} else {
 
-				consumptionHistory.setCostImportedOrExported(cost);
+					float price = isImport ? ied.getImportPrice() : ied.getExportPrice();
+
+					consumptionHistory.setPriceImportedOrExported(price);
+
+					float cost = consumption * price;
+
+					consumptionHistory.setCostImportedOrExported(cost);
+				}
 
 			} else {
 
