@@ -2729,14 +2729,7 @@ public class Octopussy implements IOctopus {
 
 				if (null != ch.getConsumption()) {
 
-					String entry = String.format("%6.3f", ch.getConsumption()) + ", "
-							+ ch.getFrom().format(defaultDateTimeFormatter) + ", "
-							+ ch.getTo().format(defaultDateTimeFormatter) +
-
-							(null == ch.getPriceImportedOrExported() ? "" :
-
-									", " + String.format("%5.2f", ch.getPriceImportedOrExported()) + ", "
-											+ String.format("%6.3f", ch.getCostImportedOrExported()));
+					String entry = ch.toString();
 
 					bw.newLine();
 					bw.write(entry);
@@ -3702,7 +3695,7 @@ public class Octopussy implements IOctopus {
 		System.out.println("Plunge price is set to:  " + String.format("%2d", plunge)
 				+ "p (System schedules e(X)port slots prior to price plunge slots <= " + plunge + "p) " + "Surplus: "
 				+ (ansi ? (netCostSoFarToday < 0 ? ANSI_COLOR_HI : ANSI_SCORE) : "") + "£"
-				+ String.format("%+5.2f", netCostSoFarToday) + (ansi ? ANSI_RESET : "") + " actual: "
+				+ String.format("%-5.2f", netCostSoFarToday) + (ansi ? ANSI_RESET : "") + " actual: "
 				+ (ansi ? ANSI_COLOUR_LO : "") + String.format("%5.0f", 1000 * kWhrSolar) + (ansi ? ANSI_RESET : "")
 				+ (ansi ? ANSI_SUNSHINE : "") + " £" + String.format("%5.2f", exportCostSoFarToday)
 				+ (ansi ? ANSI_RESET : ""));
@@ -5278,7 +5271,7 @@ public class Octopussy implements IOctopus {
 
 		if (null != tariff) {
 
-			result = tariff.getValueExcVat();
+			result = tariff.getValueIncVat();
 		}
 
 		return result;
@@ -5287,7 +5280,8 @@ public class Octopussy implements IOctopus {
 	private Map<String, ImportExportData> createPriceMap(ArrayList<Tariff> importTariffs,
 			ArrayList<Tariff> exportTariffs) {
 
-		// key is fixed width string YYYY-MM-DDTHH:MM
+		// key is fixed width string YYYY-MM-DDTHH:MM using local time (may be GMT or
+		// BST) without zone or offset
 
 		Map<String, ImportExportData> priceMap = new HashMap<String, ImportExportData>();
 
@@ -5297,11 +5291,16 @@ public class Octopussy implements IOctopus {
 
 			Tariff tariff = importTariffs.get(index);
 
-			String validFrom = tariff.getValidFrom();
-
-			String key = validFrom.substring(0, 16);
+			String validFrom = tariff.getValidFrom(); // zulu time
 
 			OffsetDateTime odtFrom = OffsetDateTime.parse(validFrom, defaultDateTimeFormatter);
+
+			ZonedDateTime zdtFrom = odtFrom.atZoneSameInstant(ourZoneId); // this allows for GMT/BST daylight saving
+																			// adjustment
+
+			LocalDateTime ldt = zdtFrom.toLocalDateTime();
+
+			String key = ldt.toString().substring(0, 16); // this is the local timestamp without seconds
 
 			//
 			//
@@ -5309,7 +5308,7 @@ public class Octopussy implements IOctopus {
 
 			long epochActualFrom = odtFrom.toEpochSecond();
 
-			float importPriceExcVat = getPriceFromTariff(importTariffs, index, epochActualFrom);
+			float importPriceIncVat = getPriceFromTariff(importTariffs, index, epochActualFrom);
 
 			float exportPriceExcVat = getPriceFromTariff(exportTariffs, 0, epochActualFrom);
 
@@ -5324,7 +5323,7 @@ public class Octopussy implements IOctopus {
 				importExportPrices = new ImportExportData();
 			}
 
-			importExportPrices.setImportPrice(importPriceExcVat);
+			importExportPrices.setImportPrice(importPriceIncVat);
 
 			importExportPrices.setExportPrice(exportPriceExcVat);
 
@@ -5938,9 +5937,12 @@ public class Octopussy implements IOctopus {
 
 		for (String key : keys) {
 
-			OffsetDateTime zulu = OffsetDateTime.parse(key + ":00Z");
+			// our keys are already in the local time (we don't need to worry about time
+			// zones GMT/BST/Z )
 
-			long epochSecond = zulu.toEpochSecond();
+			LocalDateTime ldt = LocalDateTime.parse(key);
+
+			long epochSecond = ldt.atZone(ourZoneId).toEpochSecond();
 
 			if (epochSecond >= someTimeAgo) {
 
@@ -5960,7 +5962,9 @@ public class Octopussy implements IOctopus {
 				// the simpleTimeStamp should be in local time (i.e, BST in British Summer) and
 				// not Zulu
 
-				ZonedDateTime zdt = zulu.atZoneSameInstant(ourZoneId);
+//				ZonedDateTime zdt = zulu.atZoneSameInstant(ourZoneId);
+
+				ZonedDateTime zdt = ldt.atZone(ourZoneId);
 
 				price.setSimpleTimeStamp(getSimpleDateTimestamp(zdt));
 
@@ -6289,20 +6293,17 @@ public class Octopussy implements IOctopus {
 
 				if (1 == count) {
 
-					System.err.println(
-							"Adding more consumptionHistory data to the existing " + historyMap.size() + " records");
+					logErrTime("DIAG: Adding more consumptionHistory data to the existing " + historyMap.size()
+							+ (isImport ? " import" : " export") + " records");
 				}
 
-				System.err.println(consumptionHistory.getConsumption() + ", " + consumptionHistory.getFrom().toString()
-						+ ", " + consumptionHistory.getTo().toString() + ", "
-						+ consumptionHistory.getPriceImportedOrExported() + ", "
-						+ consumptionHistory.getCostImportedOrExported());
+				System.err.println(consumptionHistory.toString());
 			}
 		}
 
 		if (0 != count) {
 
-			System.err.println("");
+			logErrTime("DIAG: Updated " + count + (isImport ? " import" : " export") + " records");
 		}
 
 		return periodResults;

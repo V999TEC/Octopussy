@@ -1,6 +1,7 @@
 package uk.co.myzen.a_z;
 
 import java.time.OffsetDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class ConsumptionHistory {
 
@@ -13,6 +14,30 @@ public class ConsumptionHistory {
 	private Float priceImportedOrExported;
 
 	private Float costImportedOrExported;
+
+	private final DateTimeFormatter defaultDateTimeFormatter;
+
+	public ConsumptionHistory(DateTimeFormatter defaultDateTimeFormatter) {
+
+		this.defaultDateTimeFormatter = defaultDateTimeFormatter;
+	}
+
+	public ConsumptionHistory() {
+
+		defaultDateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
+	}
+
+	public String toString() {
+
+		String entry = String.format("%6.3f", getConsumption()) + ", " + getFrom().format(defaultDateTimeFormatter)
+				+ ", " + getTo().format(defaultDateTimeFormatter) +
+
+				(null == getPriceImportedOrExported() ? "" :
+
+						", " + String.format("%5.2f", getPriceImportedOrExported()) + ", "
+								+ String.format("%6.3f", getCostImportedOrExported()));
+		return entry;
+	}
 
 	public Float getConsumption() {
 		return consumption;
