@@ -371,9 +371,7 @@ public class Octopussy implements IOctopus {
 
 	private WatchSlotDischargeHelperThread dischargeMonitorThread = null;
 
-	boolean slotIsCancelled = false;
-
-//	private static float pCummulative = 0.0f; // updated in logSolarData();
+	boolean currentTimeSlotIsCancelled = false;
 
 	private static String[] sunEvents;
 
@@ -3214,7 +3212,7 @@ public class Octopussy implements IOctopus {
 
 					logErrTime("ALERT: Cancelling this export slot because import price indicates free or better");
 
-					slotIsCancelled = true;
+					currentTimeSlotIsCancelled = true;
 				}
 			}
 		}
@@ -3864,7 +3862,7 @@ public class Octopussy implements IOctopus {
 					+ (allChargeSlotsDone ? "true" : "false"));
 		}
 
-		slotIsCancelled = false;
+		currentTimeSlotIsCancelled = false;
 
 		// is the current time a charging slot according to the current schedule?
 
@@ -3889,7 +3887,7 @@ public class Octopussy implements IOctopus {
 
 						resetChargingSlot(s, rangeEndTime, rangeEndTime, 100);
 
-						slotIsCancelled = true;
+						currentTimeSlotIsCancelled = true;
 
 						break; // do not drop through to new WatchSlotChargeHelperThread
 					}
@@ -3909,7 +3907,7 @@ public class Octopussy implements IOctopus {
 
 					resetChargingSlot(s, rangeEndTime, rangeEndTime, 100);
 
-					slotIsCancelled = true;
+					currentTimeSlotIsCancelled = true;
 
 					break; // do not drop through to new WatchSlotChargeHelperThread
 
@@ -3996,7 +3994,7 @@ public class Octopussy implements IOctopus {
 
 								resetChargingSlot(s, rangeEndTime, rangeEndTime, 100);
 
-								slotIsCancelled = true;
+								currentTimeSlotIsCancelled = true;
 
 								break; // do not drop through to new WatchSlotChargeHelperThread
 							}
@@ -5856,7 +5854,13 @@ public class Octopussy implements IOctopus {
 
 						if (0 == to.compareTo(dischargeSchedule[d])) {
 
-							chargeOrdischargeSlot = WatchSlotDischargeHelperThread.XN(d, slotIsCancelled);
+							chargeOrdischargeSlot = WatchSlotDischargeHelperThread.XN(d, currentTimeSlotIsCancelled);
+
+							if (currentTimeSlotIsCancelled) {
+
+								currentTimeSlotIsCancelled = false;
+							}
+
 							break;
 						}
 					}
@@ -5868,7 +5872,13 @@ public class Octopussy implements IOctopus {
 
 						if (0 == to.compareTo(chargeSchedule[s])) {
 
-							chargeOrdischargeSlot = WatchSlotChargeHelperThread.SN(s, slotIsCancelled);
+							chargeOrdischargeSlot = WatchSlotChargeHelperThread.SN(s, currentTimeSlotIsCancelled);
+
+							if (currentTimeSlotIsCancelled) {
+
+								currentTimeSlotIsCancelled = false;
+							}
+
 							break;
 						}
 					}
