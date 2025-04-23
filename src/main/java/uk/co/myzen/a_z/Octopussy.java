@@ -13,6 +13,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.PrintWriter;
 import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
@@ -378,6 +379,10 @@ public class Octopussy implements IOctopus {
 	private static String bannerMessage = "";
 
 	private static int countDays = -1;
+
+	private static boolean forceImportAppendToFile = false;
+
+	private static boolean forceExportAppendToFile = false;
 
 	public static synchronized Octopussy getInstance() {
 
@@ -815,7 +820,7 @@ public class Octopussy implements IOctopus {
 
 			ZonedDateTime zuluBegin = timeRecent.withZoneSameInstant(ZoneId.of("UTC"));
 
-			Long upToEpochSecond = zuluBegin.toEpochSecond();
+			Long recentEpochSecond = zuluBegin.toEpochSecond();
 
 			// In summer time expecting something like 2023-08-27T23:00Z
 
@@ -827,7 +832,8 @@ public class Octopussy implements IOctopus {
 
 			Integer page = 1;
 
-			V1ElectricityTariff tariff = instance.getV1ElectricityTariffImport(page, pageSize, beginRecentPeriod, null);
+			V1ElectricityTariff tariff = instance.getV1ElectricityTariffImport(recentEpochSecond, page, pageSize,
+					beginRecentPeriod, null);
 
 			ArrayList<Tariff> importTariffs = tariff.getTariffResults();
 
@@ -839,7 +845,8 @@ public class Octopussy implements IOctopus {
 
 				page++;
 
-				tariff = instance.getV1ElectricityTariffImport(page, pageSize, beginRecentPeriod, null);
+				tariff = instance.getV1ElectricityTariffImport(recentEpochSecond, page, pageSize, beginRecentPeriod,
+						null);
 
 				ArrayList<Tariff> pageAgileResults = tariff.getTariffResults();
 
@@ -850,7 +857,8 @@ public class Octopussy implements IOctopus {
 
 			if (export) {
 
-				tariff = instance.getV1ElectricityTariffExport(48 * howManyDaysHistory, beginRecentPeriod, null);
+				tariff = instance.getV1ElectricityTariffExport(recentEpochSecond, 1, 48 * howManyDaysHistory,
+						beginRecentPeriod, null);
 
 				exportTariffs = tariff.getTariffResults();
 
@@ -862,6 +870,9 @@ public class Octopussy implements IOctopus {
 			ascendingKeysForPriceMap = new TreeSet<String>();
 
 			ascendingKeysForPriceMap.addAll(importExportPriceMap.keySet());
+
+//			instance.logErrTime("DIAG: priceMap has keys from " + ascendingKeysForPriceMap.first() + " to "
+//					+ ascendingKeysForPriceMap.last());
 
 			//
 			//
@@ -875,55 +886,62 @@ public class Octopussy implements IOctopus {
 
 			ArrayList<V1PeriodConsumption> periodExportResults = null;
 
-			int tries = 0;
+			{
 
-			while (null == periodExportResults) {
+				periodExportResults = null;
 
-				if (0 != tries) {
+				int tries = 0;
 
-					if (10 == tries) {
+				while (null == periodExportResults) {
 
-						instance.logErrTime("Tried " + tries
-								+ " times to getV1ElectricityConsumption() for export without success");
+					if (0 != tries) {
 
-						throw new Exception(
-								"\r\nDouble check the apiKey, electricity.mprn & electricity.sn values in the octopussy.properties\r\n"
-										+ "An option is to create a new octopussy.properties file in the current directory with the correct values\r\n"
-										+ "A template octopussy.properties file can be redisplayed by deleting the octopus.import.csv and running again\r\n"
-										+ "Alternatively replace the resource octopussy.properties inside the jar file using 7-Zip or similar\r\n");
+						if (10 == tries) {
+
+							instance.logErrTime("Tried " + tries
+									+ " times to getV1ElectricityConsumption() for export without success");
+
+							throw new Exception(
+									"\r\nDouble check the apiKey, electricity.mprn & electricity.sn values in the octopussy.properties\r\n"
+											+ "An option is to create a new octopussy.properties file in the current directory with the correct values\r\n"
+											+ "A template octopussy.properties file can be redisplayed by deleting the octopus.import.csv and running again\r\n"
+											+ "Alternatively replace the resource octopussy.properties inside the jar file using 7-Zip or similar\r\n");
+						}
+
+						Thread.sleep(60000l); // wait a minute and try again
 					}
 
-					Thread.sleep(60000l); // wait a minute and try again
+					// we hope to get this in a single page
+
+					v1ElectricityExported = instance.getV1ElectricityExport(recentEpochSecond, page,
+							48 * howManyDaysHistory, beginRecentPeriod, null);
+
+					periodExportResults = v1ElectricityExported.getPeriodResults();
+
+					tries++;
 				}
 
-				// we hope to get this in a single page
+				while (null != v1ElectricityExported.getNext()) {
 
-				v1ElectricityExported = instance.getV1ElectricityExport(page, 48 * howManyDaysHistory,
-						beginRecentPeriod, null);
+					// we don't yet have all the results - pause and then get the next page
 
-				periodExportResults = v1ElectricityExported.getPeriodResults();
+					Thread.sleep(5000); // this is just so we don't bombard the API provider
 
-				tries++;
+					page++;
+
+					v1ElectricityExported = instance.getV1ElectricityExport(recentEpochSecond, page,
+							48 * howManyDaysHistory, beginRecentPeriod, null);
+
+					ArrayList<V1PeriodConsumption> pagePeriodResults = v1ElectricityExported.getPeriodResults();
+
+					periodExportResults.addAll(pagePeriodResults);
+				}
+
+				periodExportResults = instance.updateHistory(false, historyExport, beginRecentPeriod,
+						periodExportResults, howManyDaysHistory);
+
 			}
 
-			while (null != v1ElectricityExported.getNext()) {
-
-				// we don't yet have all the results - pause and then get the next page
-
-				Thread.sleep(5000); // this is just so we don't bombard the API provider
-
-				page++;
-
-				v1ElectricityExported = instance.getV1ElectricityExport(page, 48 * howManyDaysHistory,
-						beginRecentPeriod, null);
-
-				ArrayList<V1PeriodConsumption> pagePeriodResults = v1ElectricityExported.getPeriodResults();
-
-				periodExportResults.addAll(pagePeriodResults);
-			}
-
-			periodExportResults = instance.updateHistory(false, historyExport, beginRecentPeriod, periodExportResults,
-					howManyDaysHistory);
 			//
 			//
 			//
@@ -936,55 +954,60 @@ public class Octopussy implements IOctopus {
 
 			ArrayList<V1PeriodConsumption> periodImportResults = null;
 
-			tries = 0;
+			{
 
-			while (null == periodImportResults) {
+				periodImportResults = null;
 
-				if (0 != tries) {
+				int tries = 0;
 
-					if (10 == tries) {
+				while (null == periodImportResults) {
 
-						instance.logErrTime("Tried " + tries
-								+ " times to getV1ElectricityConsumption() for import without success");
+					if (0 != tries) {
 
-						throw new Exception(
-								"\r\nDouble check the apiKey, electricity.mprn & electricity.sn values in the octopussy.properties\r\n"
-										+ "An option is to create a new octopussy.properties file in the current directory with the correct values\r\n"
-										+ "A template octopussy.properties file can be redisplayed by deleting the octopus.import.csv and running again\r\n"
-										+ "Alternatively replace the resource octopussy.properties inside the jar file using 7-Zip or similar\r\n");
+						if (10 == tries) {
+
+							instance.logErrTime("Tried " + tries
+									+ " times to getV1ElectricityConsumption() for import without success");
+
+							throw new Exception(
+									"\r\nDouble check the apiKey, electricity.mprn & electricity.sn values in the octopussy.properties\r\n"
+											+ "An option is to create a new octopussy.properties file in the current directory with the correct values\r\n"
+											+ "A template octopussy.properties file can be redisplayed by deleting the octopus.import.csv and running again\r\n"
+											+ "Alternatively replace the resource octopussy.properties inside the jar file using 7-Zip or similar\r\n");
+						}
+
+						Thread.sleep(60000l); // wait a minute and try again
 					}
 
-					Thread.sleep(60000l); // wait a minute and try again
+					// we hope to get this in a single page
+
+					v1ElectricityImported = instance.getV1ElectricityImport(recentEpochSecond, page,
+							48 * howManyDaysHistory, beginRecentPeriod, null);
+
+					periodImportResults = v1ElectricityImported.getPeriodResults();
+
+					tries++;
 				}
 
-				// we hope to get this in a single page
+				while (null != v1ElectricityImported.getNext()) {
 
-				v1ElectricityImported = instance.getV1ElectricityImport(page, 48 * howManyDaysHistory,
-						beginRecentPeriod, null);
+					// we don't yet have all the results - pause and then get the next page
 
-				periodImportResults = v1ElectricityImported.getPeriodResults();
+					Thread.sleep(5000); // this is just so we don't bombard the API provider
 
-				tries++;
+					page++;
+
+					v1ElectricityImported = instance.getV1ElectricityImport(recentEpochSecond, page,
+							48 * howManyDaysHistory, beginRecentPeriod, null);
+
+					ArrayList<V1PeriodConsumption> pagePeriodResults = v1ElectricityImported.getPeriodResults();
+
+					periodImportResults.addAll(pagePeriodResults);
+				}
+
+				periodImportResults = instance.updateHistory(true, historyImport, beginRecentPeriod,
+						periodImportResults, howManyDaysHistory);
 			}
-
-			while (null != v1ElectricityImported.getNext()) {
-
-				// we don't yet have all the results - pause and then get the next page
-
-				Thread.sleep(5000); // this is just so we don't bombard the API provider
-
-				page++;
-
-				v1ElectricityImported = instance.getV1ElectricityImport(page, 48 * howManyDaysHistory,
-						beginRecentPeriod, null);
-
-				ArrayList<V1PeriodConsumption> pagePeriodResults = v1ElectricityImported.getPeriodResults();
-
-				periodImportResults.addAll(pagePeriodResults);
-			}
-
-			periodImportResults = instance.updateHistory(true, historyImport, beginRecentPeriod, periodImportResults,
-					howManyDaysHistory);
 
 			//
 			//
@@ -996,10 +1019,15 @@ public class Octopussy implements IOctopus {
 			//
 			//
 
-			instance.appendToHistoryFile(importData, importEpochFrom, historyImport);
+			if (forceImportAppendToFile) {
 
-			instance.appendToHistoryFile(exportData, exportEpochFrom, historyExport);
+				instance.appendToHistoryFile(importData, importEpochFrom, historyImport);
+			}
 
+			if (forceExportAppendToFile) {
+
+				instance.appendToHistoryFile(exportData, exportEpochFrom, historyExport);
+			}
 			//
 			//
 			//
@@ -1047,14 +1075,14 @@ public class Octopussy implements IOctopus {
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_YEARLY, DEFAULT_YEARLY_PROPERTY)))) {
 
 				SortedMap<String, PeriodicValues> yearlyImport = accumulateCostsByField(historyImport, ChronoField.YEAR,
-						upToEpochSecond);
+						recentEpochSecond);
 
 				System.out.println("Historical yearly results - import:");
 
 				float costImportTotal = displayPeriodSummary("Year", yearlyImport, null, null);
 				//
 				SortedMap<String, PeriodicValues> yearlyExport = accumulateCostsByField(historyExport, ChronoField.YEAR,
-						upToEpochSecond);
+						recentEpochSecond);
 
 				System.out.println("Historical yearly results - export:");
 
@@ -1072,7 +1100,7 @@ public class Octopussy implements IOctopus {
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_MONTHLY, DEFAULT_MONTHLY_PROPERTY)))) {
 
 				SortedMap<String, PeriodicValues> monthlyImport = accumulateCostsByField(historyImport,
-						ChronoField.MONTH_OF_YEAR, upToEpochSecond);
+						ChronoField.MONTH_OF_YEAR, recentEpochSecond);
 
 				System.out.println("Historical monthly results:");
 
@@ -1086,7 +1114,7 @@ public class Octopussy implements IOctopus {
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_WEEKLY, DEFAULT_WEEKLY_PROPERTY)))) {
 
 				SortedMap<String, PeriodicValues> weeklyImport = accumulateCostsByField(historyImport,
-						ChronoField.ALIGNED_WEEK_OF_YEAR, upToEpochSecond);
+						ChronoField.ALIGNED_WEEK_OF_YEAR, recentEpochSecond);
 
 				System.out.println("Historical weekly results:");
 
@@ -1101,7 +1129,7 @@ public class Octopussy implements IOctopus {
 				// get epochSecond for start of next day of range
 
 				SortedMap<String, PeriodicValues> dailyImport = accumulateCostsByField(historyImport,
-						ChronoField.EPOCH_DAY, requiredEpochSecond < 0 ? upToEpochSecond : requiredEpochSecond);
+						ChronoField.EPOCH_DAY, requiredEpochSecond < 0 ? recentEpochSecond : requiredEpochSecond);
 
 				System.out.println("Historical daily results: " + ("".equals(filterFrom) ? "" : " from " + filterFrom)
 						+ ("".equals(filterTo) ? "" : " up to " + filterTo));
@@ -1284,6 +1312,55 @@ public class Octopussy implements IOctopus {
 			System.exit(-1);
 		}
 	}
+
+//	private static boolean updateAdvised(File flagfile) {
+//
+//		boolean fileExists = flagfile.exists();
+//
+//		if (fileExists) {
+//
+//			// this file may have been created yesterday
+//			// if so see what time it was created
+//
+//			// find time at start of day
+//
+//			LocalDateTime startOfDay = LocalDateTime.ofInstant(now, ourZoneId).withHour(0).withMinute(0).withSecond(0)
+//					.withNano(0);
+//
+//			ZoneOffset zoneOffset = ourZoneId.getRules().getOffset(startOfDay);
+//
+//			long epochSecondAtStartOfDay = startOfDay.atZone(ourZoneId).toEpochSecond();
+//
+//			long msSinceEpochlastModified = flagfile.lastModified();
+//
+//			Long nanoSeconds = 1000000l * (msSinceEpochlastModified % 1000l);
+//
+//			long epochSecond = msSinceEpochlastModified / 1000l;
+//
+//			int nanoOfSecond = nanoSeconds.intValue();
+//
+//			LocalDateTime ldtLastModified = LocalDateTime.ofEpochSecond(epochSecond, nanoOfSecond, zoneOffset);
+//
+//			if (ldtLastModified.toEpochSecond(zoneOffset) < epochSecondAtStartOfDay) {
+//
+//				try {
+//
+//					instance.logErrTime("DIAG: " + flagfile.getCanonicalPath() + " last modified at "
+//							+ ldtLastModified.toString() + " is now deleted");
+//
+//				} catch (IOException e) {
+//
+//					e.printStackTrace();
+//				}
+//
+//				flagfile.delete(); // this forces extra API calls later
+//
+//				fileExists = false;
+//			}
+//		}
+//
+//		return !fileExists;
+//	}
 
 	private String[] readChargingSchedule(final int howMany) {
 
@@ -2282,25 +2359,45 @@ public class Octopussy implements IOctopus {
 		return result;
 	}
 
-	private V1ElectricityConsumption getV1ElectricityExport(Integer page, Integer pageSize, String periodFrom,
-			String periodTo) throws MalformedURLException, IOException {
-
-		String mprn = properties.getProperty(KEY_ELECTRICITY_MPAN_EXPORT, DEFAULT_ELECTRICITY_MPAN_EXPORT_PROPERTY)
-				.trim();
-
-		String sn = properties.getProperty(KEY_ELECTRICITY_SN, DEFAULT_ELECTRICTY_SN_PROPERTY).trim();
-
-		String baseUrl = properties.getProperty(KEY_BASE_URL, DEFAULT_BASE_URL_PROPERTY).trim();
-
-		String json = instance.getRequest(
-				new URL(baseUrl + "/v1/electricity-meter-points/" + mprn + "/meters/" + sn + "/consumption/" +
-
-						"?order_by=period" + (null == page ? "" : "&page=" + page)
-						+ (null == pageSize ? "" : "&page_size=" + pageSize)
-						+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
-						+ (null == periodTo ? "" : "&period_to=" + periodTo) + "&order_by=period"));
+	private V1ElectricityConsumption getV1ElectricityExport(long epochSecond, Integer page, Integer pageSize,
+			String periodFrom, String periodTo) throws MalformedURLException, IOException {
 
 		V1ElectricityConsumption result = null;
+
+		String prefix = "cache.export.consumption";
+
+		File cache = new File("./" + prefix + "." + epochSecond + "." + page + "." + pageSize + ".json");
+
+		String json = null;
+
+		boolean needtoCache = false;
+
+		boolean useCache = epochSecond > 0;
+
+		if (useCache) {
+
+			json = getFromCache(prefix, epochSecond, cache);
+		}
+
+		if (!useCache || !cache.exists() || null == json) {
+
+			String mprn = properties.getProperty(KEY_ELECTRICITY_MPAN_EXPORT, DEFAULT_ELECTRICITY_MPAN_EXPORT_PROPERTY)
+					.trim();
+
+			String sn = properties.getProperty(KEY_ELECTRICITY_SN, DEFAULT_ELECTRICTY_SN_PROPERTY).trim();
+
+			String baseUrl = properties.getProperty(KEY_BASE_URL, DEFAULT_BASE_URL_PROPERTY).trim();
+
+			json = instance.getRequest(
+					new URL(baseUrl + "/v1/electricity-meter-points/" + mprn + "/meters/" + sn + "/consumption/" +
+
+							"?order_by=period" + (null == page ? "" : "&page=" + page)
+							+ (null == pageSize ? "" : "&page_size=" + pageSize)
+							+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
+							+ (null == periodTo ? "" : "&period_to=" + periodTo) + "&order_by=period"));
+
+			needtoCache = true;
+		}
 
 		if (null == json || 0 == json.trim().length()) {
 
@@ -2308,33 +2405,140 @@ public class Octopussy implements IOctopus {
 
 			result = new V1ElectricityConsumption(); // empty object
 
+			needtoCache = false;
+
 		} else {
 
 			result = mapper.readValue(json, V1ElectricityConsumption.class);
 		}
 
+		if (useCache && needtoCache) {
+
+			cache.createNewFile();
+
+			PrintWriter pw = new PrintWriter(cache);
+
+			pw.println(json);
+			pw.flush();
+
+			pw.close();
+
+			logErrTime(json.length() + " chars in " + cache.getName());
+		}
+
 		return result;
 	}
 
-	private V1ElectricityConsumption getV1ElectricityImport(Integer page, Integer pageSize, String periodFrom,
-			String periodTo) throws MalformedURLException, IOException {
+	private String getFromCache(String prefix, long epochSecond, File cache) throws IOException {
 
-		String mprn = properties.getProperty(KEY_ELECTRICITY_MPAN_IMPORT, DEFAULT_ELECTRICITY_MPAN_IMPORT_PROPERTY)
-				.trim();
+		String json = null;
 
-		String sn = properties.getProperty(KEY_ELECTRICITY_SN, DEFAULT_ELECTRICTY_SN_PROPERTY).trim();
+		// clean up any old cached files older than cache.import.epochSecond.*
 
-		String baseUrl = properties.getProperty(KEY_BASE_URL, DEFAULT_BASE_URL_PROPERTY).trim();
+		List<File> toDelete = new ArrayList<File>();
 
-		String json = instance.getRequest(
-				new URL(baseUrl + "/v1/electricity-meter-points/" + mprn + "/meters/" + sn + "/consumption/" +
+		File fDir = new File("./");
 
-						"?order_by=period" + (null == page ? "" : "&page=" + page)
-						+ (null == pageSize ? "" : "&page_size=" + pageSize)
-						+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
-						+ (null == periodTo ? "" : "&period_to=" + periodTo) + "&order_by=period"));
+		for (File f : fDir.listFiles()) {
+
+			String name = f.getName();
+
+			if (name.startsWith(prefix)) {
+
+				String[] parts = name.split("\\.");
+
+				Long n = Long.parseLong(parts[3]);
+
+				if (n < epochSecond) {
+
+					toDelete.add(f);
+				}
+			}
+		}
+
+		for (File f : toDelete) {
+
+			f.delete();
+		}
+
+		// test if this request has been cached previously
+
+		if (cache.exists()) {
+
+			// amazing
+
+			String ls = System.getProperty("line.separator");
+
+			StringBuffer sb = new StringBuffer();
+
+			FileReader fr = null;
+
+			BufferedReader br = null;
+
+			try {
+				fr = new FileReader(cache);
+
+				br = new BufferedReader(fr);
+
+				String line;
+
+				while (null != (line = br.readLine())) {
+
+					sb.append(line);
+					sb.append(ls);
+				}
+
+			} finally {
+
+				br.close();
+				fr.close();
+			}
+
+			json = sb.toString();
+		}
+
+		return json; // or null
+	}
+
+	private V1ElectricityConsumption getV1ElectricityImport(long epochSecond, Integer page, Integer pageSize,
+			String periodFrom, String periodTo) throws MalformedURLException, IOException {
 
 		V1ElectricityConsumption result = null;
+
+		String prefix = "cache.import.consumption";
+
+		File cache = new File("./" + prefix + "." + epochSecond + "." + page + "." + pageSize + ".json");
+
+		String json = null;
+
+		boolean needtoCache = false;
+
+		boolean useCache = epochSecond > 0;
+
+		if (useCache) {
+
+			json = getFromCache(prefix, epochSecond, cache);
+		}
+
+		if (!useCache || !cache.exists() || null == json) {
+
+			String mprn = properties.getProperty(KEY_ELECTRICITY_MPAN_IMPORT, DEFAULT_ELECTRICITY_MPAN_IMPORT_PROPERTY)
+					.trim();
+
+			String sn = properties.getProperty(KEY_ELECTRICITY_SN, DEFAULT_ELECTRICTY_SN_PROPERTY).trim();
+
+			String baseUrl = properties.getProperty(KEY_BASE_URL, DEFAULT_BASE_URL_PROPERTY).trim();
+
+			json = instance.getRequest(
+					new URL(baseUrl + "/v1/electricity-meter-points/" + mprn + "/meters/" + sn + "/consumption/" +
+
+							"?order_by=period" + (null == page ? "" : "&page=" + page)
+							+ (null == pageSize ? "" : "&page_size=" + pageSize)
+							+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
+							+ (null == periodTo ? "" : "&period_to=" + periodTo) + "&order_by=period"));
+
+			needtoCache = true;
+		}
 
 		if (null == json || 0 == json.trim().length()) {
 
@@ -2342,52 +2546,130 @@ public class Octopussy implements IOctopus {
 
 			result = new V1ElectricityConsumption(); // empty object
 
+			needtoCache = false;
+
 		} else {
 
 			result = mapper.readValue(json, V1ElectricityConsumption.class);
 		}
 
+		if (useCache && needtoCache) {
+
+			cache.createNewFile();
+
+			PrintWriter pw = new PrintWriter(cache);
+
+			pw.println(json);
+			pw.flush();
+
+			pw.close();
+
+			logErrTime(json.length() + " chars stored in " + cache.getName());
+		}
+
 		return result;
+
 	}
 
-	private V1ElectricityTariff getV1ElectricityTariffImport(Integer page, Integer pageSize, String periodFrom,
-			String periodTo) throws MalformedURLException, IOException {
+	private V1ElectricityTariff getV1ElectricityTariffImport(long epochSecond, Integer page, Integer pageSize,
+			String periodFrom, String periodTo) throws MalformedURLException, IOException {
 
 		V1ElectricityTariff result = null;
 
-		String spec = properties.getProperty(KEY_IMPORT_TARIFF_URL, DEFAULT_TARIFF_URL_PROPERTY).trim()
-				+ "/standard-unit-rates/" + "?page_size=" + pageSize + (null == page ? "" : "&page=" + page)
-				+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
-				+ (null == periodTo ? "" : "&period_to=" + periodTo);
+		String prefix = "cache.import.tariff";
 
-		int tries = 0;
+		File cache = new File("./" + prefix + "." + epochSecond + "." + page + "." + pageSize + ".json");
 
-		boolean waitingForGoodResult = true;
+		File flagTomorrow = new File("./" + prefix + "." + epochSecond + "." + 0 + "." + 0 + ".json");
 
-		while (waitingForGoodResult) {
+		String json = null;
 
-			tries++;
+		boolean needtoCache = false;
 
-			try {
-				String json = getRequest(new URL(spec), false);
+		boolean useCache = epochSecond > 0;
 
-				result = mapper.readValue(json, V1ElectricityTariff.class);
+		if (useCache) {
 
-				waitingForGoodResult = false;
+			// By design the cache will be refreshed at midnight
+			// it will contain price data up to 10:30pm on the current day
 
-			} catch (Exception e) {
+			// Don't use cache between 4pm & 6pm as cache needs to be updated
+			// with future prices
 
-				System.out.println(tries + ")\tpage:" + page + "\tpageSize:" + pageSize + "\tperiodFrom:" + periodFrom
-						+ "\tperiodTo:" + periodTo + "\t" + e.getMessage() + "\n" + spec);
+			// Octopus usually publish their prices sometime after 4pm
+			// covering the period up to 10:30pm the next day
+
+			/* TODO */
+			// Since a successful read after the update will result in data
+			// relating to tomorrow, we could avoid unnecessary repeat API
+			// calls at 16:30, 17:00. 17:30
+
+			if (ourTimeNow.getHour() < 16 || ourTimeNow.getHour() > 17 || flagTomorrow.exists()) {
+
+				json = getFromCache(prefix, epochSecond, cache);
+
+			}
+		}
+
+		if (!useCache || !cache.exists() || null == json) {
+
+			String spec = properties.getProperty(KEY_IMPORT_TARIFF_URL, DEFAULT_TARIFF_URL_PROPERTY).trim()
+					+ "/standard-unit-rates/" + "?page_size=" + pageSize + (null == page ? "" : "&page=" + page)
+					+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
+					+ (null == periodTo ? "" : "&period_to=" + periodTo);
+
+			int tries = 0;
+
+			while (!needtoCache) {
+
+				tries++;
 
 				try {
+					json = getRequest(new URL(spec), false);
 
-					Thread.sleep(60000L); // 1 minute pause before hitting API again
+					needtoCache = true;
 
-				} catch (InterruptedException e1) {
+				} catch (Exception e) {
 
-					e1.printStackTrace();
+					System.out.println(tries + ")\tpage:" + page + "\tpageSize:" + pageSize + "\tperiodFrom:"
+							+ periodFrom + "\tperiodTo:" + periodTo + "\t" + e.getMessage() + "\n" + spec);
+
+					try {
+
+						Thread.sleep(60000L); // 1 minute pause before hitting API again
+
+					} catch (InterruptedException e1) {
+
+						e1.printStackTrace();
+					}
 				}
+			}
+		}
+
+		result = mapper.readValue(json, V1ElectricityTariff.class);
+
+		if (useCache && needtoCache) {
+
+			cache.createNewFile();
+
+			PrintWriter pw = new PrintWriter(cache);
+
+			pw.println(json);
+			pw.flush();
+
+			pw.close();
+
+			logErrTime(json.length() + " chars in " + cache.getName());
+
+			ZonedDateTime zdtValidFrom = ZonedDateTime.parse(result.getTariffResults().get(0).getValidFrom());
+
+			// does latest data indicate tommorow's data read ok?
+			// ok: at turn of year this optimisation won't work, but at least we've
+			// considered the situation
+
+			if (zdtValidFrom.getDayOfYear() > ourTimeNow.getDayOfYear()) {
+
+				flagTomorrow.createNewFile();
 			}
 		}
 
@@ -2438,17 +2720,64 @@ public class Octopussy implements IOctopus {
 		return result;
 	}
 
-	private V1ElectricityTariff getV1ElectricityTariffExport(Integer pageSize, String periodFrom, String periodTo)
-			throws MalformedURLException, IOException {
+	private V1ElectricityTariff getV1ElectricityTariffExport(long epochSecond, Integer page, Integer pageSize,
+			String periodFrom, String periodTo) throws MalformedURLException, IOException {
 
-		String spec = properties.getProperty(KEY_EXPORT_TARIFF_URL, DEFAULT_EXPORT_TARIFF_URL_PROPERTY).trim()
-				+ "/standard-unit-rates/" + "?page_size=" + pageSize
-				+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
-				+ (null == periodTo ? "" : "&period_to=" + periodTo);
+		V1ElectricityTariff result = null;
 
-		String json = getRequest(new URL(spec), false);
+		String prefix = "cache.export.tariff";
 
-		V1ElectricityTariff result = mapper.readValue(json, V1ElectricityTariff.class);
+		File cache = new File("./" + prefix + "." + epochSecond + "." + page + "." + pageSize + ".json");
+
+		String json = null;
+
+		boolean needtoCache = false;
+
+		boolean useCache = epochSecond > 0;
+
+		if (useCache) {
+
+			json = getFromCache(prefix, epochSecond, cache);
+		}
+
+		if (!useCache || !cache.exists() || null == json) {
+
+			String spec = properties.getProperty(KEY_EXPORT_TARIFF_URL, DEFAULT_EXPORT_TARIFF_URL_PROPERTY).trim()
+					+ "/standard-unit-rates/" + "?page_size=" + pageSize + (null == page ? "" : "&page=" + page)
+					+ (null == periodFrom ? "" : "&period_from=" + periodFrom)
+					+ (null == periodTo ? "" : "&period_to=" + periodTo);
+
+			json = getRequest(new URL(spec), false);
+
+			needtoCache = true;
+		}
+
+		if (null == json || 0 == json.trim().length()) {
+
+			System.err.println("Error obtaining consumption data. Check the apiKey!");
+
+			result = new V1ElectricityTariff(); // empty object
+
+			needtoCache = false;
+
+		} else {
+
+			result = mapper.readValue(json, V1ElectricityTariff.class);
+		}
+
+		if (useCache && needtoCache) {
+
+			cache.createNewFile();
+
+			PrintWriter pw = new PrintWriter(cache);
+
+			pw.println(json);
+			pw.flush();
+
+			pw.close();
+
+			logErrTime(json.length() + " chars in " + cache.getName());
+		}
 
 		return result;
 	}
@@ -6004,232 +6333,241 @@ public class Octopussy implements IOctopus {
 
 		// imported results
 
-		for (V1PeriodConsumption v1PeriodConsumption : periodImportResults) {
+		if (null != periodImportResults) {
 
-			Float consumption = v1PeriodConsumption.getConsumption();
+			for (V1PeriodConsumption v1PeriodConsumption : periodImportResults) {
 
-			OffsetDateTime from = OffsetDateTime.parse(v1PeriodConsumption.getIntervalStart(),
-					defaultDateTimeFormatter);
+				Float consumption = v1PeriodConsumption.getConsumption();
 
-			String intervalStart = v1PeriodConsumption.getIntervalStart().substring(0, 16);
+				OffsetDateTime from = OffsetDateTime.parse(v1PeriodConsumption.getIntervalStart(),
+						defaultDateTimeFormatter);
 
-			String dayYYYY_MM_DD = intervalStart.substring(0, 10);
+				String intervalStart = v1PeriodConsumption.getIntervalStart().substring(0, 16);
 
-			if (elecMapDaily.containsKey(dayYYYY_MM_DD)) {
+				String dayYYYY_MM_DD = intervalStart.substring(0, 10);
 
-				// it's possible that this day has already been marked incomplete
-				// if so then iterate rather than processing the consumption declared for the
-				// time slot
+				if (elecMapDaily.containsKey(dayYYYY_MM_DD)) {
 
-				if (null == elecMapDaily.get(dayYYYY_MM_DD)) {
+					// it's possible that this day has already been marked incomplete
+					// if so then iterate rather than processing the consumption declared for the
+					// time slot
+
+					if (null == elecMapDaily.get(dayYYYY_MM_DD)) {
+
+						continue;
+					}
+				}
+
+				Integer weekOfYear = Long.valueOf(from.getLong(ChronoField.ALIGNED_WEEK_OF_YEAR)).intValue();
+
+				ImportExportData importExportData = importExportPriceMap.get(intervalStart);
+
+				if (null == importExportData) {
+
+					elecMapDaily.put(dayYYYY_MM_DD, null); // flag this day as incomplete - ignore all time slots on
+															// this
+															// day
 
 					continue;
 				}
-			}
 
-			Integer weekOfYear = Long.valueOf(from.getLong(ChronoField.ALIGNED_WEEK_OF_YEAR)).intValue();
+				Float halfHourImportPrice = importExportData.getImportPrice();
 
-			ImportExportData importExportData = importExportPriceMap.get(intervalStart);
+				if (null == halfHourImportPrice) {
 
-			if (null == importExportData) {
+					elecMapDaily.put(dayYYYY_MM_DD, null); // flag this day as incomplete - ignore all time slots on
+															// this
+															// day
 
-				elecMapDaily.put(dayYYYY_MM_DD, null); // flag this day as incomplete - ignore all time slots on this
-														// day
-
-				continue;
-			}
-
-			Float halfHourImportPrice = importExportData.getImportPrice();
-
-			if (null == halfHourImportPrice) {
-
-				elecMapDaily.put(dayYYYY_MM_DD, null); // flag this day as incomplete - ignore all time slots on this
-														// day
-
-				continue;
-			}
-
-			Long epochKey = from.toEpochSecond();
-
-			ConsumptionHistory latestConsumption = historyImport.get(epochKey);
-
-			if (null == latestConsumption) {
-
-				// System.err.println("error at " + v1PeriodConsumption.getIntervalStart());
-
-			} else {
-
-				latestConsumption.setConsumption(consumption);
-				latestConsumption.setPriceImportedOrExported(halfHourImportPrice);
-				latestConsumption.setCostImportedOrExported(Float.valueOf(consumption * halfHourImportPrice));
-
-				historyImport.put(epochKey, latestConsumption);
-			}
-
-			Float halfHourImportCharge = consumption * halfHourImportPrice;
-
-			DayValues dayValues = null;
-
-			if (elecMapDaily.containsKey(dayYYYY_MM_DD)) {
-
-				dayValues = elecMapDaily.get(dayYYYY_MM_DD);
-
-				if (null == dayValues.getLowestImportPrice()
-						|| halfHourImportPrice < dayValues.getLowestImportPrice()) {
-
-					dayValues.setLowestImportPrice(halfHourImportPrice);
+					continue;
 				}
 
-				dayValues.setSlotCount(1 + dayValues.getSlotCount());
+				Long epochKey = from.toEpochSecond();
 
-				dayValues.setDailyImport(consumption + dayValues.getDailyImport());
+				ConsumptionHistory latestConsumption = historyImport.get(epochKey);
 
-				if (null == dayValues.getDailyImportPrice()) {
+				if (null == latestConsumption) {
 
-					dayValues.setDailyImportPrice(halfHourImportCharge);
+					// System.err.println("error at " + v1PeriodConsumption.getIntervalStart());
 
 				} else {
 
-					dayValues.setDailyImportPrice(halfHourImportCharge + dayValues.getDailyImportPrice());
+					latestConsumption.setConsumption(consumption);
+					latestConsumption.setPriceImportedOrExported(halfHourImportPrice);
+					latestConsumption.setCostImportedOrExported(Float.valueOf(consumption * halfHourImportPrice));
+
+					historyImport.put(epochKey, latestConsumption);
 				}
 
-			} else {
+				Float halfHourImportCharge = consumption * halfHourImportPrice;
 
-				dayValues = new DayValues();
+				DayValues dayValues = null;
 
-				dayValues.setDayOfWeek(from.format(DateTimeFormatter.ofPattern("E")));
+				if (elecMapDaily.containsKey(dayYYYY_MM_DD)) {
 
-				dayValues.setWeekOfYear(weekOfYear);
+					dayValues = elecMapDaily.get(dayYYYY_MM_DD);
 
-				dayValues.setSlotCount(1);
+					if (null == dayValues.getLowestImportPrice()
+							|| halfHourImportPrice < dayValues.getLowestImportPrice()) {
 
-				dayValues.setDailyImport(consumption);
+						dayValues.setLowestImportPrice(halfHourImportPrice);
+					}
 
-				dayValues.setDailyImportPrice(halfHourImportCharge);
+					dayValues.setSlotCount(1 + dayValues.getSlotCount());
 
-				dayValues.setLowestImportPrice(dayValues.getDailyImportPrice());
+					dayValues.setDailyImport(consumption + dayValues.getDailyImport());
 
-				//
+					if (null == dayValues.getDailyImportPrice()) {
 
-				dayValues.setDailyExport(0f);
+						dayValues.setDailyImportPrice(halfHourImportCharge);
 
-				dayValues.setDailyExportPrice(null);
+					} else {
 
-				dayValues.setHighestExportPrice(null);
+						dayValues.setDailyImportPrice(halfHourImportCharge + dayValues.getDailyImportPrice());
+					}
+
+				} else {
+
+					dayValues = new DayValues();
+
+					dayValues.setDayOfWeek(from.format(DateTimeFormatter.ofPattern("E")));
+
+					dayValues.setWeekOfYear(weekOfYear);
+
+					dayValues.setSlotCount(1);
+
+					dayValues.setDailyImport(consumption);
+
+					dayValues.setDailyImportPrice(halfHourImportCharge);
+
+					dayValues.setLowestImportPrice(dayValues.getDailyImportPrice());
+
+					//
+
+					dayValues.setDailyExport(0f);
+
+					dayValues.setDailyExportPrice(null);
+
+					dayValues.setHighestExportPrice(null);
+				}
+
+				elecMapDaily.put(dayYYYY_MM_DD, dayValues);
 			}
 
-			elecMapDaily.put(dayYYYY_MM_DD, dayValues);
 		}
 
 		// exported results
 
-		for (V1PeriodConsumption v1PeriodConsumption : periodExportResults) {
+		if (null != periodExportResults) {
 
-			Float consumption = v1PeriodConsumption.getConsumption();
+			for (V1PeriodConsumption v1PeriodConsumption : periodExportResults) {
 
-			OffsetDateTime from = OffsetDateTime.parse(v1PeriodConsumption.getIntervalStart(),
-					defaultDateTimeFormatter);
+				Float consumption = v1PeriodConsumption.getConsumption();
 
-			String intervalStart = v1PeriodConsumption.getIntervalStart().substring(0, 16);
+				OffsetDateTime from = OffsetDateTime.parse(v1PeriodConsumption.getIntervalStart(),
+						defaultDateTimeFormatter);
 
-			String dayYYYY_MM_DD = intervalStart.substring(0, 10);
+				String intervalStart = v1PeriodConsumption.getIntervalStart().substring(0, 16);
 
-			if (elecMapDaily.containsKey(dayYYYY_MM_DD)) {
+				String dayYYYY_MM_DD = intervalStart.substring(0, 10);
 
-				// it's possible that this day has already been marked incomplete
-				// if so then iterate rather than processing the consumption declared for the
-				// time slot
+				if (elecMapDaily.containsKey(dayYYYY_MM_DD)) {
 
-				if (null == elecMapDaily.get(dayYYYY_MM_DD)) {
+					// it's possible that this day has already been marked incomplete
+					// if so then iterate rather than processing the consumption declared for the
+					// time slot
+
+					if (null == elecMapDaily.get(dayYYYY_MM_DD)) {
+
+						continue;
+					}
+				}
+
+				Integer weekOfYear = Long.valueOf(from.getLong(ChronoField.ALIGNED_WEEK_OF_YEAR)).intValue();
+
+				ImportExportData importExportData = importExportPriceMap.get(intervalStart);
+
+				if (null == importExportData) {
 
 					continue;
 				}
-			}
 
-			Integer weekOfYear = Long.valueOf(from.getLong(ChronoField.ALIGNED_WEEK_OF_YEAR)).intValue();
+				Float halfHourExportPrice = importExportData.getExportPrice();
 
-			ImportExportData importExportData = importExportPriceMap.get(intervalStart);
+				if (null == halfHourExportPrice) {
 
-			if (null == importExportData) {
-
-				continue;
-			}
-
-			Float halfHourExportPrice = importExportData.getExportPrice();
-
-			if (null == halfHourExportPrice) {
-
-				continue;
-			}
-
-			Long epochKey = from.toEpochSecond();
-
-			ConsumptionHistory latestConsumption = historyExport.get(epochKey);
-
-			if (null != latestConsumption) {
-
-				latestConsumption.setConsumption(consumption);
-				latestConsumption.setPriceImportedOrExported(halfHourExportPrice);
-				latestConsumption.setCostImportedOrExported(Float.valueOf(consumption * halfHourExportPrice));
-
-				historyExport.put(epochKey, latestConsumption);
-			}
-
-			Float halfHourExportCharge = consumption * halfHourExportPrice;
-
-			DayValues dayValues = null;
-
-			if (elecMapDaily.containsKey(dayYYYY_MM_DD)) {
-
-				dayValues = elecMapDaily.get(dayYYYY_MM_DD);
-
-				// NOTE: kludge because export prices fixed at 15p (use highest import price
-				// instead)
-
-				Float halfHourImportPrice = importExportData.getImportPrice();
-
-				if (null == dayValues.getHighestExportPrice()
-						|| importExportData.getImportPrice() > dayValues.getHighestExportPrice()) {
-
-					dayValues.setHighestExportPrice(halfHourImportPrice);
+					continue;
 				}
 
-				dayValues.setDailyExport(consumption + dayValues.getDailyExport());
+				Long epochKey = from.toEpochSecond();
 
-				if (null == dayValues.getDailyExportPrice()) {
+				ConsumptionHistory latestConsumption = historyExport.get(epochKey);
 
-					dayValues.setDailyExportPrice(halfHourExportCharge);
+				if (null != latestConsumption) {
+
+					latestConsumption.setConsumption(consumption);
+					latestConsumption.setPriceImportedOrExported(halfHourExportPrice);
+					latestConsumption.setCostImportedOrExported(Float.valueOf(consumption * halfHourExportPrice));
+
+					historyExport.put(epochKey, latestConsumption);
+				}
+
+				Float halfHourExportCharge = consumption * halfHourExportPrice;
+
+				DayValues dayValues = null;
+
+				if (elecMapDaily.containsKey(dayYYYY_MM_DD)) {
+
+					dayValues = elecMapDaily.get(dayYYYY_MM_DD);
+
+					// NOTE: kludge because export prices fixed at 15p (use highest import price
+					// instead)
+
+					Float halfHourImportPrice = importExportData.getImportPrice();
+
+					if (null == dayValues.getHighestExportPrice()
+							|| importExportData.getImportPrice() > dayValues.getHighestExportPrice()) {
+
+						dayValues.setHighestExportPrice(halfHourImportPrice);
+					}
+
+					dayValues.setDailyExport(consumption + dayValues.getDailyExport());
+
+					if (null == dayValues.getDailyExportPrice()) {
+
+						dayValues.setDailyExportPrice(halfHourExportCharge);
+
+					} else {
+
+						dayValues.setDailyExportPrice(halfHourExportCharge + dayValues.getDailyExportPrice());
+					}
 
 				} else {
 
-					dayValues.setDailyExportPrice(halfHourExportCharge + dayValues.getDailyExportPrice());
+					dayValues = new DayValues();
+
+					dayValues.setDayOfWeek(from.format(DateTimeFormatter.ofPattern("E")));
+
+					dayValues.setWeekOfYear(weekOfYear);
+
+					dayValues.setSlotCount(1);
+
+					dayValues.setDailyExport(consumption);
+
+					dayValues.setDailyExportPrice(halfHourExportCharge);
+
+					dayValues.setHighestExportPrice(dayValues.getDailyExportPrice());
+
+					//
+					dayValues.setDailyImport(0f);
+
+					dayValues.setDailyImportPrice(null);
+
+					dayValues.setLowestImportPrice(null);
 				}
 
-			} else {
-
-				dayValues = new DayValues();
-
-				dayValues.setDayOfWeek(from.format(DateTimeFormatter.ofPattern("E")));
-
-				dayValues.setWeekOfYear(weekOfYear);
-
-				dayValues.setSlotCount(1);
-
-				dayValues.setDailyExport(consumption);
-
-				dayValues.setDailyExportPrice(halfHourExportCharge);
-
-				dayValues.setHighestExportPrice(dayValues.getDailyExportPrice());
-
-				//
-				dayValues.setDailyImport(0f);
-
-				dayValues.setDailyImportPrice(null);
-
-				dayValues.setLowestImportPrice(null);
+				elecMapDaily.put(dayYYYY_MM_DD, dayValues);
 			}
-
-			elecMapDaily.put(dayYYYY_MM_DD, dayValues);
 		}
 
 		return elecMapDaily;
@@ -6280,7 +6618,11 @@ public class Octopussy implements IOctopus {
 
 				if (null == ied) {
 
-					logErrTime("DEFECT: no ied for key " + importExportPriceMapKey);
+//					logErrTime("DEFECT: no " + (isImport ? "import" : "export") + " price data for key "
+//							+ importExportPriceMapKey);
+
+					consumptionHistory.setPriceImportedOrExported(0f);
+					consumptionHistory.setCostImportedOrExported(0f);
 
 				} else {
 
@@ -6320,7 +6662,19 @@ public class Octopussy implements IOctopus {
 
 		if (0 != count) {
 
-			logErrTime("DIAG: Updated " + count + (isImport ? " import" : " export") + " records");
+			if (isImport) {
+
+				logErrTime("DIAG: Updated " + count + " import records");
+
+				forceImportAppendToFile = true;
+
+			} else {
+
+				logErrTime("DIAG: Updated " + count + " export records");
+
+				forceExportAppendToFile = true;
+			}
+
 		}
 
 		return periodResults;
