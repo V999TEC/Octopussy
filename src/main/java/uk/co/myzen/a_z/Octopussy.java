@@ -2368,18 +2368,28 @@ public class Octopussy implements IOctopus {
 
 		File cache = new File("./" + prefix + "." + epochSecond + "." + page + "." + pageSize + ".json");
 
+		File flagLatestAvailable = new File("./" + prefix + "." + epochSecond + "." + 0 + "." + 0 + ".json");
+
 		String json = null;
 
 		boolean needtoCache = false;
 
-		boolean useCache = epochSecond > 0;
+		boolean cacheInUse = epochSecond > 0;
 
-		if (useCache) {
+		boolean forceWriteCache = epochSecond < 0;
 
-			json = getFromCache(prefix, epochSecond, cache);
+		if (cacheInUse) {
+
+			// typically around 1pm the latest consumption data for export will be
+			// published for REST access
+
+			if (ourTimeNow.getHour() < 13 || flagLatestAvailable.exists()) {
+
+				json = getFromCache(prefix, epochSecond, cache); // null if no cache found
+			}
 		}
 
-		if (!useCache || !cache.exists() || null == json) {
+		if (!cacheInUse || !cache.exists() || null == json) {
 
 			String mprn = properties.getProperty(KEY_ELECTRICITY_MPAN_EXPORT, DEFAULT_ELECTRICITY_MPAN_EXPORT_PROPERTY)
 					.trim();
@@ -2412,9 +2422,9 @@ public class Octopussy implements IOctopus {
 			result = mapper.readValue(json, V1ElectricityConsumption.class);
 		}
 
-		if (useCache && needtoCache) {
+		if (needtoCache && (cacheInUse || forceWriteCache)) {
 
-			cache.createNewFile();
+			boolean created = cache.createNewFile();
 
 			PrintWriter pw = new PrintWriter(cache);
 
@@ -2423,7 +2433,21 @@ public class Octopussy implements IOctopus {
 
 			pw.close();
 
-			logErrTime(json.length() + " chars in " + cache.getName());
+			logErrTime(result.getCount() + ":" + json.length() + " in " + (created ? "new" : "existing") + " file "
+					+ cache.getName());
+
+			long nowEpochSecond = ourTimeNow.toEpochSecond();
+
+			Long days = (nowEpochSecond - epochSecond) / 86400l;
+
+			int test = days.intValue() * 48;
+
+			if (result.getCount() >= test) {
+
+				// assume we have the latest data
+
+				flagLatestAvailable.createNewFile();
+			}
 		}
 
 		return result;
@@ -2509,18 +2533,28 @@ public class Octopussy implements IOctopus {
 
 		File cache = new File("./" + prefix + "." + epochSecond + "." + page + "." + pageSize + ".json");
 
+		File flagLatestAvailable = new File("./" + prefix + "." + epochSecond + "." + 0 + "." + 0 + ".json");
+
 		String json = null;
 
 		boolean needtoCache = false;
 
-		boolean useCache = epochSecond > 0;
+		boolean cacheInUse = epochSecond > 0;
 
-		if (useCache) {
+		boolean forceWriteCache = epochSecond < 0;
 
-			json = getFromCache(prefix, epochSecond, cache);
+		if (cacheInUse) {
+
+			// typically around 11 am the latest consumption data for import will be
+			// published for REST access
+
+			if (ourTimeNow.getHour() < 11 || flagLatestAvailable.exists()) {
+
+				json = getFromCache(prefix, epochSecond, cache); // null if no cache found
+			}
 		}
 
-		if (!useCache || !cache.exists() || null == json) {
+		if (!cacheInUse || !cache.exists() || null == json) {
 
 			String mprn = properties.getProperty(KEY_ELECTRICITY_MPAN_IMPORT, DEFAULT_ELECTRICITY_MPAN_IMPORT_PROPERTY)
 					.trim();
@@ -2553,9 +2587,9 @@ public class Octopussy implements IOctopus {
 			result = mapper.readValue(json, V1ElectricityConsumption.class);
 		}
 
-		if (useCache && needtoCache) {
+		if (needtoCache && (cacheInUse || forceWriteCache)) {
 
-			cache.createNewFile();
+			boolean created = cache.createNewFile();
 
 			PrintWriter pw = new PrintWriter(cache);
 
@@ -2564,7 +2598,31 @@ public class Octopussy implements IOctopus {
 
 			pw.close();
 
-			logErrTime(json.length() + " chars stored in " + cache.getName());
+			logErrTime(result.getCount() + ":" + json.length() + " in " + (created ? "new" : "existing") + " file "
+					+ cache.getName());
+
+			/*
+			 * The following count figure depends on the epochSecond that defines the
+			 * "recent period" of days configured. A value of 242 is typical after 11am when
+			 * days=5 and it's BST
+			 * 
+			 * Typically there will be 48 entries per day assuming the latest available data
+			 * has been published
+			 */
+
+			long nowEpochSecond = ourTimeNow.toEpochSecond();
+
+			Long days = (nowEpochSecond - epochSecond) / 86400l;
+
+			int test = days.intValue() * 48;
+
+			if (result.getCount() >= test) {
+
+				// assume we have the latest data
+
+				flagLatestAvailable.createNewFile();
+			}
+
 		}
 
 		return result;
@@ -2580,7 +2638,7 @@ public class Octopussy implements IOctopus {
 
 		File cache = new File("./" + prefix + "." + epochSecond + "." + page + "." + pageSize + ".json");
 
-		File flagTomorrow = new File("./" + prefix + "." + epochSecond + "." + 0 + "." + 0 + ".json");
+		File flagLatestAvailable = new File("./" + prefix + "." + epochSecond + "." + 0 + "." + 0 + ".json");
 
 		String json = null;
 
@@ -2599,15 +2657,13 @@ public class Octopussy implements IOctopus {
 			// Octopus usually publish their prices sometime after 4pm
 			// covering the period up to 10:30pm the next day
 
-			/* TODO */
-			// Since a successful read after the update will result in data
-			// relating to tomorrow, we could avoid unnecessary repeat API
-			// calls at 16:30, 17:00. 17:30
+			// If tomorrow's prices are late publishing and it's 4pm or after,
+			// we will not attempt to use the cache: instead we will do the REST call
+			// each time because null == json until the latest becomes available
 
-			if (ourTimeNow.getHour() < 16 || ourTimeNow.getHour() > 17 || flagTomorrow.exists()) {
+			if (ourTimeNow.getHour() < 16 || flagLatestAvailable.exists()) {
 
 				json = getFromCache(prefix, epochSecond, cache);
-
 			}
 		}
 
@@ -2650,7 +2706,7 @@ public class Octopussy implements IOctopus {
 
 		if (useCache && needtoCache) {
 
-			cache.createNewFile();
+			boolean created = cache.createNewFile();
 
 			PrintWriter pw = new PrintWriter(cache);
 
@@ -2659,17 +2715,25 @@ public class Octopussy implements IOctopus {
 
 			pw.close();
 
-			logErrTime(json.length() + " chars in " + cache.getName());
+			logErrTime(result.getCount() + ":" + json.length() + " in " + (created ? "new" : "existing") + " file "
+					+ cache.getName());
 
+			/*
+			 * TODO Replace with testing meta data count
+			 * 
+			 */
 			ZonedDateTime zdtValidFrom = ZonedDateTime.parse(result.getTariffResults().get(0).getValidFrom());
 
-			// does latest data indicate tommorow's data read ok?
+			// Does latest data indicate tommorow's data is available?
 			// ok: at turn of year this optimisation won't work, but at least we've
 			// considered the situation
 
 			if (zdtValidFrom.getDayOfYear() > ourTimeNow.getDayOfYear()) {
 
-				flagTomorrow.createNewFile();
+				// ok: at turn of year on 1st Jan this optimisation won't work,
+				// but at least we've considered the situation and prepared for the consequence
+
+				flagLatestAvailable.createNewFile();
 			}
 		}
 
@@ -2729,6 +2793,8 @@ public class Octopussy implements IOctopus {
 
 		File cache = new File("./" + prefix + "." + epochSecond + "." + page + "." + pageSize + ".json");
 
+		File flagLatestAvailable = new File("./" + prefix + "." + epochSecond + "." + 0 + "." + 0 + ".json");
+
 		String json = null;
 
 		boolean needtoCache = false;
@@ -2737,7 +2803,10 @@ public class Octopussy implements IOctopus {
 
 		if (useCache) {
 
-			json = getFromCache(prefix, epochSecond, cache);
+			if (flagLatestAvailable.exists()) {
+
+				json = getFromCache(prefix, epochSecond, cache);
+			}
 		}
 
 		if (!useCache || !cache.exists() || null == json) {
@@ -2767,7 +2836,7 @@ public class Octopussy implements IOctopus {
 
 		if (useCache && needtoCache) {
 
-			cache.createNewFile();
+			boolean created = cache.createNewFile();
 
 			PrintWriter pw = new PrintWriter(cache);
 
@@ -2776,7 +2845,12 @@ public class Octopussy implements IOctopus {
 
 			pw.close();
 
-			logErrTime(json.length() + " chars in " + cache.getName());
+			logErrTime(result.getCount() + ":" + json.length() + " in " + (created ? "new" : "existing") + " file "
+					+ cache.getName());
+
+			// assume we have the latest data
+
+			flagLatestAvailable.createNewFile();
 		}
 
 		return result;
