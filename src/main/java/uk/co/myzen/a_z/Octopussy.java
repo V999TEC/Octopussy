@@ -2545,10 +2545,12 @@ public class Octopussy implements IOctopus {
 
 		if (cacheInUse) {
 
-			// typically around 11 am the latest consumption data for import will be
+			// typically around 11:15 am the latest consumption data for import will be
 			// published for REST access
 
-			if (ourTimeNow.getHour() < 11 || flagLatestAvailable.exists()) {
+			ZonedDateTime typicalAvailabilityTime = ourTimeNow.withHour(11).withMinute(15).withSecond(0).withNano(0);
+
+			if (ourTimeNow.isBefore(typicalAvailabilityTime) || flagLatestAvailable.exists()) {
 
 				json = getFromCache(prefix, epochSecond, cache); // null if no cache found
 			}
@@ -2644,10 +2646,11 @@ public class Octopussy implements IOctopus {
 
 		boolean needtoCache = false;
 
-		boolean useCache = epochSecond > 0;
+		boolean cacheInUse = epochSecond > 0;
 
-		if (useCache) {
+		boolean forceWriteCache = epochSecond < 0;
 
+		if (cacheInUse) {
 			// By design the cache will be refreshed at midnight
 			// it will contain price data up to 10:30pm on the current day
 
@@ -2661,13 +2664,15 @@ public class Octopussy implements IOctopus {
 			// we will not attempt to use the cache: instead we will do the REST call
 			// each time because null == json until the latest becomes available
 
-			if (ourTimeNow.getHour() < 16 || flagLatestAvailable.exists()) {
+			ZonedDateTime typicalAvailabilityTime = ourTimeNow.withHour(16).withMinute(15).withSecond(0).withNano(0);
+
+			if (ourTimeNow.isBefore(typicalAvailabilityTime) || flagLatestAvailable.exists()) {
 
 				json = getFromCache(prefix, epochSecond, cache);
 			}
 		}
 
-		if (!useCache || !cache.exists() || null == json) {
+		if (!cacheInUse || !cache.exists() || null == json) {
 
 			String spec = properties.getProperty(KEY_IMPORT_TARIFF_URL, DEFAULT_TARIFF_URL_PROPERTY).trim()
 					+ "/standard-unit-rates/" + "?page_size=" + pageSize + (null == page ? "" : "&page=" + page)
@@ -2704,7 +2709,7 @@ public class Octopussy implements IOctopus {
 
 		result = mapper.readValue(json, V1ElectricityTariff.class);
 
-		if (useCache && needtoCache) {
+		if (needtoCache && (cacheInUse || forceWriteCache)) {
 
 			boolean created = cache.createNewFile();
 
@@ -2718,23 +2723,37 @@ public class Octopussy implements IOctopus {
 			logErrTime(result.getCount() + ":" + json.length() + " in " + (created ? "new" : "existing") + " file "
 					+ cache.getName());
 
-			/*
-			 * TODO Replace with testing meta data count
-			 * 
-			 */
-			ZonedDateTime zdtValidFrom = ZonedDateTime.parse(result.getTariffResults().get(0).getValidFrom());
+//			/*
+//			 * TODO Replace with testing meta data count
+//			 * 
+//			 */
+//			ZonedDateTime zdtValidFrom = ZonedDateTime.parse(result.getTariffResults().get(0).getValidFrom());
+//
+//			// Does latest data indicate tommorow's data is available?
+//			// ok: at turn of year this optimisation won't work, but at least we've
+//			// considered the situation
+//
+//			if (zdtValidFrom.getDayOfYear() > ourTimeNow.getDayOfYear()) {
+//
+//				// ok: at turn of year on 1st Jan this optimisation won't work,
+//				// but at least we've considered the situation and prepared for the consequence
+//
+//				flagLatestAvailable.createNewFile();
+//			}
 
-			// Does latest data indicate tommorow's data is available?
-			// ok: at turn of year this optimisation won't work, but at least we've
-			// considered the situation
+			long nowEpochSecond = ourTimeNow.toEpochSecond();
 
-			if (zdtValidFrom.getDayOfYear() > ourTimeNow.getDayOfYear()) {
+			Long days = 1 + ((nowEpochSecond - epochSecond) / 86400l);
 
-				// ok: at turn of year on 1st Jan this optimisation won't work,
-				// but at least we've considered the situation and prepared for the consequence
+			int test = days.intValue() * 48;
+
+			if (result.getCount() >= test) {
+
+				// assume we have the latest data
 
 				flagLatestAvailable.createNewFile();
 			}
+
 		}
 
 		return result;
@@ -2799,9 +2818,11 @@ public class Octopussy implements IOctopus {
 
 		boolean needtoCache = false;
 
-		boolean useCache = epochSecond > 0;
+		boolean cacheInUse = epochSecond > 0;
 
-		if (useCache) {
+		boolean forceWriteCache = epochSecond < 0;
+
+		if (cacheInUse) {
 
 			if (flagLatestAvailable.exists()) {
 
@@ -2809,7 +2830,7 @@ public class Octopussy implements IOctopus {
 			}
 		}
 
-		if (!useCache || !cache.exists() || null == json) {
+		if (!cacheInUse || !cache.exists() || null == json) {
 
 			String spec = properties.getProperty(KEY_EXPORT_TARIFF_URL, DEFAULT_EXPORT_TARIFF_URL_PROPERTY).trim()
 					+ "/standard-unit-rates/" + "?page_size=" + pageSize + (null == page ? "" : "&page=" + page)
@@ -2834,7 +2855,7 @@ public class Octopussy implements IOctopus {
 			result = mapper.readValue(json, V1ElectricityTariff.class);
 		}
 
-		if (useCache && needtoCache) {
+		if (needtoCache && (cacheInUse || forceWriteCache)) {
 
 			boolean created = cache.createNewFile();
 
