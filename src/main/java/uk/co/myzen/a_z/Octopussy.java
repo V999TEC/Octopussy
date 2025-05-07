@@ -826,7 +826,7 @@ public class Octopussy implements IOctopus {
 
 			String beginRecentPeriod = zuluBegin.toString().substring(0, 17);
 
-			Integer pageSize = 48 * (1 + howManyDaysHistory);
+			Integer pageSize = 48 * (2 + howManyDaysHistory);
 
 			// we hope to get this in a single page
 
@@ -914,7 +914,7 @@ public class Octopussy implements IOctopus {
 					// we hope to get this in a single page
 
 					v1ElectricityExported = instance.getV1ElectricityExport(recentEpochSecond, page,
-							48 * howManyDaysHistory, beginRecentPeriod, null);
+							48 * howManyDaysHistory + 2, beginRecentPeriod, null);
 
 					periodExportResults = v1ElectricityExported.getPeriodResults();
 
@@ -930,7 +930,7 @@ public class Octopussy implements IOctopus {
 					page++;
 
 					v1ElectricityExported = instance.getV1ElectricityExport(recentEpochSecond, page,
-							48 * howManyDaysHistory, beginRecentPeriod, null);
+							48 * howManyDaysHistory + 2, beginRecentPeriod, null);
 
 					ArrayList<V1PeriodConsumption> pagePeriodResults = v1ElectricityExported.getPeriodResults();
 
@@ -982,7 +982,7 @@ public class Octopussy implements IOctopus {
 					// we hope to get this in a single page
 
 					v1ElectricityImported = instance.getV1ElectricityImport(recentEpochSecond, page,
-							48 * howManyDaysHistory, beginRecentPeriod, null);
+							48 * howManyDaysHistory + 2, beginRecentPeriod, null);
 
 					periodImportResults = v1ElectricityImported.getPeriodResults();
 
@@ -998,7 +998,7 @@ public class Octopussy implements IOctopus {
 					page++;
 
 					v1ElectricityImported = instance.getV1ElectricityImport(recentEpochSecond, page,
-							48 * howManyDaysHistory, beginRecentPeriod, null);
+							48 * howManyDaysHistory + 2, beginRecentPeriod, null);
 
 					ArrayList<V1PeriodConsumption> pagePeriodResults = v1ElectricityImported.getPeriodResults();
 
@@ -2184,8 +2184,8 @@ public class Octopussy implements IOctopus {
 			float averageDailyCost = tallyCost / equivalentDays;
 
 			System.out.println("Totals:\t\t" + String.format("%8.3f", tallyEnergy) + " kWhr\t"
-					+ (ansi ? ANSI_SCORE : "") + "Average Daily Cost £"
-					+ String.format("%5.2f", (averageDailyCost / 100)) + (ansi ? ANSI_RESET : "") + "   "
+					+ (ansi ? ANSI_SCORE : "") + "Average Daily Amount £"
+					+ String.format("%5.2f", (averageDailyCost / 100)) + (ansi ? ANSI_RESET : "") + " "
 					+ String.format("%7.2f", equivalentDays) + " days   £" + String.format("%7.2f", (tallyCost / 100))
 					+ "\t     Average: " + String.format("%6.3f", averageDailyEnergy) + " kWhr @ "
 					+ String.format("%5.2f", tallyCost / tallyEnergy) + "p\n");
@@ -2380,10 +2380,12 @@ public class Octopussy implements IOctopus {
 
 		if (cacheInUse) {
 
-			// typically around 1pm the latest consumption data for export will be
+			// typically around 13:15 am the latest consumption data for import will be
 			// published for REST access
 
-			if (ourTimeNow.getHour() < 13 || flagLatestAvailable.exists()) {
+			ZonedDateTime typicalAvailabilityTime = ourTimeNow.withHour(13).withMinute(15).withSecond(0).withNano(0);
+
+			if (ourTimeNow.isBefore(typicalAvailabilityTime) || flagLatestAvailable.exists()) {
 
 				json = getFromCache(prefix, epochSecond, cache); // null if no cache found
 			}
@@ -2482,7 +2484,7 @@ public class Octopussy implements IOctopus {
 
 		for (File f : toDelete) {
 
-			f.delete();
+			logErrTime((f.delete() ? "Deleted " : "Not deleted ") + f.getName());
 		}
 
 		// test if this request has been cached previously
@@ -2545,10 +2547,10 @@ public class Octopussy implements IOctopus {
 
 		if (cacheInUse) {
 
-			// typically around 11:15 am the latest consumption data for import will be
+			// typically around noon the latest consumption data for import will be
 			// published for REST access
 
-			ZonedDateTime typicalAvailabilityTime = ourTimeNow.withHour(11).withMinute(15).withSecond(0).withNano(0);
+			ZonedDateTime typicalAvailabilityTime = ourTimeNow.withHour(12).withMinute(0).withSecond(0).withNano(0);
 
 			if (ourTimeNow.isBefore(typicalAvailabilityTime) || flagLatestAvailable.exists()) {
 
