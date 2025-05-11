@@ -161,6 +161,7 @@ public class Octopussy implements IOctopus {
 	private final static String KEY_DAY_TO = "day.to";
 	private final static String KEY_SHOW_RECENT = "show.recent";
 	private final static String KEY_SHOW_SAVINGS = "show.savings";
+	private final static String KEY_SHOW_CONFIG = "show.config";
 
 	private final static String KEY_SETTING = "setting";
 	private final static String KEY_MACRO = "macro";
@@ -189,10 +190,10 @@ public class Octopussy implements IOctopus {
 			KEY_IMPORT_TARIFF_URL, KEY_REGION, KEY_ZONE_ID, KEY_HISTORY_IMPORT, KEY_HISTORY_EXPORT, "#",
 			KEY_EXPORT_TARIFF_CODE, KEY_EXPORT_TARIFF_URL, KEY_EXPORT, "#", KEY_BASELINE, KEY_DAYS, KEY_PLUNGE,
 			KEY_TARGET, KEY_WIDTH, KEY_ANSI, KEY_COLOUR, KEY_COLOR, KEY_SUNSHINE, KEY_SCORE, "#", KEY_YEARLY,
-			KEY_MONTHLY, KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO, KEY_SHOW_RECENT, KEY_SHOW_SAVINGS, KEY_LIMIT,
-			"#", KEY_SETTING, KEY_MACRO, KEY_SOLAR, KEY_PERCENT, KEY_GRID, KEY_CONSUMPTION, KEY_TEMPERATURE,
-			KEY_BATTERY, KEY_SUN, KEY_FORECAST, "#", KEY_FILE_SOLAR, KEY_MAX_SOLAR, KEY_MAX_RATE, "#", KEY_REFERRAL,
-			"#", KEY_VERSION };
+			KEY_MONTHLY, KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO, KEY_SHOW_RECENT, KEY_SHOW_SAVINGS,
+			KEY_SHOW_CONFIG, KEY_LIMIT, "#", KEY_SETTING, KEY_MACRO, KEY_SOLAR, KEY_PERCENT, KEY_GRID, KEY_CONSUMPTION,
+			KEY_TEMPERATURE, KEY_BATTERY, KEY_SUN, KEY_FORECAST, "#", KEY_FILE_SOLAR, KEY_MAX_SOLAR, KEY_MAX_RATE, "#",
+			KEY_REFERRAL, "#", KEY_VERSION };
 
 //	private final static String DEFAULT_API_SOLCAST_PROPERTY = "blahblahblah";
 	private final static String DEFAULT_API_OCTOPUS_PROPERTY = "blah_BLAH2pMoreBlahPIXOIO72aIO1blah:";
@@ -256,6 +257,7 @@ public class Octopussy implements IOctopus {
 	private final static String DEFAULT_DAY_TO_PROPERTY = "";
 	private final static String DEFAULT_SHOW_RECENT_PROPERTY = "true";
 	private final static String DEFAULT_SHOW_SAVINGS_PROPERTY = "false";
+	private final static String DEFAULT_SHOW_CONFIG_PROPERTY = "false";
 
 	private final static String DEFAULT_LIMIT_PROPERTY = "20";
 
@@ -293,6 +295,8 @@ public class Octopussy implements IOctopus {
 	private static boolean showRecent;
 
 	private static boolean showSavings;
+
+	private static boolean showConfig;
 
 	private static float flatRateImport;
 
@@ -1072,6 +1076,81 @@ public class Octopussy implements IOctopus {
 			//
 			//
 
+			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_DAILY, DEFAULT_DAILY_PROPERTY)))) {
+
+				// get epochSecond for start of next day of range
+
+				SortedMap<String, PeriodicValues> dailyImport = accumulateCostsByField(historyImport,
+						ChronoField.EPOCH_DAY, requiredEpochSecond < 0 ? recentEpochSecond : requiredEpochSecond);
+
+				System.out.println(
+						"Historical daily results - import:" + ("".equals(filterFrom) ? "" : " from " + filterFrom)
+								+ ("".equals(filterTo) ? "" : " up to " + filterTo));
+
+				displayPeriodSummary("Day", dailyImport, fromEpochDayIncl, toEpochDayIncl);
+
+				//
+
+				SortedMap<String, PeriodicValues> dailyExport = accumulateCostsByField(historyExport,
+						ChronoField.EPOCH_DAY, requiredEpochSecond < 0 ? recentEpochSecond : requiredEpochSecond);
+
+				System.out.println(
+						"Historical daily results - export:" + ("".equals(filterFrom) ? "" : " from " + filterFrom)
+								+ ("".equals(filterTo) ? "" : " up to " + filterTo));
+
+				displayPeriodSummary("Day", dailyExport, fromEpochDayIncl, toEpochDayIncl);
+			}
+
+			//
+			//
+			//
+
+			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_WEEKLY, DEFAULT_WEEKLY_PROPERTY)))) {
+
+				SortedMap<String, PeriodicValues> weeklyImport = accumulateCostsByField(historyImport,
+						ChronoField.ALIGNED_WEEK_OF_YEAR, recentEpochSecond);
+
+				System.out.println("Historical weekly results - import:");
+
+				displayPeriodSummary("Week", weeklyImport, null, null);
+
+				//
+
+				SortedMap<String, PeriodicValues> weeklyExport = accumulateCostsByField(historyExport,
+						ChronoField.ALIGNED_WEEK_OF_YEAR, recentEpochSecond);
+
+				System.out.println("Historical weekly results - export:");
+
+				displayPeriodSummary("Week", weeklyExport, null, null);
+			}
+
+			//
+			//
+			//
+
+			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_MONTHLY, DEFAULT_MONTHLY_PROPERTY)))) {
+
+				SortedMap<String, PeriodicValues> monthlyImport = accumulateCostsByField(historyImport,
+						ChronoField.MONTH_OF_YEAR, recentEpochSecond);
+
+				System.out.println("Historical monthly results - import:");
+
+				displayPeriodSummary("Month", monthlyImport, null, null);
+
+				//
+
+				SortedMap<String, PeriodicValues> monthlyExport = accumulateCostsByField(historyExport,
+						ChronoField.MONTH_OF_YEAR, recentEpochSecond);
+
+				System.out.println("Historical monthly results - export:");
+
+				displayPeriodSummary("Month", monthlyExport, null, null);
+			}
+
+			//
+			//
+			//
+
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_YEARLY, DEFAULT_YEARLY_PROPERTY)))) {
 
 				SortedMap<String, PeriodicValues> yearlyImport = accumulateCostsByField(historyImport, ChronoField.YEAR,
@@ -1091,50 +1170,6 @@ public class Octopussy implements IOctopus {
 				System.out.println("Running total electricity cost: " + (ansi ? ANSI_SUNSHINE : "") + " £"
 						+ String.format("%6.2f", (costImportTotal - costExportTotal) / 100) + (ansi ? ANSI_RESET : "")
 						+ "\n");
-			}
-
-			//
-			//
-			//
-
-			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_MONTHLY, DEFAULT_MONTHLY_PROPERTY)))) {
-
-				SortedMap<String, PeriodicValues> monthlyImport = accumulateCostsByField(historyImport,
-						ChronoField.MONTH_OF_YEAR, recentEpochSecond);
-
-				System.out.println("Historical monthly results:");
-
-				displayPeriodSummary("Month", monthlyImport, null, null);
-			}
-
-			//
-			//
-			//
-
-			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_WEEKLY, DEFAULT_WEEKLY_PROPERTY)))) {
-
-				SortedMap<String, PeriodicValues> weeklyImport = accumulateCostsByField(historyImport,
-						ChronoField.ALIGNED_WEEK_OF_YEAR, recentEpochSecond);
-
-				System.out.println("Historical weekly results:");
-
-				displayPeriodSummary("Week", weeklyImport, null, null);
-			}
-			//
-			//
-			//
-
-			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_DAILY, DEFAULT_DAILY_PROPERTY)))) {
-
-				// get epochSecond for start of next day of range
-
-				SortedMap<String, PeriodicValues> dailyImport = accumulateCostsByField(historyImport,
-						ChronoField.EPOCH_DAY, requiredEpochSecond < 0 ? recentEpochSecond : requiredEpochSecond);
-
-				System.out.println("Historical daily results: " + ("".equals(filterFrom) ? "" : " from " + filterFrom)
-						+ ("".equals(filterTo) ? "" : " up to " + filterTo));
-
-				displayPeriodSummary("Day", dailyImport, fromEpochDayIncl, toEpochDayIncl);
 			}
 
 			//
@@ -3242,6 +3277,8 @@ public class Octopussy implements IOctopus {
 			showSavings = Boolean
 					.valueOf(properties.getProperty(KEY_SHOW_SAVINGS, DEFAULT_SHOW_SAVINGS_PROPERTY).trim());
 
+			showConfig = Boolean.valueOf(properties.getProperty(KEY_SHOW_CONFIG, DEFAULT_SHOW_CONFIG_PROPERTY).trim());
+
 			flatRateImport = Float.valueOf(
 					properties.getProperty(KEY_FIXED_ELECTRICITY_UNIT, DEFAULT_FIXED_ELECTRICITY_UNIT_PROPERTY));
 
@@ -3731,8 +3768,10 @@ public class Octopussy implements IOctopus {
 
 							value = slotStartTimes[sunIndex];
 
-							System.out.println("Due to selected option (R) adjusted " + key + "=" + defaultValue
-									+ "R start time to " + value + " due to earlier  sunrise time " + sunEvents[0]);
+							if (showConfig) {
+								System.out.println("Due to selected option (R) adjusted " + key + "=" + defaultValue
+										+ "R start time to " + value + " due to earlier  sunrise time " + sunEvents[0]);
+							}
 						}
 					}
 
@@ -3750,8 +3789,11 @@ public class Octopussy implements IOctopus {
 
 							value = slotStartTimes[sunIndex];
 
-							System.out.println("Due to selected option (C) adjusted " + key + "=" + defaultValue
-									+ "C start time to " + value + " due to earlier culmination at " + sunEvents[1]);
+							if (showConfig) {
+								System.out.println("Due to selected option (C) adjusted " + key + "=" + defaultValue
+										+ "C start time to " + value + " due to earlier culmination at "
+										+ sunEvents[1]);
+							}
 						}
 					}
 
@@ -3778,8 +3820,10 @@ public class Octopussy implements IOctopus {
 
 							value = slotStartTimes[sunIndex];
 
-							System.out.println("Due to selected option (N) adjusted " + key + "=" + defaultValue
-									+ "N start time to " + value + " due to later solar noon time " + sunEvents[1]);
+							if (showConfig) {
+								System.out.println("Due to selected option (N) adjusted " + key + "=" + defaultValue
+										+ "N start time to " + value + " due to later solar noon time " + sunEvents[1]);
+							}
 						}
 					}
 
@@ -3806,8 +3850,10 @@ public class Octopussy implements IOctopus {
 
 							value = slotStartTimes[sunIndex];
 
-							System.out.println("Due to selected option (S) adjusted " + key + "=" + defaultValue
-									+ "S start time to " + value + " due to later  time of sunset " + sunEvents[2]);
+							if (showConfig) {
+								System.out.println("Due to selected option (S) adjusted " + key + "=" + defaultValue
+										+ "S start time to " + value + " due to later  time of sunset " + sunEvents[2]);
+							}
 						}
 					}
 
@@ -3830,8 +3876,9 @@ public class Octopussy implements IOctopus {
 
 		final int numberOfParts = parts.size();
 
-		System.out.println("The day and night has been configured as " + numberOfParts + " parts:");
-
+		if (showConfig) {
+			System.out.println("The day and night has been configured as " + numberOfParts + " parts:");
+		}
 		//
 		//
 		//
@@ -3957,12 +4004,14 @@ public class Octopussy implements IOctopus {
 
 			ranges.add(range);
 
-			System.out.println("Part{" + (1 + p) + "} " + parts.get(p) + " to " + dayPartsEndAt24hr[p] + "\t"
-					+ slotsPerDayPart[p] + " half-hour slot(s) up to " + powers[p] + " watts\tBattery " + range + "\t"
-					+ (' ' == options[p] ? " - no option"
-							: " + option:" + options[p] + (null == optionParameters[p] ? ""
-									: ":" + optionParameters[p] + sbScaledDown.toString())));
-
+			if (showConfig) {
+				System.out.println("Part{" + (1 + p) + "} " + parts.get(p) + " to " + dayPartsEndAt24hr[p] + "\t"
+						+ slotsPerDayPart[p] + " half-hour slot(s) up to " + powers[p] + " watts\tBattery " + range
+						+ "\t"
+						+ (' ' == options[p] ? " - no option"
+								: " + option:" + options[p] + (null == optionParameters[p] ? ""
+										: ":" + optionParameters[p] + sbScaledDown.toString())));
+			}
 			units += (+powers[p] * slotsPerDayPart[p]);
 		}
 
