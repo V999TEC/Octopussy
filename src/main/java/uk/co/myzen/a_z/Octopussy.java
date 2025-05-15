@@ -1169,7 +1169,7 @@ public class Octopussy implements IOctopus {
 
 				System.out.println("Running total electricity cost: " + (ansi ? ANSI_SUNSHINE : "") + " £"
 						+ String.format("%6.2f", (costImportTotal - costExportTotal) / 100) + (ansi ? ANSI_RESET : "")
-						+ "\n");
+						+ " up to " + timeRecent.toString().substring(0, 10) + "\n");
 			}
 
 			//
