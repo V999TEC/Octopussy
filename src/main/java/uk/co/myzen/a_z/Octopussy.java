@@ -2415,7 +2415,7 @@ public class Octopussy implements IOctopus {
 
 		if (cacheInUse) {
 
-			// typically around 13:15 am the latest consumption data for import will be
+			// typically around 13:15 am the latest consumption data for export will be
 			// published for REST access
 
 			ZonedDateTime typicalAvailabilityTime = ourTimeNow.withHour(13).withMinute(15).withSecond(0).withNano(0);
@@ -5909,9 +5909,17 @@ public class Octopussy implements IOctopus {
 
 			float dailyAverageUnitPrice = agilePrice / consumption;
 
-			String values = map.get(key);
-
 			float dailyExportUnits = 0;
+
+			String values = null;
+
+			values = map.get(key);
+
+			if (null == values) {
+				// fallback
+
+				values = map.get(key + "_23:30");
+			}
 
 			if (null != values) {
 
