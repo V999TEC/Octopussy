@@ -13,6 +13,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
@@ -1078,27 +1079,43 @@ public class Octopussy implements IOctopus {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_DAILY, DEFAULT_DAILY_PROPERTY)))) {
 
-				// get epochSecond for start of next day of range
+				String prefix = "cache.daily";
 
-				SortedMap<String, PeriodicValues> dailyImport = accumulateCostsByField(historyImport,
-						ChronoField.EPOCH_DAY, requiredEpochSecond < 0 ? recentEpochSecond : requiredEpochSecond);
+				File cacheDaily = new File("./" + prefix + "." + String.valueOf(recentEpochSecond) + ".txt");
 
-				System.out.println(
-						"Historical daily results - import:" + ("".equals(filterFrom) ? "" : " from " + filterFrom)
-								+ ("".equals(filterTo) ? "" : " up to " + filterTo));
+				if (!cacheDaily.exists()) {
 
-				displayPeriodSummary("Day", dailyImport, fromEpochDayIncl, toEpochDayIncl);
+					cacheDaily.createNewFile();
 
-				//
+					PrintStream ps = new PrintStream(cacheDaily);
 
-				SortedMap<String, PeriodicValues> dailyExport = accumulateCostsByField(historyExport,
-						ChronoField.EPOCH_DAY, requiredEpochSecond < 0 ? recentEpochSecond : requiredEpochSecond);
+					// get epochSecond for start of next day of range
 
-				System.out.println(
-						"Historical daily results - export:" + ("".equals(filterFrom) ? "" : " from " + filterFrom)
-								+ ("".equals(filterTo) ? "" : " up to " + filterTo));
+					SortedMap<String, PeriodicValues> dailyImport = accumulateCostsByField(historyImport,
+							ChronoField.EPOCH_DAY, requiredEpochSecond < 0 ? recentEpochSecond : requiredEpochSecond);
 
-				displayPeriodSummary("Day", dailyExport, fromEpochDayIncl, toEpochDayIncl);
+					ps.println(
+							"Historical daily results - import:" + ("".equals(filterFrom) ? "" : " from " + filterFrom)
+									+ ("".equals(filterTo) ? "" : " up to " + filterTo));
+
+					displayPeriodSummary("Day", dailyImport, fromEpochDayIncl, toEpochDayIncl, ps);
+
+					//
+
+					SortedMap<String, PeriodicValues> dailyExport = accumulateCostsByField(historyExport,
+							ChronoField.EPOCH_DAY, requiredEpochSecond < 0 ? recentEpochSecond : requiredEpochSecond);
+
+					ps.println(
+							"Historical daily results - export:" + ("".equals(filterFrom) ? "" : " from " + filterFrom)
+									+ ("".equals(filterTo) ? "" : " up to " + filterTo));
+
+					displayPeriodSummary("Day", dailyExport, fromEpochDayIncl, toEpochDayIncl, ps);
+
+					ps.flush();
+					ps.close();
+				}
+
+				instance.getFromCache(prefix, recentEpochSecond, cacheDaily, true);
 			}
 
 			//
@@ -1107,21 +1124,37 @@ public class Octopussy implements IOctopus {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_WEEKLY, DEFAULT_WEEKLY_PROPERTY)))) {
 
-				SortedMap<String, PeriodicValues> weeklyImport = accumulateCostsByField(historyImport,
-						ChronoField.ALIGNED_WEEK_OF_YEAR, recentEpochSecond);
+				String prefix = "cache.weekly";
 
-				System.out.println("Historical weekly results - import:");
+				File cacheWeekly = new File("./" + prefix + "." + String.valueOf(recentEpochSecond) + ".txt");
 
-				displayPeriodSummary("Week", weeklyImport, null, null);
+				if (!cacheWeekly.exists()) {
 
-				//
+					cacheWeekly.createNewFile();
 
-				SortedMap<String, PeriodicValues> weeklyExport = accumulateCostsByField(historyExport,
-						ChronoField.ALIGNED_WEEK_OF_YEAR, recentEpochSecond);
+					PrintStream ps = new PrintStream(cacheWeekly);
 
-				System.out.println("Historical weekly results - export:");
+					SortedMap<String, PeriodicValues> weeklyImport = accumulateCostsByField(historyImport,
+							ChronoField.ALIGNED_WEEK_OF_YEAR, recentEpochSecond);
 
-				displayPeriodSummary("Week", weeklyExport, null, null);
+					ps.println("Historical weekly results - import:");
+
+					displayPeriodSummary("Week", weeklyImport, null, null, ps);
+
+					//
+
+					SortedMap<String, PeriodicValues> weeklyExport = accumulateCostsByField(historyExport,
+							ChronoField.ALIGNED_WEEK_OF_YEAR, recentEpochSecond);
+
+					ps.println("Historical weekly results - export:");
+
+					displayPeriodSummary("Week", weeklyExport, null, null, ps);
+
+					ps.flush();
+					ps.close();
+				}
+
+				instance.getFromCache(prefix, recentEpochSecond, cacheWeekly, true);
 			}
 
 			//
@@ -1130,21 +1163,37 @@ public class Octopussy implements IOctopus {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_MONTHLY, DEFAULT_MONTHLY_PROPERTY)))) {
 
-				SortedMap<String, PeriodicValues> monthlyImport = accumulateCostsByField(historyImport,
-						ChronoField.MONTH_OF_YEAR, recentEpochSecond);
+				String prefix = "cache.monthly";
 
-				System.out.println("Historical monthly results - import:");
+				File cacheMonthly = new File("./" + prefix + "." + String.valueOf(recentEpochSecond) + ".txt");
 
-				displayPeriodSummary("Month", monthlyImport, null, null);
+				if (!cacheMonthly.exists()) {
 
-				//
+					cacheMonthly.createNewFile();
 
-				SortedMap<String, PeriodicValues> monthlyExport = accumulateCostsByField(historyExport,
-						ChronoField.MONTH_OF_YEAR, recentEpochSecond);
+					PrintStream ps = new PrintStream(cacheMonthly);
 
-				System.out.println("Historical monthly results - export:");
+					SortedMap<String, PeriodicValues> monthlyImport = accumulateCostsByField(historyImport,
+							ChronoField.MONTH_OF_YEAR, recentEpochSecond);
 
-				displayPeriodSummary("Month", monthlyExport, null, null);
+					System.out.println("Historical monthly results - import:");
+
+					displayPeriodSummary("Month", monthlyImport, null, null, ps);
+
+					//
+
+					SortedMap<String, PeriodicValues> monthlyExport = accumulateCostsByField(historyExport,
+							ChronoField.MONTH_OF_YEAR, recentEpochSecond);
+
+					System.out.println("Historical monthly results - export:");
+
+					displayPeriodSummary("Month", monthlyExport, null, null, ps);
+
+					ps.flush();
+					ps.close();
+				}
+
+				instance.getFromCache(prefix, recentEpochSecond, cacheMonthly, true);
 			}
 
 			//
@@ -1153,23 +1202,39 @@ public class Octopussy implements IOctopus {
 
 			if (Boolean.TRUE.equals(Boolean.valueOf(properties.getProperty(KEY_YEARLY, DEFAULT_YEARLY_PROPERTY)))) {
 
-				SortedMap<String, PeriodicValues> yearlyImport = accumulateCostsByField(historyImport, ChronoField.YEAR,
-						recentEpochSecond);
+				String prefix = "cache.yearly";
 
-				System.out.println("Historical yearly results - import:");
+				File cacheYearly = new File("./" + prefix + "." + String.valueOf(recentEpochSecond) + ".txt");
 
-				float costImportTotal = displayPeriodSummary("Year", yearlyImport, null, null);
-				//
-				SortedMap<String, PeriodicValues> yearlyExport = accumulateCostsByField(historyExport, ChronoField.YEAR,
-						recentEpochSecond);
+				if (!cacheYearly.exists()) {
 
-				System.out.println("Historical yearly results - export:");
+					cacheYearly.createNewFile();
 
-				float costExportTotal = displayPeriodSummary("Year", yearlyExport, null, null);
+					PrintStream ps = new PrintStream(cacheYearly);
 
-				System.out.println("Running total electricity cost: " + (ansi ? ANSI_SUNSHINE : "") + " £"
-						+ String.format("%6.2f", (costImportTotal - costExportTotal) / 100) + (ansi ? ANSI_RESET : "")
-						+ " up to " + timeRecent.toString().substring(0, 10) + "\n");
+					SortedMap<String, PeriodicValues> yearlyImport = accumulateCostsByField(historyImport,
+							ChronoField.YEAR, recentEpochSecond);
+
+					ps.println("Historical yearly results - import:");
+
+					float costImportTotal = displayPeriodSummary("Year", yearlyImport, null, null, ps);
+					//
+					SortedMap<String, PeriodicValues> yearlyExport = accumulateCostsByField(historyExport,
+							ChronoField.YEAR, recentEpochSecond);
+
+					ps.println("Historical yearly results - export:");
+
+					float costExportTotal = displayPeriodSummary("Year", yearlyExport, null, null, ps);
+
+					ps.println("Running total electricity cost: " + (ansi ? ANSI_SUNSHINE : "") + " £"
+							+ String.format("%6.2f", (costImportTotal - costExportTotal) / 100)
+							+ (ansi ? ANSI_RESET : "") + " up to " + timeRecent.toString().substring(0, 10) + "\n");
+
+					ps.flush();
+					ps.close();
+				}
+
+				instance.getFromCache(prefix, recentEpochSecond, cacheYearly, true);
 			}
 
 			//
@@ -2117,7 +2182,7 @@ public class Octopussy implements IOctopus {
 	}
 
 	private static float displayPeriodSummary(String id, SortedMap<String, PeriodicValues> periodic, Integer fromIncl,
-			Integer toIncl) {
+			Integer toIncl, PrintStream ps) {
 
 		String datestamp = null;
 
@@ -2202,7 +2267,7 @@ public class Octopussy implements IOctopus {
 
 			tallyCost += accCost;
 
-			System.out.println(datestamp + " " + String.format("%8.3f", accConsumption) + " kWhr "
+			ps.println(datestamp + " " + String.format("%8.3f", accConsumption) + " kWhr "
 					+ String.format("%9.2f", accCost) + "p  " + String.format("%5d", countHalfHours) + " half-hours ~ "
 					+ String.format("%6.2f", equivalentDays) + " days @ £"
 					+ String.format("%7.2f", equivalentDailyAverageCost) + " Daily equivalent: "
@@ -2218,11 +2283,11 @@ public class Octopussy implements IOctopus {
 
 			float averageDailyCost = tallyCost / equivalentDays;
 
-			System.out.println("Totals:\t\t" + String.format("%8.3f", tallyEnergy) + " kWhr\t"
-					+ (ansi ? ANSI_SCORE : "") + "Average Daily Amount £"
-					+ String.format("%5.2f", (averageDailyCost / 100)) + (ansi ? ANSI_RESET : "") + " "
-					+ String.format("%7.2f", equivalentDays) + " days   £" + String.format("%7.2f", (tallyCost / 100))
-					+ "\t     Average: " + String.format("%6.3f", averageDailyEnergy) + " kWhr @ "
+			ps.println("Totals:\t\t" + String.format("%8.3f", tallyEnergy) + " kWhr\t" + (ansi ? ANSI_SCORE : "")
+					+ "Average Daily Amount £" + String.format("%5.2f", (averageDailyCost / 100))
+					+ (ansi ? ANSI_RESET : "") + " " + String.format("%7.2f", equivalentDays) + " days   £"
+					+ String.format("%7.2f", (tallyCost / 100)) + "\t     Average: "
+					+ String.format("%6.3f", averageDailyEnergy) + " kWhr @ "
 					+ String.format("%5.2f", tallyCost / tallyEnergy) + "p\n");
 		}
 
@@ -2422,7 +2487,7 @@ public class Octopussy implements IOctopus {
 
 			if (ourTimeNow.isBefore(typicalAvailabilityTime) || flagLatestAvailable.exists()) {
 
-				json = getFromCache(prefix, epochSecond, cache); // null if no cache found
+				json = getFromCache(prefix, epochSecond, cache, false); // null if no cache found
 			}
 		}
 
@@ -2490,9 +2555,9 @@ public class Octopussy implements IOctopus {
 		return result;
 	}
 
-	private String getFromCache(String prefix, long epochSecond, File cache) throws IOException {
+	private String getFromCache(String prefix, long epochSecond, File cache, boolean display) throws IOException {
 
-		String json = null;
+		String result = null;
 
 		// clean up any old cached files older than cache.import.epochSecond.*
 
@@ -2506,9 +2571,9 @@ public class Octopussy implements IOctopus {
 
 			if (name.startsWith(prefix)) {
 
-				String[] parts = name.split("\\.");
+				String[] parts = name.substring(prefix.length()).split("\\.");
 
-				Long n = Long.parseLong(parts[3]);
+				Long n = Long.parseLong(parts[1]);
 
 				if (n < epochSecond) {
 
@@ -2528,37 +2593,34 @@ public class Octopussy implements IOctopus {
 
 			// amazing
 
-			String ls = System.getProperty("line.separator");
-
 			StringBuffer sb = new StringBuffer();
 
-			FileReader fr = null;
+			Scanner scanner = new Scanner(cache);
 
-			BufferedReader br = null;
+			while (scanner.hasNextLine()) {
 
-			try {
-				fr = new FileReader(cache);
+				String line = scanner.nextLine();
 
-				br = new BufferedReader(fr);
+				if (display) {
 
-				String line;
+					System.out.println(line);
 
-				while (null != (line = br.readLine())) {
+				} else {
 
 					sb.append(line);
-					sb.append(ls);
+					sb.append("\n");
 				}
-
-			} finally {
-
-				br.close();
-				fr.close();
 			}
 
-			json = sb.toString();
+			scanner.close();
+
+			if (!display) {
+
+				result = sb.toString();
+			}
 		}
 
-		return json; // or null
+		return result; // or null
 	}
 
 	private V1ElectricityConsumption getV1ElectricityImport(long epochSecond, Integer page, Integer pageSize,
@@ -2589,7 +2651,7 @@ public class Octopussy implements IOctopus {
 
 			if (ourTimeNow.isBefore(typicalAvailabilityTime) || flagLatestAvailable.exists()) {
 
-				json = getFromCache(prefix, epochSecond, cache); // null if no cache found
+				json = getFromCache(prefix, epochSecond, cache, false); // null if no cache found
 			}
 		}
 
@@ -2705,7 +2767,7 @@ public class Octopussy implements IOctopus {
 
 			if (ourTimeNow.isBefore(typicalAvailabilityTime) || flagLatestAvailable.exists()) {
 
-				json = getFromCache(prefix, epochSecond, cache);
+				json = getFromCache(prefix, epochSecond, cache, false);
 			}
 		}
 
@@ -2863,7 +2925,7 @@ public class Octopussy implements IOctopus {
 
 			if (flagLatestAvailable.exists()) {
 
-				json = getFromCache(prefix, epochSecond, cache);
+				json = getFromCache(prefix, epochSecond, cache, false);
 			}
 		}
 
@@ -4831,9 +4893,10 @@ public class Octopussy implements IOctopus {
 						if ("0.0".equals(sol)) { // sol is reporting zero - probably values have been
 													// reset
 
-							// select the data from yesterday_part# as a closer approximation for the solar
+							// select the last data from yesterday_part as a closest approximation for the
+							// solar
 
-							line = result.get(yesterday + "_" + numberOfParts);
+							line = result.get(yesterday + "_23:30");
 						}
 
 						result.put(yesterday, line);
