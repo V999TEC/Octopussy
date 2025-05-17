@@ -1176,7 +1176,7 @@ public class Octopussy implements IOctopus {
 					SortedMap<String, PeriodicValues> monthlyImport = accumulateCostsByField(historyImport,
 							ChronoField.MONTH_OF_YEAR, recentEpochSecond);
 
-					System.out.println("Historical monthly results - import:");
+					ps.println("Historical monthly results - import:");
 
 					displayPeriodSummary("Month", monthlyImport, null, null, ps);
 
@@ -1185,7 +1185,7 @@ public class Octopussy implements IOctopus {
 					SortedMap<String, PeriodicValues> monthlyExport = accumulateCostsByField(historyExport,
 							ChronoField.MONTH_OF_YEAR, recentEpochSecond);
 
-					System.out.println("Historical monthly results - export:");
+					ps.println("Historical monthly results - export:");
 
 					displayPeriodSummary("Month", monthlyExport, null, null, ps);
 
