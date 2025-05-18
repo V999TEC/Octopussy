@@ -19,6 +19,12 @@ import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.ByteBuffer;
+import java.nio.charset.Charset;
+import java.nio.file.FileSystems;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.UserDefinedFileAttributeView;
 import java.time.DayOfWeek;
 import java.time.Instant;
 import java.time.LocalDate;
@@ -383,7 +389,7 @@ public class Octopussy implements IOctopus {
 
 	private static String bannerMessage = "";
 
-	private static int countDays = -1;
+//	private static int countDays = -1;
 
 	private static boolean forceImportAppendToFile = false;
 
@@ -1241,7 +1247,11 @@ public class Octopussy implements IOctopus {
 			//
 			//
 
-			int averageUnitCost = instance.dailyResults(today, elecMapDaily); // updates countDays
+			Map<String, String> extendedAttributes = instance.dailyResults(today, elecMapDaily, recentEpochSecond);
+
+			int countDays = Integer.parseInt(extendedAttributes.get("days"));
+
+			float averageUnitCost = Float.parseFloat(extendedAttributes.get("average"));
 
 			//
 			//
@@ -2618,6 +2628,36 @@ public class Octopussy implements IOctopus {
 
 				result = sb.toString();
 			}
+//			else {
+//
+//				Path path = FileSystems.getDefault().getPath(cache.getCanonicalPath());
+//
+//				UserDefinedFileAttributeView view = Files.getFileAttributeView(path,
+//						UserDefinedFileAttributeView.class);
+//
+//				List<String> names = view.list();
+//
+//				for (String name : names) {
+//
+//					int s = view.size(name);
+//
+//					ByteBuffer dst = ByteBuffer.allocate(s);
+//
+//					view.read(name, dst);
+//
+//					dst.flip();
+//
+//					String value = Charset.defaultCharset().decode(dst).toString();
+//
+//					System.out.println(name + "\t" + value);
+//				}
+//
+//				byte[] ba = "example".getBytes();
+//
+//				ByteBuffer bb = ByteBuffer.wrap(ba);
+//
+//				view.write("MyAttribute", bb);
+//			}
 		}
 
 		return result; // or null
@@ -3759,7 +3799,7 @@ public class Octopussy implements IOctopus {
 
 	private String[] scheduleBatteryCharging(List<SlotCost> pricesPerSlotSinceMidnight, int currentSlotIndex,
 			Float kWhrSolar, ImportExport gridImportExport, Float kWhrConsumption, Integer percentBattery,
-			ChargeDischarge chargeAndDischarge, String timestamp, int averageUnitCost, int[] sunData, int countDays) {
+			ChargeDischarge chargeAndDischarge, String timestamp, float averageUnitCost, int[] sunData, int countDays) {
 
 		SlotCost currentSlotCost = pricesPerSlotSinceMidnight.get(currentSlotIndex);
 
@@ -4221,11 +4261,11 @@ public class Octopussy implements IOctopus {
 				+ String.format("%5.2f", avUnitPriceToday) + "p / kWhr");
 
 		System.out.println(
-				String.format("%2d", countDays) + " day (A)verage price: " + String.format("%3d", averageUnitCost)
-						+ "p (assuming Octopus Agile import and Fixed export:15p) Fixed rate (F) " + flatRateImport
-						+ "p " + (ansi ? ANSI_COLOUR_LO : "") + "Sun forecast: "
-						+ String.format("%5d", solarForecastWhr) + (ansi ? ANSI_RESET : "") + "  "
-						+ (ansi ? ANSI_SUNSHINE : "") + gridExportUnits + (ansi ? ANSI_RESET : ""));
+				String.format("%2d", countDays) + " day (A)verage price:  " + String.format("%6.3f", averageUnitCost)
+						+ "p Using Octopus Agile import and Fixed export:15p  Fixed rate (F) " + flatRateImport + "p "
+						+ (ansi ? ANSI_COLOUR_LO : "") + "Sun forecast: " + String.format("%5d", solarForecastWhr)
+						+ (ansi ? ANSI_RESET : "") + "  " + (ansi ? ANSI_SUNSHINE : "") + gridExportUnits
+						+ (ansi ? ANSI_RESET : ""));
 
 		System.out.println("Plunge price is set to:  " + String.format("%2d", plunge)
 				+ "p (System schedules e(X)port slots prior to price plunge slots <= " + plunge + "p) " + "Surplus: "
@@ -5869,165 +5909,225 @@ public class Octopussy implements IOctopus {
 		return priceMap;
 	}
 
-	private int dailyResults(String today, Map<String, DayValues> elecMapDaily) {
+	private Map<String, String> dailyResults(String today, Map<String, DayValues> elecMapDaily, long recentEpochSecond)
+			throws IOException {
 
-		// find the range of week numbers contained in the data
+		Float unitCostAverage = null;
 
-		Set<Integer> weekNumbers = new TreeSet<Integer>();
+		String prefix = "cache.recent";
 
-		for (String key : elecMapDaily.keySet()) {
+		File cacheRecent = new File("./" + prefix + "." + String.valueOf(recentEpochSecond) + ".txt");
 
-			DayValues value = elecMapDaily.get(key); // can be null
+		// access the extended attributes for the file metadata (held in the file
+		// system)
 
-			if (null != value) {
+		Path path = FileSystems.getDefault().getPath(cacheRecent.getCanonicalPath());
 
-				weekNumbers.add(value.getWeekOfYear());
+		UserDefinedFileAttributeView view = Files.getFileAttributeView(path, UserDefinedFileAttributeView.class);
+
+		if (!cacheRecent.exists()) {
+
+			cacheRecent.createNewFile();
+
+			PrintStream ps = new PrintStream(cacheRecent);
+
+			// find the range of week numbers contained in the data
+
+			Set<Integer> weekNumbers = new TreeSet<Integer>();
+
+			for (String key : elecMapDaily.keySet()) {
+
+				DayValues value = elecMapDaily.get(key); // can be null
+
+				if (null != value) {
+
+					weekNumbers.add(value.getWeekOfYear());
+				}
 			}
-		}
 
-		Map<String, String> map = getSolarDataFromFile(weekNumbers);
+			Map<String, String> map = getSolarDataFromFile(weekNumbers);
 
-		// key is made up of date+"_"+part (where part is 1 ... 4)
-		// part 1 will give the totals for the previous day as it is logged at midnight
-		// field [9] of value will hold the export units
-		// however, there is also a key without "_"+part giving the totals for that date
+			// key is made up of date+"_"+part (where part is 1 ... 4)
+			// part 1 will give the totals for the previous day as it is logged at midnight
+			// field [9] of value will hold the export units
+			// however, there is also a key without "_"+part giving the totals for that date
 
-		if (showRecent) {
+			if (showRecent) {
 
-			StringBuffer sb = new StringBuffer();
+				StringBuffer sb = new StringBuffer();
 
-			sb.append("\nRecent daily costs (in week ");
+				sb.append("\nRecent daily costs (in week ");
 
-			Iterator<Integer> iterator = weekNumbers.iterator();
+				Iterator<Integer> iterator = weekNumbers.iterator();
 
-			// there will be at least one week in set
-
-			sb.append(iterator.next());
-
-			while (iterator.hasNext()) {
-
-				sb.append(',');
+				// there will be at least one week in set
 
 				sb.append(iterator.next());
+
+				while (iterator.hasNext()) {
+
+					sb.append(',');
+
+					sb.append(iterator.next());
+				}
+
+				sb.append("):");
+
+				ps.println(sb.toString());
 			}
 
-			sb.append("):");
+			int tallyDays = 0;
 
-			System.out.println(sb.toString());
-		}
+			float accumulateDifference = 0;
+			float accumulatePower = 0;
+			float accumulateCost = 0;
+			float accumulateExportUnits = 0;
 
-		countDays = 0;
+			SortedSet<String> setOfDays = new TreeSet<String>();
 
-		float accumulateDifference = 0;
-		float accumulatePower = 0;
-		float accumulateCost = 0;
-		float accumulateExportUnits = 0;
+			setOfDays.addAll(elecMapDaily.keySet());
 
-		SortedSet<String> setOfDays = new TreeSet<String>();
-
-		setOfDays.addAll(elecMapDaily.keySet());
-
-		float flatStandingCharge = Float.valueOf(
-				properties.getProperty(KEY_FIXED_ELECTRICITY_STANDING, DEFAULT_FIXED_ELECTRICITY_STANDING_PROPERTY));
+			float flatStandingCharge = Float.valueOf(properties.getProperty(KEY_FIXED_ELECTRICITY_STANDING,
+					DEFAULT_FIXED_ELECTRICITY_STANDING_PROPERTY));
 
 //		float agileStandingCharge = Float.valueOf(
 //				properties.getProperty(KEY_IMPORT_ELECTRICITY_STANDING, DEFAULT_IMPORT_ELECTRICITY_STANDING_PROPERTY));
 
-		for (String key : setOfDays) {
+			for (String key : setOfDays) {
 
-			// ignore today because consumption data will not yet be fully complete
+				// ignore today because consumption data will not yet be fully complete
 
-			if (0 == today.compareTo(key)) {
+				if (0 == today.compareTo(key)) {
 
-				continue;
+					continue;
+				}
+
+				DayValues dayValues = elecMapDaily.get(key);
+
+				// ignore other incomplete days
+
+				if (null == dayValues) {
+
+					continue;
+				}
+
+				// kludge API is returning < 48 slots due to zero values
+
+				if (dayValues.getSlotCount() < 24) {
+
+					continue;
+				}
+
+				tallyDays++;
+
+				float consumption = dayValues.getDailyImport();
+
+				float agilePrice = dayValues.getDailyImportPrice();
+
+				float flatImportPrice = consumption * flatRateImport;
+
+				float agileCost = agilePrice + agileImportStandingCharge;
+
+				float difference = (flatImportPrice + flatStandingCharge) - agileCost;
+
+				float dailyAverageUnitPrice = agilePrice / consumption;
+
+				float dailyExportUnits = 0;
+
+				String values = null;
+
+				values = map.get(key);
+
+				if (null == values) {
+					// fallback
+
+					values = map.get(key + "_23:30");
+				}
+
+				if (null != values) {
+
+					String cols[] = values.split(",");
+
+					dailyExportUnits = Float.valueOf(cols[10]);
+				}
+
+				float agileCostInGBP = agileCost / 100;
+
+				float differeceInGBP = difference / 100;
+
+				float exportInGBP = (dailyExportUnits * 15f) / 100;
+
+				boolean quidsIn = exportInGBP > agileCostInGBP;
+
+				if (showRecent) {
+
+					ps.println(dayValues.getDayOfWeek() + (quidsIn ? " * " : "   ") + key + " £"
+							+ String.format("%5.2f", agileCostInGBP) + String.format("%7.3f", consumption) + " kWhr @ "
+							+ String.format("%5.2f", dailyAverageUnitPrice) + "p" + " A:"
+							+ String.format("%8.4f", agilePrice) + "p +" + agileImportStandingCharge + "p (F: "
+							+ String.format("%8.4f", flatImportPrice) + "p +" + flatStandingCharge + "p) Save: £"
+							+ String.format("%5.2f", differeceInGBP) + " + Export:"
+							+ String.format("%4.1f", dailyExportUnits) + " kWhr £"
+							+ String.format("%5.2f", exportInGBP));
+				}
+
+				accumulateDifference += difference;
+
+				accumulatePower += consumption;
+
+				accumulateCost += agilePrice;
+
+				accumulateExportUnits += dailyExportUnits;
 			}
 
-			DayValues dayValues = elecMapDaily.get(key);
+			unitCostAverage = accumulateCost / accumulatePower;
 
-			// ignore other incomplete days
+			if (showSavings) {
 
-			if (null == dayValues) {
-
-				continue;
+				renderSummaryB(agileImportStandingCharge, flatStandingCharge, flatRateImport, flatRateExport, tallyDays,
+						unitCostAverage, accumulatePower, accumulateDifference, accumulateExportUnits);
 			}
 
-			// kludge API is returning < 48 slots due to zero values
+			ps.flush();
+			ps.close();
 
-			if (dayValues.getSlotCount() < 24) {
+			// store extended attribute metadata
 
-				continue;
-			}
+			byte[] ba = String.valueOf(tallyDays).getBytes();
 
-			countDays++;
+			ByteBuffer bb = ByteBuffer.wrap(ba);
 
-			float consumption = dayValues.getDailyImport();
+			view.write("days", bb);
 
-			float agilePrice = dayValues.getDailyImportPrice();
+			ba = String.valueOf(unitCostAverage).getBytes();
 
-			float flatImportPrice = consumption * flatRateImport;
+			bb = ByteBuffer.wrap(ba);
 
-			float agileCost = agilePrice + agileImportStandingCharge;
-
-			float difference = (flatImportPrice + flatStandingCharge) - agileCost;
-
-			float dailyAverageUnitPrice = agilePrice / consumption;
-
-			float dailyExportUnits = 0;
-
-			String values = null;
-
-			values = map.get(key);
-
-			if (null == values) {
-				// fallback
-
-				values = map.get(key + "_23:30");
-			}
-
-			if (null != values) {
-
-				String cols[] = values.split(",");
-
-				dailyExportUnits = Float.valueOf(cols[10]);
-			}
-
-			float agileCostInGBP = agileCost / 100;
-
-			float differeceInGBP = difference / 100;
-
-			float exportInGBP = (dailyExportUnits * 15f) / 100;
-
-			boolean quidsIn = exportInGBP > agileCostInGBP;
-
-			if (showRecent) {
-
-				System.out.println(dayValues.getDayOfWeek() + (quidsIn ? " * " : "   ") + key + " £"
-						+ String.format("%5.2f", agileCostInGBP) + String.format("%7.3f", consumption) + " kWhr @ "
-						+ String.format("%5.2f", dailyAverageUnitPrice) + "p" + " A:"
-						+ String.format("%8.4f", agilePrice) + "p +" + agileImportStandingCharge + "p (F: "
-						+ String.format("%8.4f", flatImportPrice) + "p +" + flatStandingCharge + "p) Save: £"
-						+ String.format("%5.2f", differeceInGBP) + " + Export:"
-						+ String.format("%4.1f", dailyExportUnits) + " kWhr £" + String.format("%5.2f", exportInGBP));
-			}
-
-			accumulateDifference += difference;
-
-			accumulatePower += consumption;
-
-			accumulateCost += agilePrice;
-
-			accumulateExportUnits += dailyExportUnits;
+			view.write("average", bb);
 		}
 
-		Float unitCostAverage = accumulateCost / accumulatePower;
+		instance.getFromCache(prefix, recentEpochSecond, cacheRecent, true); // this displays data to System.out
 
-		if (showSavings) {
+		List<String> names = view.list();
 
-			renderSummaryB(agileImportStandingCharge, flatStandingCharge, flatRateImport, flatRateExport, countDays,
-					unitCostAverage, accumulatePower, accumulateDifference, accumulateExportUnits);
+		Map<String, String> values = new HashMap<String, String>(names.size());
+
+		for (String name : names) {
+
+			int s = view.size(name);
+
+			ByteBuffer dst = ByteBuffer.allocate(s);
+
+			view.read(name, dst);
+
+			dst.flip();
+
+			String value = Charset.defaultCharset().decode(dst).toString();
+
+			values.put(name, value);
 		}
 
-		return unitCostAverage.intValue();
+		return values;
 	}
 
 	private void renderSummaryB(float agileStandingCharge, float flatStandingCharge, float flatRateImport,
@@ -6113,7 +6213,7 @@ public class Octopussy implements IOctopus {
 
 	}
 
-	private void showAnalysis(List<SlotCost> pricesPerSlot, int averageUnitCost, ArrayList<Long> bestImportTime,
+	private void showAnalysis(List<SlotCost> pricesPerSlot, float averageUnitCost, ArrayList<Long> bestImportTime,
 			ArrayList<Long> bestExportTime) {// , String[] chargeSchedule) {
 
 		int maxWidth = 0;
