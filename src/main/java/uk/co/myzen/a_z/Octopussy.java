@@ -1247,12 +1247,18 @@ public class Octopussy implements IOctopus {
 			//
 			//
 
-			Map<String, String> extendedAttributes = instance.dailyResults(today, elecMapDaily, recentEpochSecond);
+			int countDays = howManyDaysHistory; // by default
 
-			int countDays = Integer.parseInt(extendedAttributes.get("days"));
+			float averageUnitCost = 15f; // by default
 
-			float averageUnitCost = Float.parseFloat(extendedAttributes.get("average"));
+			Map<String, String> extendedAttributes = instance.recentResults(today, elecMapDaily, recentEpochSecond);
 
+			if (null != extendedAttributes && extendedAttributes.size() > 0) {
+
+				countDays = Integer.parseInt(extendedAttributes.get("days"));
+
+				averageUnitCost = Float.parseFloat(extendedAttributes.get("average"));
+			}
 			//
 			//
 			//
@@ -1423,68 +1429,109 @@ public class Octopussy implements IOctopus {
 		}
 	}
 
-//	private static boolean updateAdvised(File flagfile) {
-//
-//		boolean fileExists = flagfile.exists();
-//
-//		if (fileExists) {
-//
-//			// this file may have been created yesterday
-//			// if so see what time it was created
-//
-//			// find time at start of day
-//
-//			LocalDateTime startOfDay = LocalDateTime.ofInstant(now, ourZoneId).withHour(0).withMinute(0).withSecond(0)
-//					.withNano(0);
-//
-//			ZoneOffset zoneOffset = ourZoneId.getRules().getOffset(startOfDay);
-//
-//			long epochSecondAtStartOfDay = startOfDay.atZone(ourZoneId).toEpochSecond();
-//
-//			long msSinceEpochlastModified = flagfile.lastModified();
-//
-//			Long nanoSeconds = 1000000l * (msSinceEpochlastModified % 1000l);
-//
-//			long epochSecond = msSinceEpochlastModified / 1000l;
-//
-//			int nanoOfSecond = nanoSeconds.intValue();
-//
-//			LocalDateTime ldtLastModified = LocalDateTime.ofEpochSecond(epochSecond, nanoOfSecond, zoneOffset);
-//
-//			if (ldtLastModified.toEpochSecond(zoneOffset) < epochSecondAtStartOfDay) {
-//
-//				try {
-//
-//					instance.logErrTime("DIAG: " + flagfile.getCanonicalPath() + " last modified at "
-//							+ ldtLastModified.toString() + " is now deleted");
-//
-//				} catch (IOException e) {
-//
-//					e.printStackTrace();
-//				}
-//
-//				flagfile.delete(); // this forces extra API calls later
-//
-//				fileExists = false;
-//			}
-//		}
-//
-//		return !fileExists;
-//	}
+	private UserDefinedFileAttributeView cacheChargingSchedule(String[] chargeSchedule, File cacheSchedule,
+			int minsDelayStart) {
 
-	private String[] readChargingSchedule(final int howMany) {
+		UserDefinedFileAttributeView view = null;
+
+		try {
+			Path path = FileSystems.getDefault().getPath(cacheSchedule.getCanonicalPath());
+
+			view = Files.getFileAttributeView(path, UserDefinedFileAttributeView.class);
+
+			StringBuffer contents = new StringBuffer();
+
+			for (int s = 0; s < chargeSchedule.length; s++) {
+
+				if (0 != s) {
+
+					contents.append(',');
+				}
+				contents.append(chargeSchedule[s]);
+			}
+
+			PrintWriter pw = new PrintWriter(cacheSchedule);
+
+			pw.print(contents);
+
+			pw.flush();
+			pw.close();
+
+			// enhance the cacheSchedule file with metadata (containing minsDelayStart)
+
+			byte[] ba = String.valueOf(minsDelayStart).getBytes();
+
+			ByteBuffer bb = ByteBuffer.wrap(ba);
+
+			try {
+
+				view.write("delay", bb);
+
+			} catch (IOException e) {
+
+				e.printStackTrace();
+			}
+
+			logErrTime("INFO: write schedule " + contents + " with delay:" + minsDelayStart + " to "
+					+ cacheSchedule.getName());
+
+		} catch (FileNotFoundException e) {
+
+			e.printStackTrace();
+
+		} catch (IOException e) {
+
+			e.printStackTrace();
+		}
+
+		return view;
+	}
+
+	private String[] readChargingSchedule(final int howMany, String prefix, long epochSecond, File cacheSchedule,
+			boolean forceUpdate) {
 
 		String[] readEndTimesParameter = { "65", "103", "106", "109", "112", "115", "118", "121", "124", "127" };
 
+		String[] result = new String[howMany];
+
 		List<String> endTimes = new ArrayList<String>();
 
-		if (!"false".equalsIgnoreCase(setting)) {
+		if (cacheSchedule.exists() && !forceUpdate) {
+
+			// just read existing cache rather than making API cloud call
+
+			try {
+
+				String content = getFromCache(prefix, epochSecond, cacheSchedule, false);
+
+				String contents[] = content.split(",");
+
+				// logErrTime("INFO: read schedule " + content + " from " +
+				// cacheSchedule.getName());
+
+				for (int s = 0; s < contents.length; s++) {
+
+					endTimes.add(contents[s]);
+				}
+
+			} catch (IOException e) {
+
+				forceUpdate = true;
+			}
+		}
+
+		if (!cacheSchedule.exists() || forceUpdate) {
+
+			forceUpdate = true;
 
 			int tally = 0;
 
 			for (int s = 0; s < howMany; s++) {
 
 				// what is the current 'to' time in the inverter for Slot 1/2/3/4/5?
+
+				// eg S1 would be
+				// [java, -jar, icarus.jar, ./Icarus.properties, inverter,setting, read, 65, ]
 
 				String hhmm = execRead(setting, readEndTimesParameter[s]);
 
@@ -1527,13 +1574,19 @@ public class Octopussy implements IOctopus {
 					endTimes.add(hhmm);
 				}
 			}
-		}
 
-		String[] result = new String[endTimes.size()];
+			logErrTime("INFO: read schedule from Cloud");
+		}
 
 		result = endTimes.toArray(result);
 
+		if (forceUpdate) {
+
+			cacheChargingSchedule(result, cacheSchedule, 0);
+		}
+
 		return result;
+
 	}
 
 	private List<Set<Integer>> loadDeviceGroups() {
@@ -2565,7 +2618,8 @@ public class Octopussy implements IOctopus {
 		return result;
 	}
 
-	private String getFromCache(String prefix, long epochSecond, File cache, boolean display) throws IOException {
+	private String getFromCache(String prefix, long epochSecond, File cache, boolean displayOrReturnContents)
+			throws IOException {
 
 		String result = null;
 
@@ -2611,53 +2665,22 @@ public class Octopussy implements IOctopus {
 
 				String line = scanner.nextLine();
 
-				if (display) {
+				if (displayOrReturnContents) {
 
 					System.out.println(line);
 
 				} else {
 
 					sb.append(line);
-					sb.append("\n");
 				}
 			}
 
 			scanner.close();
 
-			if (!display) {
+			if (!displayOrReturnContents) {
 
 				result = sb.toString();
 			}
-//			else {
-//
-//				Path path = FileSystems.getDefault().getPath(cache.getCanonicalPath());
-//
-//				UserDefinedFileAttributeView view = Files.getFileAttributeView(path,
-//						UserDefinedFileAttributeView.class);
-//
-//				List<String> names = view.list();
-//
-//				for (String name : names) {
-//
-//					int s = view.size(name);
-//
-//					ByteBuffer dst = ByteBuffer.allocate(s);
-//
-//					view.read(name, dst);
-//
-//					dst.flip();
-//
-//					String value = Charset.defaultCharset().decode(dst).toString();
-//
-//					System.out.println(name + "\t" + value);
-//				}
-//
-//				byte[] ba = "example".getBytes();
-//
-//				ByteBuffer bb = ByteBuffer.wrap(ba);
-//
-//				view.write("MyAttribute", bb);
-//			}
 		}
 
 		return result; // or null
@@ -2861,24 +2884,6 @@ public class Octopussy implements IOctopus {
 
 			logErrTime(result.getCount() + ":" + json.length() + " in " + (created ? "new" : "existing") + " file "
 					+ cache.getName());
-
-//			/*
-//			 * TODO Replace with testing meta data count
-//			 * 
-//			 */
-//			ZonedDateTime zdtValidFrom = ZonedDateTime.parse(result.getTariffResults().get(0).getValidFrom());
-//
-//			// Does latest data indicate tommorow's data is available?
-//			// ok: at turn of year this optimisation won't work, but at least we've
-//			// considered the situation
-//
-//			if (zdtValidFrom.getDayOfYear() > ourTimeNow.getDayOfYear()) {
-//
-//				// ok: at turn of year on 1st Jan this optimisation won't work,
-//				// but at least we've considered the situation and prepared for the consequence
-//
-//				flagLatestAvailable.createNewFile();
-//			}
 
 			long nowEpochSecond = ourTimeNow.toEpochSecond();
 
@@ -4148,9 +4153,16 @@ public class Octopussy implements IOctopus {
 //		dayPartStartsAt24hr = parts.get(p);
 		dayPartEndsAt24hr = dayPartsEndAt24hr[p];
 
-		int numberofChargingSlotsInThisPartOfDay = slotsPerDayPart[p];
+		int numberOfChargingSlotsInThisPartOfDay = slotsPerDayPart[p];
 
-		chargeSchedule = instance.readChargingSchedule(numberofChargingSlotsInThisPartOfDay);
+//		String prefix = "cache.schedule." + String.valueOf(1 + p);
+//
+//		Long epochSecAtMidnight = pricesPerSlotSinceMidnight.get(0).getEpochSecond();
+//
+//		File cacheSchedule = new File("./" + prefix + "." + epochSecAtMidnight.toString() + ".txt");
+//
+//		chargeSchedule = instance.readChargingSchedule(numberOfChargingSlotsInThisPartOfDay, prefix, epochSecAtMidnight,
+//				cacheSchedule, false);
 
 		lowerSOCpc = minPercents[p];
 
@@ -4238,9 +4250,9 @@ public class Octopussy implements IOctopus {
 				}
 
 				logErrTime("Part " + (1 + p) + "/" + numberOfParts + " Schedule " + power + " W x "
-						+ String.valueOf(chargeSchedule.length) + " slot(s) " + percentMin + "% to " + percentMax + "% "
-						+ (minsDelayStart > 0 ? "delay:" + minsDelayStart + "m " : "") + "Solar:" + solarForecastWhr
-						+ " / " + maxSolar);
+						+ String.valueOf(numberOfChargingSlotsInThisPartOfDay) + " slot(s) " + percentMin + "% to "
+						+ percentMax + "% " + (minsDelayStart > 0 ? "delay:" + minsDelayStart + "m " : "") + "Solar:"
+						+ solarForecastWhr + " / " + maxSolar);
 
 				break; // No need to loop
 			}
@@ -4255,10 +4267,11 @@ public class Octopussy implements IOctopus {
 		float avUnitPriceToday = (costsSoFarToday[0] - agileImportStandingCharge) / (float) kWhrGridImport;
 
 		System.out.println("\nToday's import cost: " + (ansi ? ANSI_SCORE : "") + "£"
-				+ String.format("%5.2f", importCostSoFarToday) + (ansi ? ANSI_RESET : "") + "  (so far...) based on "
-				+ gridImportUnits + " kWhr imported up to " + timestamp.substring(11, 19)
-				+ " (including standing charge " + String.format("%5.2f", agileImportStandingCharge) + "p)  "
-				+ String.format("%5.2f", avUnitPriceToday) + "p / kWhr");
+				+ String.format("%5.2f", importCostSoFarToday) + (ansi ? ANSI_RESET : "") + "  (so far...) based on"
+				+ gridImportUnits + " kWhr @ " + String.format("%5.2f", avUnitPriceToday) + "p / kWhr up to "
+				+ timestamp.substring(11, 19) + " (includes standing charge "
+				+ String.format("%5.2f", agileImportStandingCharge) + "p)    " + (ansi ? ANSI_SUNSHINE : "") + "Export"
+				+ (ansi ? ANSI_RESET : ""));
 
 		System.out.println(
 				String.format("%2d", countDays) + " day (A)verage price:  " + String.format("%6.3f", averageUnitCost)
@@ -4281,14 +4294,24 @@ public class Octopussy implements IOctopus {
 
 		String deferredStartTime = null;
 
-		if (null != power && numberofChargingSlotsInThisPartOfDay > 0) {
+		String prefix = "cache.schedule." + String.valueOf(1 + p);
 
-			slots = findOptimalCostSlotToday(numberofChargingSlotsInThisPartOfDay, pricesPerSlotSinceMidnight,
+		Long epochSecAtMidnight = pricesPerSlotSinceMidnight.get(0).getEpochSecond();
+
+		File cacheSchedule = new File("./" + prefix + "." + epochSecAtMidnight.toString() + ".txt");
+
+		if (null != power && numberOfChargingSlotsInThisPartOfDay > 0) {
+
+			slots = findOptimalCostSlotToday(numberOfChargingSlotsInThisPartOfDay, pricesPerSlotSinceMidnight,
 					currentSlotIndex, dayPartsEndBefore12hr[p]);
 
 			if (null != charge && 0 != "false".compareTo(charge)) {
 
-				for (int s = 0; s < numberofChargingSlotsInThisPartOfDay; s++) {
+				// initialise array
+
+				chargeSchedule = new String[numberOfChargingSlotsInThisPartOfDay];
+
+				for (int s = 0; s < numberOfChargingSlotsInThisPartOfDay; s++) {
 
 					// Normally slots.length == numberofChargingSlotsInThisPartOfDay
 					// However if we configure more slots than can be fit in the remaining in the
@@ -4333,7 +4356,16 @@ public class Octopussy implements IOctopus {
 						chargeSchedule[s] = execMacro(macro, macroId, from, to, maxPercents[p]);
 					}
 				}
+
+				// Assume chargeSchedule[] fully initialised for this part of the day
+				// Update cache file, replacing any previous contents and adding metadata
+
+				cacheChargingSchedule(chargeSchedule, cacheSchedule, minsDelayStart);
 			}
+		} else {
+
+			chargeSchedule = instance.readChargingSchedule(numberOfChargingSlotsInThisPartOfDay, prefix,
+					epochSecAtMidnight, cacheSchedule, false);
 		}
 
 		// create an array of prices related to the times in the schedule
@@ -4583,8 +4615,50 @@ public class Octopussy implements IOctopus {
 					}
 				}
 
+				try {
+
+					Path path = FileSystems.getDefault().getPath(cacheSchedule.getCanonicalPath());
+
+					UserDefinedFileAttributeView view = Files.getFileAttributeView(path,
+							UserDefinedFileAttributeView.class);
+
+					int index = -1;
+
+					List<String> names = view.list();
+
+					final String name = "delay";
+
+					for (int n = 0; n < names.size(); n++) {
+
+						System.out.println("[" + names.get(n) + "]");
+
+						if (name.equals(names.get(n))) {
+
+							index = n;
+						}
+					}
+
+					if (index > -1) {
+
+						int sizeOfValue = view.size(name);
+
+						ByteBuffer dst = ByteBuffer.allocate(sizeOfValue);
+
+						view.read(name, dst);
+
+						dst.flip();
+
+						String value = Charset.defaultCharset().decode(dst).toString();
+
+						minsDelayStart = Integer.parseInt(value);
+					}
+
+				} catch (IOException e) {
+
+				}
+
 				chargeMonitorThread = new WatchSlotChargeHelperThread(this, 29, s, minPercent, maxPercent,
-						chargingSlotPower);
+						chargingSlotPower, minsDelayStart);
 
 				chargeMonitorThread.start(); // this spawned thread will run no longer than HH:MM in schedule[s]
 				// the slot will be reset when task complete
@@ -5909,7 +5983,7 @@ public class Octopussy implements IOctopus {
 		return priceMap;
 	}
 
-	private Map<String, String> dailyResults(String today, Map<String, DayValues> elecMapDaily, long recentEpochSecond)
+	private Map<String, String> recentResults(String today, Map<String, DayValues> elecMapDaily, long recentEpochSecond)
 			throws IOException {
 
 		Float unitCostAverage = null;
@@ -5918,14 +5992,14 @@ public class Octopussy implements IOctopus {
 
 		File cacheRecent = new File("./" + prefix + "." + String.valueOf(recentEpochSecond) + ".txt");
 
-		// access the extended attributes for the file metadata (held in the file
-		// system)
+		// access the extended attributes for the file metadata
+		// (held in the file system)
 
 		Path path = FileSystems.getDefault().getPath(cacheRecent.getCanonicalPath());
 
 		UserDefinedFileAttributeView view = Files.getFileAttributeView(path, UserDefinedFileAttributeView.class);
 
-		if (!cacheRecent.exists()) {
+		if (!cacheRecent.exists() || forceImportAppendToFile) {
 
 			cacheRecent.createNewFile();
 
@@ -5956,7 +6030,7 @@ public class Octopussy implements IOctopus {
 
 				StringBuffer sb = new StringBuffer();
 
-				sb.append("\nRecent daily costs (in week ");
+				sb.append("Recent daily costs (in week ");
 
 				Iterator<Integer> iterator = weekNumbers.iterator();
 
@@ -5989,9 +6063,6 @@ public class Octopussy implements IOctopus {
 
 			float flatStandingCharge = Float.valueOf(properties.getProperty(KEY_FIXED_ELECTRICITY_STANDING,
 					DEFAULT_FIXED_ELECTRICITY_STANDING_PROPERTY));
-
-//		float agileStandingCharge = Float.valueOf(
-//				properties.getProperty(KEY_IMPORT_ELECTRICITY_STANDING, DEFAULT_IMPORT_ELECTRICITY_STANDING_PROPERTY));
 
 			for (String key : setOfDays) {
 

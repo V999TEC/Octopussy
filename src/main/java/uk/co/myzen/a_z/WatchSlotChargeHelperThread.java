@@ -1,6 +1,7 @@
 package uk.co.myzen.a_z;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
 import uk.co.myzen.a_z.json.ChargeDischarge;
@@ -14,15 +15,21 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 //	private static char longSolidusOverlay = '̸';
 //
 //	private static char xAbove = '̽';
-
-	private final int runTimeoutMinutes;
+	private final int delayStartMinutes;
+	private final int runTimeOutMinutes;
 	private final int scheduleIndex;
 	private final int socMaxPercent;
 	private final int socMinPercent;
 
-	private final String expiryTime;
+	private final String expiryTimeHHMM;
 
 	private final int power;
+
+	final int secOfDayTimeOut;
+
+	// the start of the slot will be 29 minutes earlier (i.e 1740 seconds earlier)
+
+	final int secOfDayTimeIn;
 
 	private final IOctopus i;
 
@@ -47,21 +54,44 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 		return String.valueOf(strikeThrough);
 	}
 
-	protected WatchSlotChargeHelperThread(IOctopus i, int runTimeoutMinutes, int scheduleIndex, int socMinPercent,
-			int socMaxPercent, int power) {
+	protected WatchSlotChargeHelperThread(IOctopus i, int runTimeOutMinutes, int scheduleIndex, int socMinPercent,
+			int socMaxPercent, int power, int delayStartMinutes) {
 
 		this.i = i;
+		this.delayStartMinutes = delayStartMinutes;
 
-		this.runTimeoutMinutes = runTimeoutMinutes;
+		this.runTimeOutMinutes = runTimeOutMinutes;
 
 		this.scheduleIndex = scheduleIndex;
 
 		this.socMaxPercent = socMaxPercent;
 		this.socMinPercent = socMinPercent;
 
-		this.expiryTime = Octopussy.chargeSchedule[scheduleIndex];
-
 		this.power = power;
+
+		this.expiryTimeHHMM = Octopussy.chargeSchedule[scheduleIndex];
+
+		int hh = Integer.parseInt(expiryTimeHHMM.substring(0, 2));
+		int mm = Integer.parseInt(expiryTimeHHMM.substring(3));
+
+		secOfDayTimeOut = LocalDateTime.now().withHour(hh).withMinute(mm).toLocalTime().toSecondOfDay();
+
+		// Implicit: the start of each 30-min slot will be roughly 29 minutes earlier
+		// than schedule passed in, (which is always HH:59 or HH:29),
+		// thus at HH:30 or HH:00 respectively.
+		// we use runTimeOutMinutes to limit the maximum period within a 30 minute slot.
+		// Thus if we start at HH:00:15 and runtimeOutMinutes is 29, we would expect to
+		// terminate at HH:29:15 - thus 45 seconds before the next half-hour slot
+		// starts.
+		// Using runTimeInMinutes allows the start to be delayed.
+		// So if ==2 then we might start at HH:02:15 but the cutoff would still be
+		// HH:29:15 and if ==0 we would try to not have any delay, but in practice
+		// it will be a few seconds.
+
+		secOfDayTimeIn = secOfDayTimeOut - 1800 + (60 * delayStartMinutes) + 15;
+
+		// there is no guarantee that start & finish is on a SS == 0 boundary
+		// but we are confident the period between is as desired
 
 		slotN = SN(scheduleIndex);
 	}
@@ -69,7 +99,7 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 	@Override
 	public void run() {
 
-		final long millisTimeout = (runTimeoutMinutes * 60000) + System.currentTimeMillis();
+		int secOfDayNow = LocalTime.now().toSecondOfDay();
 
 		Thread currentThread = Thread.currentThread();
 
@@ -77,8 +107,8 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 		currentThread.setName("Charge-" + idHexString);
 
-		i.logErrTime(slotN + "Monitoring starts min:" + socMinPercent + "% max:" + socMaxPercent + "% power:" + power
-				+ " watts");
+		i.logErrTime(slotN + "Monitoring starts aft:" + delayStartMinutes + " min:" + socMinPercent + "% max:"
+				+ socMaxPercent + "% power:" + power + " watts");
 
 		i.batteryChargePower(power);
 
@@ -98,7 +128,7 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 		boolean chargeExpedited = false;
 
-		do { // repeat loop every 45 seconds or so
+		do { // repeat loop every 15 or 45 seconds or so
 
 			Integer batteryLevel = null;
 
@@ -111,6 +141,13 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 			try {
 
 				Thread.sleep(15000L);
+
+				secOfDayNow = LocalTime.now().toSecondOfDay();
+
+				if (secOfDayNow < secOfDayTimeIn) {
+
+					continue; // tick every 15 seconds until we've started charging
+				}
 
 				temperatureDegreesC = i.execReadTemperature();
 
@@ -139,10 +176,12 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 				continue; // loop
 			}
 
-			if (System.currentTimeMillis() >= millisTimeout) {
+			secOfDayNow = LocalTime.now().toSecondOfDay();
+
+			if (secOfDayNow >= secOfDayTimeOut) {
 
 				reason = 1;
-				i.logErrTime(slotN + "Hit runTimeoutMinutes:" + runTimeoutMinutes);
+				i.logErrTime(slotN + "Hit runTimeoutMinutes:" + runTimeOutMinutes);
 				break;
 			}
 
@@ -215,7 +254,7 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 					chargeLevelNotDefault = true;
 
-					i.resetChargingSlot(scheduleIndex, soon, expiryTime, socMaxPercent);
+					i.resetChargingSlot(scheduleIndex, soon, expiryTimeHHMM, socMaxPercent);
 
 					chargeExpedited = true;
 				}
@@ -240,11 +279,11 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 				}
 			}
 
-		} while (0 != expiryTime.compareTo(LocalDateTime.now().format(formatter24HourClock)));
+		} while (0 != expiryTimeHHMM.compareTo(LocalDateTime.now().format(formatter24HourClock)));
 
 		if (reason < 2 || chargeExpedited) {
 
-			i.resetChargingSlot(scheduleIndex, expiryTime, expiryTime, 100);
+			i.resetChargingSlot(scheduleIndex, expiryTimeHHMM, expiryTimeHHMM, 100);
 		}
 
 		i.logErrTime(slotN + "Monitoring finished. Reason:" + reason + " Expedited:" + chargeExpedited);
