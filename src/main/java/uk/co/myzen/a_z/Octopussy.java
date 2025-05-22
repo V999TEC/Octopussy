@@ -1472,8 +1472,7 @@ public class Octopussy implements IOctopus {
 				e.printStackTrace();
 			}
 
-			logErrTime("INFO: write schedule " + contents + " with delay:" + minsDelayStart + " to "
-					+ cacheSchedule.getName());
+			logErrTime("INFO: " + contents + " with delay:" + minsDelayStart + " to " + cacheSchedule.getName());
 
 		} catch (FileNotFoundException e) {
 
