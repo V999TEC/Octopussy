@@ -1472,7 +1472,7 @@ public class Octopussy implements IOctopus {
 				e.printStackTrace();
 			}
 
-			logErrTime("INFO: " + contents + " with delay:" + minsDelayStart + " to " + cacheSchedule.getName());
+			logErrTime("INFO: " + contents + " [" + minsDelayStart + "] to " + cacheSchedule.getName());
 
 		} catch (FileNotFoundException e) {
 
@@ -5998,7 +5998,7 @@ public class Octopussy implements IOctopus {
 
 		UserDefinedFileAttributeView view = Files.getFileAttributeView(path, UserDefinedFileAttributeView.class);
 
-		if (!cacheRecent.exists() || forceImportAppendToFile) {
+		if (!cacheRecent.exists() || forceExportAppendToFile) {
 
 			cacheRecent.createNewFile();
 
