@@ -1247,22 +1247,6 @@ public class Octopussy implements IOctopus {
 			//
 			//
 
-			int countDays = howManyDaysHistory; // by default
-
-			float averageUnitCost = 15f; // by default
-
-			Map<String, String> extendedAttributes = instance.recentResults(today, elecMapDaily, recentEpochSecond);
-
-			if (null != extendedAttributes && extendedAttributes.size() > 0) {
-
-				countDays = Integer.parseInt(extendedAttributes.get("days"));
-
-				averageUnitCost = Float.parseFloat(extendedAttributes.get("average"));
-			}
-			//
-			//
-			//
-
 			// find time at start of day
 
 			LocalDateTime startOfDay = LocalDateTime.ofInstant(now, ourZoneId).withHour(0).withMinute(0).withSecond(0)
@@ -1288,6 +1272,24 @@ public class Octopussy implements IOctopus {
 			}
 
 			int currentSlotIndex = pricesPerSlotSinceMidnight.size() - pricesPerSlot.size();
+
+			//
+			//
+			//
+
+			int countDays = howManyDaysHistory; // by default
+
+			float averageUnitCost = 15f; // by default
+
+			Map<String, String> extendedAttributes = instance.recentResults(today, elecMapDaily, recentEpochSecond,
+					forceExportAppendToFile);
+
+			if (null != extendedAttributes && extendedAttributes.size() > 0) {
+
+				countDays = Integer.parseInt(extendedAttributes.get("days"));
+
+				averageUnitCost = Float.parseFloat(extendedAttributes.get("average"));
+			}
 
 			ArrayList<Long> bestExportTime = null;
 
@@ -3765,10 +3767,7 @@ public class Octopussy implements IOctopus {
 
 					if (0 == currentSlotEndTime.compareTo(result[r])) {
 
-						dischargeMonitorThread = new WatchSlotDischargeHelperThread(this, currentSlotEndTime, 28, r,
-
-								// experimental: 28 minutes instead of 29
-
+						dischargeMonitorThread = new WatchSlotDischargeHelperThread(this, currentSlotEndTime, 29, r,
 								lowerSOCpc, Integer.valueOf(maxRate));
 
 						dischargeMonitorThread.start();
@@ -4266,10 +4265,10 @@ public class Octopussy implements IOctopus {
 		float avUnitPriceToday = (costsSoFarToday[0] - agileImportStandingCharge) / (float) kWhrGridImport;
 
 		System.out.println("\nToday's import cost: " + (ansi ? ANSI_SCORE : "") + "£"
-				+ String.format("%5.2f", importCostSoFarToday) + (ansi ? ANSI_RESET : "") + "  (so far...) based on"
+				+ String.format("%5.2f", importCostSoFarToday) + (ansi ? ANSI_RESET : "") + "  (so far...) based on "
 				+ gridImportUnits + " kWhr @ " + String.format("%5.2f", avUnitPriceToday) + "p / kWhr up to "
 				+ timestamp.substring(11, 19) + " (includes standing charge "
-				+ String.format("%5.2f", agileImportStandingCharge) + "p)    " + (ansi ? ANSI_SUNSHINE : "") + "Export"
+				+ String.format("%5.2f", agileImportStandingCharge) + "p)   " + (ansi ? ANSI_SUNSHINE : "") + "Export"
 				+ (ansi ? ANSI_RESET : ""));
 
 		System.out.println(
@@ -5982,8 +5981,8 @@ public class Octopussy implements IOctopus {
 		return priceMap;
 	}
 
-	private Map<String, String> recentResults(String today, Map<String, DayValues> elecMapDaily, long recentEpochSecond)
-			throws IOException {
+	private Map<String, String> recentResults(String today, Map<String, DayValues> elecMapDaily, long recentEpochSecond,
+			boolean forceUpdate) throws IOException {
 
 		Float unitCostAverage = null;
 
@@ -5998,9 +5997,16 @@ public class Octopussy implements IOctopus {
 
 		UserDefinedFileAttributeView view = Files.getFileAttributeView(path, UserDefinedFileAttributeView.class);
 
-		if (!cacheRecent.exists() || forceExportAppendToFile) {
+		if (!cacheRecent.exists() || forceUpdate) {
 
-			cacheRecent.createNewFile();
+			if (cacheRecent.createNewFile()) {
+
+				logErrTime("With forceUpdate:" + forceUpdate + " created new file " + cacheRecent.getName());
+
+			} else {
+
+				logErrTime("With forceUpdate:" + forceUpdate + " updated existing file " + cacheRecent.getName());
+			}
 
 			PrintStream ps = new PrintStream(cacheRecent);
 
@@ -7033,17 +7039,20 @@ public class Octopussy implements IOctopus {
 
 			historyMap.put(key, consumptionHistory);
 
-			if (blah && missingConsumptionHistory) {
+			if (missingConsumptionHistory) {
 
 				count++;
 
-				if (1 == count) {
+				if (blah) {
 
-					logErrTime("DIAG: Adding more consumptionHistory data to the existing " + historyMap.size()
-							+ (isImport ? " import" : " export") + " records");
+					if (1 == count) {
+
+						logErrTime("DIAG: Adding more consumptionHistory data to the existing " + historyMap.size()
+								+ (isImport ? " import" : " export") + " records");
+					}
+
+					System.err.println(consumptionHistory.toString());
 				}
-
-				System.err.println(consumptionHistory.toString());
 			}
 		}
 

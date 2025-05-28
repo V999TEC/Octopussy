@@ -1,6 +1,7 @@
 package uk.co.myzen.a_z;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
 import uk.co.myzen.a_z.json.ChargeDischarge;
@@ -14,7 +15,11 @@ public class WatchSlotDischargeHelperThread extends Thread implements Runnable {
 	private final int socMinPercent;
 	private final int power;
 
-	private final String expiryTime;
+//	private final String expiryTime;
+
+	private final String expiryTimeHHMM;
+
+	private final int secOfDayTimeOut;
 
 	private final IOctopus i;
 
@@ -52,15 +57,35 @@ public class WatchSlotDischargeHelperThread extends Thread implements Runnable {
 
 		this.power = power;
 
-		this.expiryTime = expiryTime;
+//		this.expiryTime = expiryTime;
+
+		this.expiryTimeHHMM = Octopussy.chargeSchedule[scheduleIndex];
+
+		int hh = Integer.parseInt(expiryTimeHHMM.substring(0, 2));
+		int mm = Integer.parseInt(expiryTimeHHMM.substring(3));
+
+		secOfDayTimeOut = LocalDateTime.now().withHour(hh).withMinute(mm).toLocalTime().toSecondOfDay();
+
+		// Implicit: the start of each 30-min slot will be roughly 29 minutes earlier
+		// than schedule passed in, (which is always HH:59 or HH:29),
+		// thus at HH:30 or HH:00 respectively.
+		// we use runTimeOutMinutes to limit the maximum period within a 30 minute slot.
+		// Thus if we start at HH:00:15 and runtimeOutMinutes is 29, we would expect to
+		// terminate at HH:29:15 - thus 45 seconds before the next half-hour slot
+		// starts.
+		// Using runTimeInMinutes allows the start to be delayed.
+		// So if ==2 then we might start at HH:02:15 but the cutoff would still be
+		// HH:29:15 and if ==0 we would try to not have any delay, but in practice
+		// it will be a few seconds.
 
 		slotN = XN(scheduleIndex);
 	}
 
 	@Override
 	public void run() {
+		int secOfDayNow = LocalTime.now().toSecondOfDay();
 
-		final long millisTimeout = (runTimeoutMinutes * 60000) + System.currentTimeMillis();
+//		final long millisTimeout = (runTimeoutMinutes * 60000) + System.currentTimeMillis();
 
 		Thread currentThread = Thread.currentThread();
 
@@ -131,12 +156,21 @@ public class WatchSlotDischargeHelperThread extends Thread implements Runnable {
 				continue; // loop
 			}
 
-			if (System.currentTimeMillis() >= millisTimeout) {
+			secOfDayNow = LocalTime.now().toSecondOfDay();
+
+			if (secOfDayNow >= secOfDayTimeOut) {
 
 				reason = 1;
 				i.logErrTime(slotN + "Hit runTimeoutMinutes:" + runTimeoutMinutes);
 				break;
 			}
+
+//			if (System.currentTimeMillis() >= millisTimeout) {
+//
+//				reason = 1;
+//				i.logErrTime(slotN + "Hit runTimeoutMinutes:" + runTimeoutMinutes);
+//				break;
+//			}
 
 			if (prevBatLev <= socMinPercent) {
 
@@ -193,11 +227,11 @@ public class WatchSlotDischargeHelperThread extends Thread implements Runnable {
 				}
 			}
 
-		} while (0 != expiryTime.compareTo(LocalDateTime.now().format(formatter24HourClock)));
+		} while (0 != expiryTimeHHMM.compareTo(LocalDateTime.now().format(formatter24HourClock)));
 
 		if (reason < 2 || chargeRestarted) {
 
-			i.resetDischargingSlot(scheduleIndex, expiryTime, expiryTime, 4);
+			i.resetDischargingSlot(scheduleIndex, expiryTimeHHMM, expiryTimeHHMM, 4);
 		}
 
 		i.logErrTime(slotN + "Monitoring finished. Reason:" + reason + " Restarted:" + chargeRestarted);

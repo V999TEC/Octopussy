@@ -23,17 +23,15 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 
 	private final String expiryTimeHHMM;
 
-	private final int power;
-
-	final int secOfDayTimeOut;
-
-	// the start of the slot will be 29 minutes earlier (i.e 1740 seconds earlier)
-
-	final int secOfDayTimeIn;
-
 	private final IOctopus i;
 
 	private final String slotN;
+
+	private final int power;
+
+	private final int secOfDayTimeOut;
+
+	private int secOfDayTimeIn;
 
 	protected static String SN(int zeroBasedIndex) {
 
@@ -110,9 +108,22 @@ public class WatchSlotChargeHelperThread extends Thread implements Runnable {
 		i.logErrTime(slotN + "Monitoring starts aft:" + delayStartMinutes + " min:" + socMinPercent + "% max:"
 				+ socMaxPercent + "% power:" + power + " watts");
 
-		i.batteryChargePower(power);
-
 		boolean chargeLevelNotDefault = false;
+
+		if (power < 0) {
+
+			i.batteryChargePower(Integer.parseInt(Octopussy.maxRate));
+
+			// expedite - so don't delay for aft:N
+
+			secOfDayTimeIn = secOfDayNow;
+
+			chargeLevelNotDefault = true;
+
+		} else {
+
+			i.batteryChargePower(power);
+		}
 
 		DateTimeFormatter formatter24HourClock = Octopussy.formatter24HourClock;
 
