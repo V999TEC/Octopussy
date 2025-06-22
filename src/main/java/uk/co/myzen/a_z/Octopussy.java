@@ -89,6 +89,8 @@ public class Octopussy implements IOctopus {
 			"16:00", "16:30", "17:00", "17:30", "18:00", "18:30", "19:00", "19:30", "20:00", "20:30", "21:00", "21:30",
 			"22:00", "22:30", "23:00", "23:30" };
 
+	static boolean enhance = false;
+
 	static boolean execute = false;
 
 	public static final String ANSI_RESET = "\u001B[0m";
@@ -187,6 +189,10 @@ public class Octopussy implements IOctopus {
 
 	private final static String KEY_LIMIT = "limit";
 
+	private final static String KEY_INTERRUPT = "interrupt";
+
+	private final static String KEY_PAUSE_THRESHOLD = "pause.threshold";
+
 	private final static String KEY_REFERRAL = "referral";
 	private final static String KEY_VERSION = "version";
 
@@ -200,7 +206,7 @@ public class Octopussy implements IOctopus {
 			KEY_MONTHLY, KEY_WEEKLY, KEY_DAILY, KEY_DAY_FROM, KEY_DAY_TO, KEY_SHOW_RECENT, KEY_SHOW_SAVINGS,
 			KEY_SHOW_CONFIG, KEY_LIMIT, "#", KEY_SETTING, KEY_MACRO, KEY_SOLAR, KEY_PERCENT, KEY_GRID, KEY_CONSUMPTION,
 			KEY_TEMPERATURE, KEY_BATTERY, KEY_SUN, KEY_FORECAST, "#", KEY_FILE_SOLAR, KEY_MAX_SOLAR, KEY_MAX_RATE, "#",
-			KEY_REFERRAL, "#", KEY_VERSION };
+			KEY_INTERRUPT, KEY_PAUSE_THRESHOLD, "#", KEY_REFERRAL, "#", KEY_VERSION };
 
 //	private final static String DEFAULT_API_SOLCAST_PROPERTY = "blahblahblah";
 	private final static String DEFAULT_API_OCTOPUS_PROPERTY = "blah_BLAH2pMoreBlahPIXOIO72aIO1blah:";
@@ -268,6 +274,10 @@ public class Octopussy implements IOctopus {
 
 	private final static String DEFAULT_LIMIT_PROPERTY = "20";
 
+	private final static String DEFAULT_INTERRUPT_PROPERTY = "15";
+
+	private final static String DEFAULT_PAUSE_THRESHOLD_PROPERTY = "90";
+
 	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd pph:mm a");
 
 	protected final static DateTimeFormatter formatter24HourClock = DateTimeFormatter.ofPattern("HH:mm");
@@ -283,6 +293,8 @@ public class Octopussy implements IOctopus {
 	private final static DateTimeFormatter formatterLocalDate = DateTimeFormatter.ISO_LOCAL_DATE;
 
 	static ZoneId ourZoneId; // package visibility for benefit of JUnit test
+
+	static int slotNumber = -1;
 
 	private static ObjectMapper mapper;
 
@@ -335,6 +347,10 @@ public class Octopussy implements IOctopus {
 
 	static String limit = DEFAULT_LIMIT_PROPERTY; // overridden by limit=value in properties
 
+	static String interrupt = DEFAULT_INTERRUPT_PROPERTY; // overridden by interrupt=value in properties
+
+	static String pauseThreshold = DEFAULT_PAUSE_THRESHOLD_PROPERTY;
+
 	static String propertyFileName = DEFAULT_PROPERTY_FILENAME;
 
 	private static File fileSolar = null;
@@ -354,6 +370,9 @@ public class Octopussy implements IOctopus {
 
 	private static long epochFrom = 0;
 
+	private static LocalDate datePriceHistoryStarts = null;
+	private static LocalDate datePriceHistoryFinishes = null;
+
 	private static Map<Long, ConsumptionHistory> historyImport = null;
 	private static Map<Long, ConsumptionHistory> historyExport = null;
 
@@ -368,8 +387,7 @@ public class Octopussy implements IOctopus {
 	private List<String> parts = null;
 
 	private Set<String> dfs = null;
-
-//	private String dayPartStartsAt24hr = null;
+	private Map<String, String> cha = null;
 
 	private String dayPartEndsAt24hr = null;
 
@@ -379,17 +397,17 @@ public class Octopussy implements IOctopus {
 
 	private final List<String> ranges = new ArrayList<String>();
 
-	private WatchSlotChargeHelperThread chargeMonitorThread = null;
+	private WatchSlotBaseThread chargeMonitorThread = null;
+	private WatchSlotBaseThread dischargeMonitorThread = null;
+	private WatchSlotPauseHelperThread pauseBatteryThread = null;
 
-	private WatchSlotDischargeHelperThread dischargeMonitorThread = null;
+	static boolean currentTimeSlotIsCancelled = false;
 
-	boolean currentTimeSlotIsCancelled = false;
+	private static float avUnitPriceToday = 0f;
 
 	private static String[] sunEvents;
 
 	private static String bannerMessage = "";
-
-//	private static int countDays = -1;
 
 	private static boolean forceImportAppendToFile = false;
 
@@ -674,6 +692,25 @@ public class Octopussy implements IOctopus {
 		}
 	}
 
+	private static int getSlotNumber(ZonedDateTime time) {
+
+		LocalTime localTime = time.toLocalTime();
+
+		int n = 0;
+
+		for (; n < 48; n++) {
+
+			LocalTime ltSlot = LocalTime.parse(slotStartTimes[n], DateTimeFormatter.ISO_LOCAL_TIME);
+
+			if (-1 == localTime.compareTo(ltSlot)) {
+
+				break;
+			}
+		}
+
+		return n;
+	}
+
 	/**
 	 * @param args
 	 * @throws Exception
@@ -683,12 +720,6 @@ public class Octopussy implements IOctopus {
 	public static void main(String[] args) throws Exception {
 
 		instance = getInstance();
-
-		Thread currentThread = Thread.currentThread();
-
-		String idHexString = Long.toHexString(currentThread.getId());
-
-		currentThread.setName("Main-" + idHexString);
 
 		File importData = null;
 		File exportData = null;
@@ -727,6 +758,8 @@ public class Octopussy implements IOctopus {
 
 			usingExternalPropertyFile = instance.dealWithProperties(propertyFileName);
 
+			enhance = "enhance!".equals(properties.getProperty("TEST"));
+
 			//
 			//
 			//
@@ -742,6 +775,12 @@ public class Octopussy implements IOctopus {
 			// (typically controlled by crontab schedule)
 
 			ourTimeNow = now.atZone(ourZoneId);
+
+			slotNumber = getSlotNumber(ourTimeNow);
+
+			Thread currentThread = Thread.currentThread();
+
+			currentThread.setName("Main-" + slotNumber);
 
 			String timestamp = ourTimeNow.toString().substring(0, 19);
 
@@ -783,7 +822,11 @@ public class Octopussy implements IOctopus {
 
 			importData = new File(properties.getProperty(KEY_HISTORY_IMPORT, DEFAULT_HISTORY_IMPORT_PROPERTY).trim());
 
-			historyImport = instance.readHistory(importData); // this will reset epochFrom
+			historyImport = instance.readHistory(importData); // this will reset epochFrom & datePriceHistoryStarts
+
+			LocalDate dateImportPricesStart = datePriceHistoryStarts;
+
+			LocalDate dateImportPricesFinish = datePriceHistoryFinishes;
 
 			Long importEpochFrom = epochFrom;
 
@@ -791,7 +834,11 @@ public class Octopussy implements IOctopus {
 
 			exportData = new File(properties.getProperty(KEY_HISTORY_EXPORT, DEFAULT_HISTORY_EXPORT_PROPERTY).trim());
 
-			historyExport = instance.readHistory(exportData); // this will reset epochFrom
+			historyExport = instance.readHistory(exportData); // this will reset epochFrom & datePriceHistoryStarts
+
+			LocalDate dateExportPricesStart = datePriceHistoryStarts;
+
+			LocalDate dateExportPricesFinish = datePriceHistoryFinishes;
 
 			Long exportEpochFrom = epochFrom;
 
@@ -1218,6 +1265,18 @@ public class Octopussy implements IOctopus {
 
 					PrintStream ps = new PrintStream(cacheYearly);
 
+					LocalDate oldestDate = -1 == dateImportPricesStart.compareTo(dateExportPricesStart)
+							? dateImportPricesStart
+							: dateExportPricesStart;
+
+					long oldestEpochDay = oldestDate.toEpochDay();
+
+//					LocalDate youngestDate = 1 == dateImportPricesFinish.compareTo(dateExportPricesFinish)
+//							? dateImportPricesFinish
+//							: dateExportPricesFinish;
+
+//					long youngestEpochDay = youngestDate.toEpochDay();
+
 					SortedMap<String, PeriodicValues> yearlyImport = accumulateCostsByField(historyImport,
 							ChronoField.YEAR, recentEpochSecond);
 
@@ -1232,9 +1291,12 @@ public class Octopussy implements IOctopus {
 
 					float costExportTotal = displayPeriodSummary("Year", yearlyExport, null, null, ps);
 
-					ps.println("Running total electricity cost: " + (ansi ? ANSI_SUNSHINE : "") + " £"
+					long recentEpochDay = recentEpochSecond / 86400;
+
+					ps.println("Net running total electricity cost: " + (ansi ? ANSI_SUNSHINE : "") + " £"
 							+ String.format("%6.2f", (costImportTotal - costExportTotal) / 100)
-							+ (ansi ? ANSI_RESET : "") + " up to " + timeRecent.toString().substring(0, 10) + "\n");
+							+ (ansi ? ANSI_RESET : "") + " for " + (recentEpochDay - oldestEpochDay) + " days from "
+							+ oldestDate.toString() + " up to " + zuluBegin.toLocalDate().toString() + "\n");
 
 					ps.flush();
 					ps.close();
@@ -1312,6 +1374,82 @@ public class Octopussy implements IOctopus {
 			//
 			//
 
+			SlotCost currentSlotCost = pricesPerSlotSinceMidnight.get(currentSlotIndex);
+
+			float currentImportPrice = currentSlotCost.getImportPrice();
+
+			int batteryPercent = instance.execReadBatteryPercent();
+
+			if (batteryPercent >= Integer.parseInt(pauseThreshold)) {
+
+				String rangeEndTime = currentSlotCost.getSlotEndTime24hr();
+
+//				String rangeStartTime = currentSlotCost.getSlotStartTime24hr();
+
+//				instance.logErrTime("currentSlotIndex:" + currentSlotIndex + " import price:" + currentImportPrice
+//						+ " startTime:" + rangeStartTime + " endTime:" + rangeEndTime);
+
+				// see if current slot endTime is in either of the schedules
+
+				boolean match = false;
+
+				if (!currentTimeSlotIsCancelled) {
+
+					if (null != chargeSchedule && chargeSchedule.length > 0) {
+
+						for (String time : chargeSchedule) {
+
+							if (time.equals(rangeEndTime)) {
+
+								match = true;
+								break;
+							}
+						}
+					}
+
+					if (!match) {
+
+						if (null != dischargeSchedule && dischargeSchedule.length > 0) {
+
+							for (String time : dischargeSchedule) {
+
+								if (time.equals(rangeEndTime)) {
+
+									match = true;
+									break;
+								}
+							}
+						}
+					}
+				}
+
+				if (!match) {
+
+					// this slot is not in any schedule
+
+					// Now determine the current import price and compare with the average import
+					// price used to fill our battery today so far today (avUnitPriceToday)
+					// If the current price of import is less than what we spent filling the battery
+					// pause the battery for the remainder of the slot
+
+					if (currentImportPrice <= 0) { // || currentImportPrice < avUnitPriceToday) {
+
+						instance.logErrTime("Slot has ideal price " + currentImportPrice + "p and Bat:" + batteryPercent
+								+ "% to pause battery. Av:" + avUnitPriceToday);
+
+						instance.pauseBatteryThread = new WatchSlotPauseHelperThread(instance, 60);
+
+						instance.batteryPauseChargeAndDischarge();
+
+						instance.pauseBatteryThread.start();
+					}
+				}
+			}
+
+			//
+			//
+			//
+
 			ArrayList<Long> bestImportTime = instance.upcomingImport(pricesPerSlot);
 
 			//
@@ -1343,7 +1481,11 @@ public class Octopussy implements IOctopus {
 
 					long futureSlotStart = pricesPerSlot.get(1).getEpochSecond();
 
-					long millis = 1000 * (futureSlotStart - Instant.now().getEpochSecond() - 10); // knock of 10 seconds
+					long millis = 1000
+							* (futureSlotStart - Instant.now().getEpochSecond() - Integer.parseInt(interrupt)); // typically
+																												// knock
+																												// of 15
+																												// seconds
 
 					if (millis <= 0) { // assume slow terminating thread
 
@@ -1355,7 +1497,8 @@ public class Octopussy implements IOctopus {
 
 						if (instance.chargeMonitorThread.isAlive()) {
 
-							instance.logErrTime("Forcing monitoring interrupt 10s before next slot starts");
+							instance.logErrTime(
+									"Forcing monitoring interrupt " + interrupt + "s before next slot starts");
 
 							instance.chargeMonitorThread.interrupt();
 
@@ -1385,7 +1528,11 @@ public class Octopussy implements IOctopus {
 
 					long futureSlotStart = pricesPerSlot.get(1).getEpochSecond();
 
-					long millis = 1000 * (futureSlotStart - Instant.now().getEpochSecond() - 10); // knock of 10 seconds
+					long millis = 1000
+							* (futureSlotStart - Instant.now().getEpochSecond() - Integer.parseInt(interrupt)); // typically
+																												// knock
+																												// of 15
+																												// seconds
 
 					if (millis <= 0) { // assume slow terminating thread
 
@@ -1397,7 +1544,8 @@ public class Octopussy implements IOctopus {
 
 						if (instance.dischargeMonitorThread.isAlive()) {
 
-							instance.logErrTime("Forcing monitoring interrupt 10s before next slot starts");
+							instance.logErrTime(
+									"Forcing monitoring interrupt " + interrupt + "s before next slot starts");
 
 							instance.dischargeMonitorThread.interrupt();
 
@@ -1417,6 +1565,44 @@ public class Octopussy implements IOctopus {
 				instance.logErrTime("Resetting discharging power to " + maxRate + " watts");
 
 				instance.batteryDischargePower(Integer.valueOf(maxRate));
+			}
+
+			if (null != instance.pauseBatteryThread) {
+
+				if (instance.pauseBatteryThread.isAlive()) {
+
+					long futureSlotStart = pricesPerSlot.get(1).getEpochSecond();
+
+					long millis = 1000
+							* (futureSlotStart - Instant.now().getEpochSecond() - Integer.parseInt(interrupt)); // typically
+																												// knock
+																												// of 15
+																												// seconds
+
+					if (millis <= 0) { // assume slow terminating thread
+
+						instance.logErrTime("WARNING: missed opportunity to interrupt pauseBattery thread");
+
+					} else {
+
+						instance.pauseBatteryThread.join(millis); // expect thread to die within millis
+
+						if (instance.pauseBatteryThread.isAlive()) {
+
+							instance.logErrTime(
+									"Forcing monitoring interrupt " + interrupt + "s before next slot starts");
+
+							instance.pauseBatteryThread.interrupt();
+
+						} else {
+
+							instance.logErrTime("Confirmation pauseBattery thread no longer alive");
+						}
+					}
+				}
+
+				instance.logErrTime("Un-pausing battery");
+				instance.batteryNotPaused();
 			}
 
 			System.exit(0);
@@ -2466,6 +2652,10 @@ public class Octopussy implements IOctopus {
 
 		limit = properties.getProperty(KEY_LIMIT, DEFAULT_LIMIT_PROPERTY).trim();
 
+		interrupt = properties.getProperty(KEY_INTERRUPT, DEFAULT_INTERRUPT_PROPERTY).trim();
+
+		pauseThreshold = properties.getProperty(KEY_PAUSE_THRESHOLD, DEFAULT_PAUSE_THRESHOLD_PROPERTY).trim();
+
 		sun = properties.getProperty(KEY_SUN, DEFAULT_SUN_PROPERTY).trim();
 
 		maxSolar = properties.getProperty(KEY_MAX_SOLAR, DEFAULT_MAX_SOLAR_PROPERTY).trim();
@@ -3175,6 +3365,12 @@ public class Octopussy implements IOctopus {
 
 			myReader = new Scanner(file);
 
+			boolean recordedDateOfFirstPrice = false;
+
+			Long keyEpochFrom = null;
+
+			OffsetDateTime from = null;
+
 			while (myReader.hasNextLine()) {
 
 				String data = myReader.nextLine();
@@ -3209,7 +3405,7 @@ public class Octopussy implements IOctopus {
 
 				ch.setConsumption(consumption);
 
-				OffsetDateTime from = OffsetDateTime.parse(fields[1].trim(), defaultDateTimeFormatter);
+				from = OffsetDateTime.parse(fields[1].trim(), defaultDateTimeFormatter);
 
 				OffsetDateTime to = null;
 
@@ -3252,8 +3448,19 @@ public class Octopussy implements IOctopus {
 
 				epochFrom = from.toEpochSecond();
 
-				history.put(Long.valueOf(epochFrom), ch);
+				keyEpochFrom = Long.valueOf(epochFrom);
+
+				history.put(keyEpochFrom, ch);
+
+				if (null != price && !recordedDateOfFirstPrice) {
+
+					datePriceHistoryStarts = from.toLocalDate();
+
+					recordedDateOfFirstPrice = true;
+				}
 			}
+
+			datePriceHistoryFinishes = from.toLocalDate();
 		}
 
 		//
@@ -3622,6 +3829,29 @@ public class Octopussy implements IOctopus {
 		return ldtAdjusted;
 	}
 
+	private int appendToChargeSchedule(String endTime) {
+
+		int csLength = chargeSchedule.length;
+
+		String[] temp = new String[1 + csLength];
+
+		for (int i = 0; i < csLength; i++) {
+
+			temp[i] = chargeSchedule[i];
+		}
+
+		temp[csLength] = endTime;
+
+		chargeSchedule = new String[temp.length];
+
+		for (int i = 0; i < temp.length; i++) {
+
+			chargeSchedule[i] = temp[i];
+		}
+
+		return csLength;
+	}
+
 	private String[] scheduleBatteryDischarging(List<SlotCost> pricesPerSlotSinceMidnight, int currentSlotIndex) {
 
 		String[] result = null;
@@ -3748,9 +3978,9 @@ public class Octopussy implements IOctopus {
 
 				result[r] = sc.getSlotEndTime24hr();
 
-				if (sc.getImportPrice() > 0) {
+				if (0 == currentSlotEndTime.compareTo(result[r])) {
 
-					if (0 == currentSlotEndTime.compareTo(result[r])) {
+					if (sc.getImportPrice() > 0) {
 
 						batteryDischargePower(Integer.valueOf(maxRate));
 
@@ -3763,24 +3993,51 @@ public class Octopussy implements IOctopus {
 						int minPercent = lowerSOCpc;
 
 						resetDischargingSlot(scheduleIndex, startTime, expiryTime, minPercent);
-					}
 
-					if (0 == currentSlotEndTime.compareTo(result[r])) {
-
-						dischargeMonitorThread = new WatchSlotDischargeHelperThread(this, currentSlotEndTime, 29, r,
-								lowerSOCpc, Integer.valueOf(maxRate));
+						dischargeMonitorThread = new WatchSlotDischargeHelperThread(this, result, r, lowerSOCpc, 100,
+								Integer.valueOf(maxRate), 0);
 
 						dischargeMonitorThread.start();
 
 						acChargeEnable(false);
 						enableDcDischarge(true);
+
+					} else {
+
+						String xn = WatchSlotDischargeHelperThread.XN(r, true);
+
+						logErrTime("WARNING: export slot " + xn
+								+ " is cancelled because import price indicates free or better");
+
+						currentTimeSlotIsCancelled = true; // this is mainly for the showAnalysis() display
+
+						// dynamically add an extra charge slot
+
+						{
+							// only if battery level < pause.threshold
+							// otherwise we may kick off a concurrent thread that pauses battery
+
+							int batteryPercent = instance.execReadBatteryPercent();
+
+							if (batteryPercent < Integer.parseInt(pauseThreshold)) {
+
+								int scheduleIndex = appendToChargeSchedule(currentSlotEndTime);
+
+								String startTime = sc.getSlotStartTime24hr();
+
+								resetChargingSlot(scheduleIndex, startTime, currentSlotEndTime, 100);
+
+								chargeMonitorThread = new WatchSlotChargeHelperThread(this, chargeSchedule,
+										scheduleIndex, 20, 100, -1, 0);
+								//
+
+								chargeMonitorThread.start(); // this spawned thread will run no longer than HH:MM in
+																// schedule[s]
+								// the slot will be reset when task complete
+							}
+						}
+
 					}
-
-				} else {
-
-					logErrTime("ALERT: Cancelling this export slot because import price indicates free or better");
-
-					currentTimeSlotIsCancelled = true;
 				}
 			}
 		}
@@ -3994,13 +4251,45 @@ public class Octopussy implements IOctopus {
 
 		while (properties.containsKey(key)) {
 
-			String defsEventStartAt = properties.getProperty(key);
+			String dfsEventStartAt = properties.getProperty(key);
 
-			dfs.add(defsEventStartAt);
+			dfs.add(dfsEventStartAt);
 
 			int nextIndex = 1 + dfs.size();
 
 			key = "dfs" + nextIndex;
+		}
+
+		cha = new HashMap<String, String>();
+
+		key = "cha1";
+
+		while (properties.containsKey(key)) {
+
+			String chaEventStartAt = properties.getProperty(key);
+
+			// get end time of slot
+
+			String hh = chaEventStartAt.substring(0, 2);
+
+			String mm = chaEventStartAt.substring(3).trim();
+
+			if (Integer.parseInt(mm) < 30) { // typically 00 or 30
+
+				mm = "29";
+
+			} else {
+
+				mm = "59";
+			}
+
+			String chaEventEndAt = hh + ":" + mm;
+
+			cha.put(chaEventEndAt, chaEventStartAt);
+
+			int nextIndex = 1 + cha.size();
+
+			key = "cha" + nextIndex;
 		}
 
 		//
@@ -4146,21 +4435,24 @@ public class Octopussy implements IOctopus {
 			}
 		}
 
+		if (cha.size() > 0) {
+
+			System.out.println(cha.size() + " Manual charge event(s) have been configured:");
+
+			for (String endAt : cha.keySet()) {
+
+				String startAt = cha.get(endAt);
+
+				System.out.println("\t\t" + startAt + " to " + endAt);
+			}
+		}
+
 		dayPartPowerDefault = powers[p];
 
 //		dayPartStartsAt24hr = parts.get(p);
 		dayPartEndsAt24hr = dayPartsEndAt24hr[p];
 
 		int numberOfChargingSlotsInThisPartOfDay = slotsPerDayPart[p];
-
-//		String prefix = "cache.schedule." + String.valueOf(1 + p);
-//
-//		Long epochSecAtMidnight = pricesPerSlotSinceMidnight.get(0).getEpochSecond();
-//
-//		File cacheSchedule = new File("./" + prefix + "." + epochSecAtMidnight.toString() + ".txt");
-//
-//		chargeSchedule = instance.readChargingSchedule(numberOfChargingSlotsInThisPartOfDay, prefix, epochSecAtMidnight,
-//				cacheSchedule, false);
 
 		lowerSOCpc = minPercents[p];
 
@@ -4190,7 +4482,7 @@ public class Octopussy implements IOctopus {
 
 		String power = null;
 
-		int minsDelayStart = 0;
+		int minsDelayStart = -1;
 
 		String chargeDischarge = String.format("%+2.1f", kWhrCharge - kWhrDischarge);
 
@@ -4233,6 +4525,8 @@ public class Octopussy implements IOctopus {
 
 				//
 
+				minsDelayStart = 0;
+
 				if (null != solarForecastWhr) {
 
 					if ('D' == options[p]) { // (day) option - delay start time by N minutes for a sunny day
@@ -4247,7 +4541,7 @@ public class Octopussy implements IOctopus {
 					}
 				}
 
-				logErrTime("Part " + (1 + p) + "/" + numberOfParts + " Schedule " + power + " W x "
+				logErrTime("Part {" + (1 + p) + "} Schedule " + power + " W x "
 						+ String.valueOf(numberOfChargingSlotsInThisPartOfDay) + " slot(s) " + percentMin + "% to "
 						+ percentMax + "% " + (minsDelayStart > 0 ? "delay:" + minsDelayStart + "m " : "") + "Solar:"
 						+ solarForecastWhr + " / " + maxSolar);
@@ -4262,14 +4556,15 @@ public class Octopussy implements IOctopus {
 		float exportCostSoFarToday = costsSoFarToday[1] / 100;
 		float netCostSoFarToday = costsSoFarToday[2] / 100;
 
-		float avUnitPriceToday = (costsSoFarToday[0] - agileImportStandingCharge) / (float) kWhrGridImport;
+		avUnitPriceToday = (costsSoFarToday[0] - agileImportStandingCharge) / (float) kWhrGridImport;
 
-		System.out.println("\nToday's import cost: " + (ansi ? ANSI_SCORE : "") + "£"
+		System.out.println("\nToday's import cost: " + (ansi ? ANSI_COLOR_HI : "") + "£"
 				+ String.format("%5.2f", importCostSoFarToday) + (ansi ? ANSI_RESET : "") + "  (so far...) based on "
-				+ gridImportUnits + " kWhr @ " + String.format("%5.2f", avUnitPriceToday) + "p / kWhr up to "
-				+ timestamp.substring(11, 19) + " (includes standing charge "
-				+ String.format("%5.2f", agileImportStandingCharge) + "p)   " + (ansi ? ANSI_SUNSHINE : "") + "Export"
-				+ (ansi ? ANSI_RESET : ""));
+				+ gridImportUnits + " kWhr @ " + (ansi ? ANSI_SCORE : "") + String.format("%5.2f", avUnitPriceToday)
+				+ "p" + (ansi ? ANSI_RESET : "") + " / kWhr up to " + timestamp.substring(11, 19)
+				+ " (incl. standing charge " + String.format("%5.2f", agileImportStandingCharge) + "p) "
+				+ (ansi ? ANSI_COLOUR_LO : "") + " Wh" + (ansi ? ANSI_RESET : "") + (ansi ? ANSI_SUNSHINE : "")
+				+ "  Export" + (ansi ? ANSI_RESET : ""));
 
 		System.out.println(
 				String.format("%2d", countDays) + " day (A)verage price:  " + String.format("%6.3f", averageUnitCost)
@@ -4364,6 +4659,16 @@ public class Octopussy implements IOctopus {
 
 			chargeSchedule = instance.readChargingSchedule(numberOfChargingSlotsInThisPartOfDay, prefix,
 					epochSecAtMidnight, cacheSchedule, false);
+		}
+
+		{
+			// deal with manual charge slots specified as cha1=hh:mm
+			// for each determine slot end time and add to the schedule
+
+			for (String endTime : cha.keySet()) {
+
+				appendToChargeSchedule(endTime);
+			}
 		}
 
 		// create an array of prices related to the times in the schedule
@@ -4461,12 +4766,19 @@ public class Octopussy implements IOctopus {
 
 		if (allChargeSlotsDone && currentSlotPrice <= 0) {
 
-			schedulePrices[0] = currentSlotCost.getImportPrice();
+			int batteryPercent = instance.execReadBatteryPercent();
 
-			chargeSchedule[0] = rangeEndTime;
+			if (batteryPercent < 99) {
 
-			logErrTime("At " + rangeEndTime + " " + penceImport + "p allSlotsDone:"
-					+ (allChargeSlotsDone ? "true" : "false"));
+				// add an additional S1 slot to boost battery for better than free
+
+				schedulePrices[0] = currentSlotCost.getImportPrice();
+
+				chargeSchedule[0] = rangeEndTime;
+
+				logErrTime("At " + rangeEndTime + " price:" + currentSlotPrice + "p allSlotsDone:true bat:"
+						+ batteryPercent);
+			}
 		}
 
 		currentTimeSlotIsCancelled = false;
@@ -4479,9 +4791,23 @@ public class Octopussy implements IOctopus {
 
 			if (0 == comp) {
 
-				// if price negative - charge now *irrespective* of profile
+				if (cha.containsKey(rangeEndTime)) {
 
-				if (schedulePrices[s] <= 0) {
+					logErrTime("ALERT: Manual charge! Overiding S" + (1 + s) + " start time & limit " + maxPercent
+							+ "% / @ " + dayPartPowerDefault + "W with 100% / @ " + defaultChargeRate + " W");
+
+					minPercent = 100; // will trigger a expedite:true within the WatchSlotChargeHelperThread
+					maxPercent = 100;
+
+					String startTime = cha.get(rangeEndTime);
+
+					String mm = startTime.substring(3);
+
+					minsDelayStart = Integer.parseInt(mm);
+
+				} else if (schedulePrices[s] <= 0) {
+
+					// if price negative - charge now *irrespective* of profile
 
 					// higher charge rate for lowest cost slot
 
@@ -4499,11 +4825,11 @@ public class Octopussy implements IOctopus {
 						break; // do not drop through to new WatchSlotChargeHelperThread
 					}
 
-					logErrTime("ALERT: Free energy! Overiding S" + (1 + s) + " start time & limit " + maxPercent
+					logErrTime("ALERT: Free energy! Overiding S" + (1 + s) + " default start time & limit " + maxPercent
 							+ "% / @ " + dayPartPowerDefault + "W with 100% / @ " + defaultChargeRate + " W");
 
-					minPercent = 100; // will trigger a expedite:true within the WatchSlotChargeHelperThread
-					maxPercent = 100;
+					minPercent = 99; // will trigger a expedite:true within the WatchSlotChargeHelperThread
+					maxPercent = 100; // however had minPercent == maxPercent we would treat as a forced manual charge
 
 					chargingSlotPower = -1; // special indicator for current electricity price free
 
@@ -4529,9 +4855,9 @@ public class Octopussy implements IOctopus {
 								maxPercent);
 					}
 
-					String dateYYYY_MM_DD = logErrTime(
-							"Time matches " + WatchSlotChargeHelperThread.SN(s) + "ending at " + rangeEndTime)
-							.substring(0, 10);
+					String dateYYYY_MM_DD = timestamp.substring(0, 10);
+
+					logErrTime("Time matches " + WatchSlotChargeHelperThread.SN(s) + "ending at " + rangeEndTime);
 
 					logErrTime("Adjusting average charging power to " + dayPartPowerDefault + " watts");
 
@@ -4613,51 +4939,55 @@ public class Octopussy implements IOctopus {
 					}
 				}
 
-				try {
+				if (minsDelayStart < 0) {
 
-					Path path = FileSystems.getDefault().getPath(cacheSchedule.getCanonicalPath());
+					try {
 
-					UserDefinedFileAttributeView view = Files.getFileAttributeView(path,
-							UserDefinedFileAttributeView.class);
+						Path path = FileSystems.getDefault().getPath(cacheSchedule.getCanonicalPath());
 
-					int index = -1;
+						UserDefinedFileAttributeView view = Files.getFileAttributeView(path,
+								UserDefinedFileAttributeView.class);
 
-					List<String> names = view.list();
+						int index = -1;
 
-					final String name = "delay";
+						List<String> names = view.list();
 
-					for (int n = 0; n < names.size(); n++) {
+						final String name = "delay";
 
-						System.out.println("[" + names.get(n) + "]");
+						for (int n = 0; n < names.size(); n++) {
 
-						if (name.equals(names.get(n))) {
+							System.out.println("[" + names.get(n) + "]");
 
-							index = n;
+							if (name.equals(names.get(n))) {
+
+								index = n;
+							}
 						}
+
+						if (index > -1) {
+
+							int sizeOfValue = view.size(name);
+
+							ByteBuffer dst = ByteBuffer.allocate(sizeOfValue);
+
+							view.read(name, dst);
+
+							dst.flip();
+
+							String value = Charset.defaultCharset().decode(dst).toString();
+
+							minsDelayStart = Integer.parseInt(value);
+						}
+
+					} catch (IOException e) {
+
 					}
-
-					if (index > -1) {
-
-						int sizeOfValue = view.size(name);
-
-						ByteBuffer dst = ByteBuffer.allocate(sizeOfValue);
-
-						view.read(name, dst);
-
-						dst.flip();
-
-						String value = Charset.defaultCharset().decode(dst).toString();
-
-						minsDelayStart = Integer.parseInt(value);
-					}
-
-				} catch (IOException e) {
-
 				}
 
-				chargeMonitorThread = new WatchSlotChargeHelperThread(this, 29, s, minPercent, maxPercent,
+				chargeMonitorThread = new WatchSlotChargeHelperThread(this, chargeSchedule, s, minPercent, maxPercent,
 						chargingSlotPower, minsDelayStart);
-
+//
+//							
 				chargeMonitorThread.start(); // this spawned thread will run no longer than HH:MM in schedule[s]
 				// the slot will be reset when task complete
 
@@ -4687,6 +5017,34 @@ public class Octopussy implements IOctopus {
 		return p;
 	}
 
+	// Battery Not Paused
+	@Override
+	public void batteryNotPaused() {
+
+		execWrite(setting, "96", "0");
+	}
+
+	// Battery Pause Charge
+	@Override
+	public void batteryPauseCharge() {
+
+		execWrite(setting, "96", "1");
+	}
+
+	// Battery Pause Discharge
+	@Override
+	public void batteryPauseDischarge() {
+
+		execWrite(setting, "96", "2");
+	}
+
+	// Battery Pause Charge & Discharge
+	@Override
+	public void batteryPauseChargeAndDischarge() {
+
+		execWrite(setting, "96", "3");
+	}
+
 	// Battery Charge Power
 	@Override
 	public void batteryChargePower(int power) {
@@ -4704,23 +5062,49 @@ public class Octopussy implements IOctopus {
 	@Override
 	public void resetChargingSlot(int scheduleIndex, String startTime, String expiryTime, int socMaxPercent) {
 
+		resetChargingSlot(scheduleIndex, startTime, expiryTime, socMaxPercent, true);
+	}
+
+	@Override
+	public String resetChargingSlot(int scheduleIndex, String startTime, String expiryTime, int socMaxPercent,
+			boolean log) {
+
+		String result = "Reset " + startTime + "-" + expiryTime + " Upper SOC limit " + socMaxPercent + "%";
+
 		char macroId = "ABCDEFGHIJ".charAt(scheduleIndex);
 
-		logErrTime(WatchSlotChargeHelperThread.SN(scheduleIndex) + "Reset " + startTime + "-" + expiryTime
-				+ " Upper SOC limit " + socMaxPercent + "%");
-
 		execMacro(macro, macroId, startTime, expiryTime, socMaxPercent);
+
+		if (log) {
+
+			logErrTime(WatchSlotChargeHelperThread.SN(scheduleIndex) + result);
+		}
+
+		return result;
 	}
 
 	@Override
 	public void resetDischargingSlot(int scheduleIndex, String startTime, String expiryTime, int socMinPercent) {
 
+		resetDischargingSlot(scheduleIndex, startTime, expiryTime, socMinPercent, true);
+	}
+
+	@Override
+	public String resetDischargingSlot(int scheduleIndex, String startTime, String expiryTime, int socMinPercent,
+			boolean log) {
+
+		String result = "Reset " + startTime + "-" + expiryTime + " Lower SOC limit " + socMinPercent + "%";
+
 		char macroId = "KLMNOPQRST".charAt(scheduleIndex);
 
-		logErrTime(WatchSlotDischargeHelperThread.XN(scheduleIndex) + "Reset " + startTime + "-" + expiryTime
-				+ " Lower SOC limit " + socMinPercent + "%");
-
 		execMacro(macro, macroId, startTime, expiryTime, socMinPercent);
+
+		if (log) {
+
+			logErrTime(WatchSlotDischargeHelperThread.XN(scheduleIndex) + result);
+		}
+
+		return result;
 	}
 
 	private float[] logGridInOutEvents(String timestamp, String data, String comment, String penceImport,
@@ -5330,17 +5714,21 @@ public class Octopussy implements IOctopus {
 		return result;
 	}
 
-	public synchronized String logErrTime(String text) {
+	// returns second of day related to the timestamp
+
+	public synchronized int logErrTime(String text) {
 
 		ZonedDateTime zdt = ZonedDateTime.now();
 
+		int secondOfDay = zdt.toLocalTime().toSecondOfDay();
+
 		String threadName = Thread.currentThread().getName();
 
-		String result = zdt.format(defaultDateTimeFormatter).substring(0, 19);
+		String timestamp = zdt.format(defaultDateTimeFormatter).substring(0, 19);
 
-		System.err.println(result + " " + threadName + ": " + text);
+		System.err.println(timestamp + " " + threadName + ": " + text);
 
-		return result;
+		return secondOfDay;
 	}
 
 	private static String[] execReadSunData() {
@@ -5625,14 +6013,19 @@ public class Octopussy implements IOctopus {
 
 		if (null != value) {
 
+			// by default assume a quoted response eg "hh:mm"
+
 			int beginIndex = value.indexOf("\"value\" : \"") + 11;
 			int endIndex = value.indexOf("\"", beginIndex);
 
-			String test = value.substring(beginIndex, endIndex);
+			if (endIndex > beginIndex) {
 
-			if (5 == test.length()) {
+				String test = value.substring(beginIndex, endIndex);
 
-				result = test;
+				if (5 == test.length()) {
+
+					result = test;
+				}
 			}
 		}
 
@@ -5997,15 +6390,13 @@ public class Octopussy implements IOctopus {
 
 		UserDefinedFileAttributeView view = Files.getFileAttributeView(path, UserDefinedFileAttributeView.class);
 
+		boolean newFile = false;
+
 		if (!cacheRecent.exists() || forceUpdate) {
 
 			if (cacheRecent.createNewFile()) {
 
-				logErrTime("With forceUpdate:" + forceUpdate + " created new file " + cacheRecent.getName());
-
-			} else {
-
-				logErrTime("With forceUpdate:" + forceUpdate + " updated existing file " + cacheRecent.getName());
+				newFile = true;
 			}
 
 			PrintStream ps = new PrintStream(cacheRecent);
@@ -6180,6 +6571,9 @@ public class Octopussy implements IOctopus {
 			bb = ByteBuffer.wrap(ba);
 
 			view.write("average", bb);
+
+			logErrTime("With forceUpdate:" + forceUpdate + " [days:" + tallyDays + ",average:" + unitCostAverage + "] "
+					+ (newFile ? "new" : "existing") + " " + cacheRecent.getName());
 		}
 
 		instance.getFromCache(prefix, recentEpochSecond, cacheRecent, true); // this displays data to System.out
@@ -6385,6 +6779,8 @@ public class Octopussy implements IOctopus {
 
 			boolean lessThanAverage = importValueIncVat < averageUnitCost;
 
+			boolean lessThanBatteryCost = importValueIncVat < avUnitPriceToday;
+
 			sb1 = new StringBuffer();
 
 			int n = 0;
@@ -6564,7 +6960,7 @@ public class Octopussy implements IOctopus {
 							+ (ansi & bestExport ? ANSI_RESET : "")
 					: "\t";
 
-			String chargeOrdischargeSlot = null;
+			String chargeOrDischargeSlot = null;
 
 			if (execute) {
 
@@ -6576,7 +6972,7 @@ public class Octopussy implements IOctopus {
 
 						if (0 == to.compareTo(dischargeSchedule[d])) {
 
-							chargeOrdischargeSlot = WatchSlotDischargeHelperThread.XN(d, currentTimeSlotIsCancelled);
+							chargeOrDischargeSlot = WatchSlotDischargeHelperThread.XN(d, currentTimeSlotIsCancelled);
 
 							if (currentTimeSlotIsCancelled) {
 
@@ -6588,13 +6984,13 @@ public class Octopussy implements IOctopus {
 					}
 				}
 
-				if (null == chargeOrdischargeSlot) {
+				if (null == chargeOrDischargeSlot) {
 
 					for (int s = 0; s < chargeSchedule.length; s++) {
 
 						if (0 == to.compareTo(chargeSchedule[s])) {
 
-							chargeOrdischargeSlot = WatchSlotChargeHelperThread.SN(s, currentTimeSlotIsCancelled);
+							chargeOrDischargeSlot = WatchSlotChargeHelperThread.SN(s, currentTimeSlotIsCancelled);
 
 							if (currentTimeSlotIsCancelled) {
 
@@ -6605,6 +7001,15 @@ public class Octopussy implements IOctopus {
 						}
 					}
 				}
+
+				if (null == chargeOrDischargeSlot) {
+
+					if (0 == index && null != instance.pauseBatteryThread && instance.pauseBatteryThread.isAlive()) {
+
+						chargeOrDischargeSlot = "PB";
+					}
+				}
+
 			}
 
 			if (index > 0) {
@@ -6627,12 +7032,16 @@ public class Octopussy implements IOctopus {
 			}
 
 			System.out.println(optionalExport + slotCost.getSimpleTimeStamp() + "  "
-					+ (null == chargeOrdischargeSlot
+					+ (null == chargeOrDischargeSlot
 							? (cheapestImport ? "!" : " ") + (lessThanAverage ? "!" : " ") + " "
-							: chargeOrdischargeSlot)
-					+ " " + String.format("%5.2f", importValueIncVat) + "p  "
+							: chargeOrDischargeSlot)
+
+					+ " " + (ansi && lessThanBatteryCost ? ANSI_SCORE : "") + String.format("%5.2f", importValueIncVat)
+					+ "p" + (ansi && lessThanBatteryCost ? ANSI_RESET : "") + "  "
+
 					+ (ansi && cheapestImport ? ANSI_COLOUR_LO : "") + asterisks
 					+ (ansi && cheapestImport ? ANSI_RESET : "") + padding + prices + clockHHMM);
+
 		}
 
 		int lastSlot = pricesPerSlot.size() - 1;

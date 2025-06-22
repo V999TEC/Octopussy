@@ -74,8 +74,10 @@ public class TestOctopussyTwo {
 		int scheduleIndex = 0;
 		int minPercent = 53;
 
-		WatchSlotDischargeHelperThread dischargeMonitorThread = new WatchSlotDischargeHelperThread(instance,
-				currentSlotEndTime, runTimeoutMinutes, scheduleIndex, minPercent, 1234);
+		String[] schedule = { currentSlotEndTime };
+
+		WatchSlotDischargeHelperThread dischargeMonitorThread = new WatchSlotDischargeHelperThread(instance, schedule,
+				scheduleIndex, minPercent, 100, 1234, 0);
 
 		dischargeMonitorThread.start();
 
