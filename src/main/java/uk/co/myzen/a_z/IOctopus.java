@@ -10,6 +10,8 @@ public interface IOctopus {
 
 	public Integer execReadBatteryPercent();
 
+	public String[] execReadBatteryPercentAndPower();
+
 	public ChargeDischarge execReadChargeDischarge();
 
 	public String resetChargingSlot(int scheduleIndex, String startTime, String expiryTime, int socMaxPercent,

@@ -43,7 +43,11 @@ public abstract class WatchSlotBaseThread extends WatchSlotTimerBaseThread {
 	float prevChargeUnits = 0f;
 	float prevDischargeUnits = 0f;
 
+	int prevPowerLevel = 0;
+
 	Integer batteryLevel = null;
+
+	Integer powerLevel = null;
 
 	Float temperatureDegreesC = null;
 	Float chargeUnits = null;
@@ -302,12 +306,21 @@ public abstract class WatchSlotBaseThread extends WatchSlotTimerBaseThread {
 
 	private void logProbeData() {
 
-		if (null != batteryLevel && null != temperatureDegreesC && null != chargeUnits && null != dischargeUnits) {
+		if (null != batteryLevel && null != temperatureDegreesC && null != chargeUnits && null != dischargeUnits
+				&& null != powerLevel) {
 
 			if (batteryLevel.intValue() != prevBatLev || temperatureDegreesC.floatValue() != prevTemperature
-					|| chargeUnits != prevChargeUnits || dischargeUnits != prevDischargeUnits) {
+					|| chargeUnits != prevChargeUnits || dischargeUnits != prevDischargeUnits
+					|| powerLevel.intValue() != prevPowerLevel) {
 
 				boolean log = false;
+
+				if (powerLevel.floatValue() != prevPowerLevel) {
+
+					prevPowerLevel = powerLevel.intValue();
+
+					log = true;
+				}
 
 				if (batteryLevel.intValue() != prevBatLev) {
 
@@ -340,7 +353,7 @@ public abstract class WatchSlotBaseThread extends WatchSlotTimerBaseThread {
 				if (log) {
 
 					monitoringEvent("Bat:" + prevBatLev + "% Tmp:" + prevTemperature + "°C Cha:" + chargeUnits + " Dis:"
-							+ dischargeUnits);
+							+ dischargeUnits + " Wat:" + prevPowerLevel);
 				}
 			}
 		}
@@ -362,7 +375,11 @@ public abstract class WatchSlotBaseThread extends WatchSlotTimerBaseThread {
 
 	private void probeBattery() {
 
-		batteryLevel = i.execReadBatteryPercent();
+		String[] parameters = i.execReadBatteryPercentAndPower();
+
+		batteryLevel = Integer.valueOf(parameters[0]);
+
+		powerLevel = Integer.valueOf(parameters[1]);
 	}
 
 	@Override

@@ -301,6 +301,8 @@ public class Octopussy implements IOctopus {
 	private static float agileImportStandingCharge;
 	private static float agileExportStandingCharge;
 
+	private static int delayMinutes = -1;
+
 	private static int width;
 
 	private static int plunge;
@@ -4671,6 +4673,12 @@ public class Octopussy implements IOctopus {
 			}
 		}
 
+		// find delay ea on File cacheSchedule
+
+		String value = getExtendedAttribute("delay", cacheSchedule);
+
+		delayMinutes = null == value ? 0 : Integer.parseInt(value);
+
 		// create an array of prices related to the times in the schedule
 
 		float[] schedulePrices = new float[chargeSchedule.length];
@@ -4941,47 +4949,9 @@ public class Octopussy implements IOctopus {
 
 				if (minsDelayStart < 0) {
 
-					try {
+					String valueOfDelay = getExtendedAttribute("delay", cacheSchedule);
 
-						Path path = FileSystems.getDefault().getPath(cacheSchedule.getCanonicalPath());
-
-						UserDefinedFileAttributeView view = Files.getFileAttributeView(path,
-								UserDefinedFileAttributeView.class);
-
-						int index = -1;
-
-						List<String> names = view.list();
-
-						final String name = "delay";
-
-						for (int n = 0; n < names.size(); n++) {
-
-							System.out.println("[" + names.get(n) + "]");
-
-							if (name.equals(names.get(n))) {
-
-								index = n;
-							}
-						}
-
-						if (index > -1) {
-
-							int sizeOfValue = view.size(name);
-
-							ByteBuffer dst = ByteBuffer.allocate(sizeOfValue);
-
-							view.read(name, dst);
-
-							dst.flip();
-
-							String value = Charset.defaultCharset().decode(dst).toString();
-
-							minsDelayStart = Integer.parseInt(value);
-						}
-
-					} catch (IOException e) {
-
-					}
+					minsDelayStart = null == valueOfDelay ? 0 : Integer.parseInt(valueOfDelay);
 				}
 
 				chargeMonitorThread = new WatchSlotChargeHelperThread(this, chargeSchedule, s, minPercent, maxPercent,
@@ -4996,6 +4966,50 @@ public class Octopussy implements IOctopus {
 		}
 
 		return chargeSchedule;
+	}
+
+	private String getExtendedAttribute(final String name, final File file) {
+
+		String value = null;
+
+		try {
+
+			Path path = FileSystems.getDefault().getPath(file.getCanonicalPath());
+
+			UserDefinedFileAttributeView view = Files.getFileAttributeView(path, UserDefinedFileAttributeView.class);
+
+			int index = -1;
+
+			List<String> names = view.list();
+
+			for (int n = 0; n < names.size(); n++) {
+
+				System.out.println("[" + names.get(n) + "]");
+
+				if (name.equals(names.get(n))) {
+
+					index = n;
+				}
+			}
+
+			if (index > -1) {
+
+				int sizeOfValue = view.size(name);
+
+				ByteBuffer dst = ByteBuffer.allocate(sizeOfValue);
+
+				view.read(name, dst);
+
+				dst.flip();
+
+				value = Charset.defaultCharset().decode(dst).toString();
+			}
+
+		} catch (IOException e) {
+
+		}
+
+		return value;
 	}
 
 	private int whatPartfTheDay(String rangeStartTime) {
@@ -5814,13 +5828,38 @@ public class Octopussy implements IOctopus {
 
 		if (!"false".equalsIgnoreCase(percent)) {
 
+			String[] values = execReadBatteryPercentAndPower();
+
+			result = Integer.valueOf(values[0]);
+		}
+
+		return result;
+	}
+
+	public String[] execReadBatteryPercentAndPower() {
+
+		String[] result = null;
+
+		if (!"false".equalsIgnoreCase(percent)) {
+
 			String[] cmdarray = percent.split(" ");
 
-			String value = exec(cmdarray);
+			String value = exec(cmdarray).trim(); // remove any \r\n
 
 			if (null != value) {
 
-				result = Integer.valueOf(value.trim());
+				if (-1 == value.indexOf(',')) {
+
+					result = new String[1];
+
+					result[0] = value;
+
+				} else {
+
+					// assume csv format where 1st field is percentage
+
+					result = value.split(",");
+				}
 			}
 		}
 
@@ -6766,7 +6805,8 @@ public class Octopussy implements IOctopus {
 
 				int partIndex = whatPartfTheDay(from);
 
-				System.out.println("---{" + (1 + partIndex) + "}---  " + ranges.get(partIndex) + "  ----");
+				System.out.println("---{" + (1 + partIndex) + "}---  " + ranges.get(partIndex) + "  ----"
+						+ (delayMinutes > -1 ? "  [+" + delayMinutes + "]" : ""));
 			}
 
 			Float importValueIncVat = slotCost.getImportPrice();
