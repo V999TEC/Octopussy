@@ -4968,6 +4968,38 @@ public class Octopussy implements IOctopus {
 		return chargeSchedule;
 	}
 
+	private Map<String, String> getExtendedAttributes(UserDefinedFileAttributeView view) {
+
+		Map<String, String> values = null;
+
+		try {
+			List<String> names = view.list();
+
+			values = new HashMap<String, String>(names.size());
+
+			for (String name : names) {
+
+				int s = view.size(name);
+
+				ByteBuffer dst = ByteBuffer.allocate(s);
+
+				view.read(name, dst);
+
+				dst.flip();
+
+				String value = Charset.defaultCharset().decode(dst).toString();
+
+				values.put(name, value);
+			}
+
+		} catch (IOException e) {
+
+			e.printStackTrace();
+		}
+
+		return values;
+	}
+
 	private String getExtendedAttribute(final String name, final File file) {
 
 		String value = null;
@@ -4978,31 +5010,11 @@ public class Octopussy implements IOctopus {
 
 			UserDefinedFileAttributeView view = Files.getFileAttributeView(path, UserDefinedFileAttributeView.class);
 
-			int index = -1;
+			Map<String, String> nameValues = getExtendedAttributes(view);
 
-			List<String> names = view.list();
+			if (nameValues.containsKey(name)) {
 
-			for (int n = 0; n < names.size(); n++) {
-
-				System.out.println("[" + names.get(n) + "]");
-
-				if (name.equals(names.get(n))) {
-
-					index = n;
-				}
-			}
-
-			if (index > -1) {
-
-				int sizeOfValue = view.size(name);
-
-				ByteBuffer dst = ByteBuffer.allocate(sizeOfValue);
-
-				view.read(name, dst);
-
-				dst.flip();
-
-				value = Charset.defaultCharset().decode(dst).toString();
+				value = nameValues.get(name);
 			}
 
 		} catch (IOException e) {
@@ -6617,24 +6629,28 @@ public class Octopussy implements IOctopus {
 
 		instance.getFromCache(prefix, recentEpochSecond, cacheRecent, true); // this displays data to System.out
 
-		List<String> names = view.list();
+		Map<String, String> values = getExtendedAttributes(view);
 
-		Map<String, String> values = new HashMap<String, String>(names.size());
-
-		for (String name : names) {
-
-			int s = view.size(name);
-
-			ByteBuffer dst = ByteBuffer.allocate(s);
-
-			view.read(name, dst);
-
-			dst.flip();
-
-			String value = Charset.defaultCharset().decode(dst).toString();
-
-			values.put(name, value);
-		}
+//		
+//
+//		List<String> names = view.list();
+//
+//		Map<String, String> values = new HashMap<String, String>(names.size());
+//
+//		for (String name : names) {
+//
+//			int s = view.size(name);
+//
+//			ByteBuffer dst = ByteBuffer.allocate(s);
+//
+//			view.read(name, dst);
+//
+//			dst.flip();
+//
+//			String value = Charset.defaultCharset().decode(dst).toString();
+//
+//			values.put(name, value);
+//		}
 
 		return values;
 	}
