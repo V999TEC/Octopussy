@@ -1647,7 +1647,7 @@ public class Octopussy implements IOctopus {
 			pw.flush();
 			pw.close();
 
-			// enhance the cacheSchedule file with metadata (containing minsDelayStart)
+			// elaborate the cacheSchedule file with metadata (containing minsDelayStart)
 
 			byte[] ba = String.valueOf(minsDelayStart).getBytes();
 
