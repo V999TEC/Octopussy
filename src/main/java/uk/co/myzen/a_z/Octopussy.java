@@ -4059,6 +4059,23 @@ public class Octopussy implements IOctopus {
 		execWrite(setting, "66", value ? "true" : "false");
 	}
 
+	private String surplusOrDeficit(float value) {
+
+		String result = null;
+
+		if (value < 0) {
+
+			result = "         " + (ansi ? ANSI_COLOR_HI : "") + "£" + String.format("%-5.2f", value)
+					+ (ansi ? ANSI_RESET : "") + " :Deficit";
+		} else {
+
+			result = "Surplus: " + (ansi ? ANSI_SCORE : "") + "£" + String.format("%+5.2f", value)
+					+ (ansi ? ANSI_RESET : "");
+		}
+
+		return result;
+	}
+
 	private String[] scheduleBatteryCharging(List<SlotCost> pricesPerSlotSinceMidnight, int currentSlotIndex,
 			Float kWhrSolar, ImportExport gridImportExport, Float kWhrConsumption, Integer percentBattery,
 			ChargeDischarge chargeAndDischarge, String timestamp, float averageUnitCost, int[] sunData, int countDays) {
@@ -4576,12 +4593,10 @@ public class Octopussy implements IOctopus {
 						+ (ansi ? ANSI_RESET : ""));
 
 		System.out.println("Plunge price is set to:  " + String.format("%2d", plunge)
-				+ "p (System schedules e(X)port slots prior to price plunge slots <= " + plunge + "p) " + "Surplus: "
-				+ (ansi ? (netCostSoFarToday < 0 ? ANSI_COLOR_HI : ANSI_SCORE) : "") + "£"
-				+ String.format("%-5.2f", netCostSoFarToday) + (ansi ? ANSI_RESET : "") + " actual: "
-				+ (ansi ? ANSI_COLOUR_LO : "") + String.format("%5.0f", 1000 * kWhrSolar) + (ansi ? ANSI_RESET : "")
-				+ (ansi ? ANSI_SUNSHINE : "") + " £" + String.format("%5.2f", exportCostSoFarToday)
-				+ (ansi ? ANSI_RESET : ""));
+				+ "p (System schedules e(X)port slots prior to price plunge slots <= " + plunge + "p) "
+				+ surplusOrDeficit(netCostSoFarToday) + " actual: " + (ansi ? ANSI_COLOUR_LO : "")
+				+ String.format("%5.0f", 1000 * kWhrSolar) + (ansi ? ANSI_RESET : "") + (ansi ? ANSI_SUNSHINE : "")
+				+ " £" + String.format("%5.2f", exportCostSoFarToday) + (ansi ? ANSI_RESET : ""));
 
 		int[] slots = null;
 
@@ -6571,7 +6586,7 @@ public class Octopussy implements IOctopus {
 
 				float agileCostInGBP = agileCost / 100;
 
-				float differeceInGBP = difference / 100;
+//				float differeceInGBP = difference / 100;
 
 				float exportInGBP = (dailyExportUnits * 15f) / 100;
 
@@ -6582,11 +6597,14 @@ public class Octopussy implements IOctopus {
 					ps.println(dayValues.getDayOfWeek() + (quidsIn ? " * " : "   ") + key + " £"
 							+ String.format("%5.2f", agileCostInGBP) + String.format("%7.3f", consumption) + " kWhr @ "
 							+ String.format("%5.2f", dailyAverageUnitPrice) + "p" + " A:"
-							+ String.format("%8.4f", agilePrice) + "p +" + agileImportStandingCharge + "p (F: "
-							+ String.format("%8.4f", flatImportPrice) + "p +" + flatStandingCharge + "p) Save: £"
-							+ String.format("%5.2f", differeceInGBP) + " + Export:"
-							+ String.format("%4.1f", dailyExportUnits) + " kWhr £"
-							+ String.format("%5.2f", exportInGBP));
+							+ String.format("%8.4f", agilePrice) + "p +" + agileImportStandingCharge +
+							/*
+							 * "p (F: " + String.format("%8.4f", flatImportPrice) + "p +" +
+							 * flatStandingCharge + "p) Save: £" + String.format("%5.2f", differeceInGBP)+
+							 */
+							"p + Export:" + String.format("%4.1f", dailyExportUnits) + " kWhr £"
+							+ String.format("%5.2f", exportInGBP) + "   "
+							+ surplusOrDeficit(exportInGBP - agileCostInGBP));
 				}
 
 				accumulateDifference += difference;
