@@ -4070,7 +4070,7 @@ public class Octopussy implements IOctopus {
 		} else {
 
 			result = "Surplus: " + (ansi ? ANSI_SCORE : "") + "£" + String.format("%+5.2f", value)
-					+ (ansi ? ANSI_RESET : "");
+					+ (ansi ? ANSI_RESET : "") + "         ";
 		}
 
 		return result;
@@ -4581,20 +4581,20 @@ public class Octopussy implements IOctopus {
 				+ String.format("%5.2f", importCostSoFarToday) + (ansi ? ANSI_RESET : "") + "  (so far...) based on "
 				+ gridImportUnits + " kWhr @ " + (ansi ? ANSI_SCORE : "") + String.format("%5.2f", avUnitPriceToday)
 				+ "p" + (ansi ? ANSI_RESET : "") + " / kWhr up to " + timestamp.substring(11, 19)
-				+ " (incl. standing charge " + String.format("%5.2f", agileImportStandingCharge) + "p) "
-				+ (ansi ? ANSI_COLOUR_LO : "") + " Wh" + (ansi ? ANSI_RESET : "") + (ansi ? ANSI_SUNSHINE : "")
+				+ " (incl. standing charge " + String.format("%5.2f", agileImportStandingCharge) + "p)   "
+				+ (ansi ? ANSI_COLOUR_LO : "") + "Wh" + (ansi ? ANSI_RESET : "") + (ansi ? ANSI_SUNSHINE : "")
 				+ "  Export" + (ansi ? ANSI_RESET : ""));
 
 		System.out.println(
 				String.format("%2d", countDays) + " day (A)verage price:  " + String.format("%6.3f", averageUnitCost)
 						+ "p Using Octopus Agile import and Fixed export:15p  Fixed rate (F) " + flatRateImport + "p "
-						+ (ansi ? ANSI_COLOUR_LO : "") + "Sun forecast: " + String.format("%5d", solarForecastWhr)
+						+ (ansi ? ANSI_COLOUR_LO : "") + " Sun forecast: " + String.format("%5d", solarForecastWhr)
 						+ (ansi ? ANSI_RESET : "") + "  " + (ansi ? ANSI_SUNSHINE : "") + gridExportUnits
 						+ (ansi ? ANSI_RESET : ""));
 
 		System.out.println("Plunge price is set to:  " + String.format("%2d", plunge)
 				+ "p (System schedules e(X)port slots prior to price plunge slots <= " + plunge + "p) "
-				+ surplusOrDeficit(netCostSoFarToday) + " actual: " + (ansi ? ANSI_COLOUR_LO : "")
+				+ surplusOrDeficit(netCostSoFarToday) + " " + (ansi ? ANSI_COLOUR_LO : "")
 				+ String.format("%5.0f", 1000 * kWhrSolar) + (ansi ? ANSI_RESET : "") + (ansi ? ANSI_SUNSHINE : "")
 				+ " £" + String.format("%5.2f", exportCostSoFarToday) + (ansi ? ANSI_RESET : ""));
 
