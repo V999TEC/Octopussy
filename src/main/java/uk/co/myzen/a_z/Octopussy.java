@@ -1295,7 +1295,7 @@ public class Octopussy implements IOctopus {
 
 					long recentEpochDay = recentEpochSecond / 86400;
 
-					ps.println("Net running total electricity cost: " + (ansi ? ANSI_SUNSHINE : "") + " £"
+					ps.println("Net running total electricity cost: " + (ansi ? ANSI_COLOUR_LO : "") + " £"
 							+ String.format("%6.2f", (costImportTotal - costExportTotal) / 100)
 							+ (ansi ? ANSI_RESET : "") + " for " + (recentEpochDay - oldestEpochDay) + " days from "
 							+ oldestDate.toString() + " up to " + zuluBegin.toLocalDate().toString() + "\n");
