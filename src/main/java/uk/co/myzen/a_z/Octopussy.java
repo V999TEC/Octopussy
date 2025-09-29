@@ -4882,7 +4882,7 @@ public class Octopussy implements IOctopus {
 
 					logErrTime("Time matches " + WatchSlotChargeHelperThread.SN(s) + "ending at " + rangeEndTime);
 
-					logErrTime("Adjusting average charging power to " + dayPartPowerDefault + " watts");
+					logErrTime("Configured default charging power is " + dayPartPowerDefault + " watts");
 
 					if ('N' == options[p]) { // (night) option - charging will start at beginning of slot
 												// however for at least 1 slot power scaled downwards depending on
