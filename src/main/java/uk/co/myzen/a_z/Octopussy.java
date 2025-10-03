@@ -6839,8 +6839,11 @@ public class Octopussy implements IOctopus {
 
 				int partIndex = whatPartfTheDay(from);
 
-				System.out.println("---{" + (1 + partIndex) + "}---  " + ranges.get(partIndex) + "  ----"
-						+ (delayMinutes > -1 ? "  [+" + delayMinutes + "]" : ""));
+//				System.out.println("---{" + (1 + partIndex) + "}---  " + ranges.get(partIndex) + "  ----"
+//						+ (delayMinutes > -1 ? "  [+" + delayMinutes + "]" : ""));
+
+				System.out.println("   {" + (1 + partIndex) + "}   " + ranges.get(partIndex) + " "
+						+ (delayMinutes > -1 ? "[+" + delayMinutes + "mins]" : ""));
 			}
 
 			Float importValueIncVat = slotCost.getImportPrice();
@@ -7101,7 +7104,7 @@ public class Octopussy implements IOctopus {
 						}
 					}
 
-					System.out.println("---{" + x + "}---  " + ranges.get(x - 1) + "  ----");
+					System.out.println("   {" + x + "}   " + ranges.get(x - 1));
 				}
 			}
 
