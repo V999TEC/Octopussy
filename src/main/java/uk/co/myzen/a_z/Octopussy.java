@@ -286,6 +286,8 @@ public class Octopussy implements IOctopus {
 
 	private final static DateTimeFormatter formatterDayHourMinute = DateTimeFormatter.ofPattern("E HH:mm");
 
+	private final static DateTimeFormatter formatterHourMinuteSecond = DateTimeFormatter.ofPattern("HH:mm:ss");
+
 	private final static DateTimeFormatter formatterDayHourMinuteSecond = DateTimeFormatter.ofPattern("E HH:mm:ss");
 
 	private final static DateTimeFormatter defaultDateTimeFormatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
@@ -5544,8 +5546,10 @@ public class Octopussy implements IOctopus {
 
 		LocalTime ltNow = ldt.toLocalTime();
 
-		bannerMessage = "\nToday is " + DayOfWeek.of(ldt.get(ChronoField.DAY_OF_WEEK)).toString().substring(0, 3) + " "
-				+ today + "\tSun up for " + hours + " hours " + minutes + " mins " + seconds + " secs. Sunrise "
+		String hms = ltNow.format(formatterHourMinuteSecond);
+
+		bannerMessage = "\n" + hms + " " + DayOfWeek.of(ldt.get(ChronoField.DAY_OF_WEEK)).toString().substring(0, 3)
+				+ " " + today + "\tSun up for " + hours + " hours " + minutes + " mins " + seconds + " secs. Sunrise "
 				+ (ltNow.compareTo(ltSunrise) > 0 ? "was" : "is") + " at " + sunEvents[0] + " Solar Noon "
 				+ (ltNow.compareTo(ltCulmination) > 0 ? "was" : "is") + " at " + sunEvents[1] + " Sunset "
 				+ (ltNow.compareTo(ltSunset) > 0 ? "was" : "is") + " at " + sunEvents[2] + "\n";
