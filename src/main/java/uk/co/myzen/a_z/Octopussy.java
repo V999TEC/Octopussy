@@ -1371,13 +1371,16 @@ public class Octopussy implements IOctopus {
 
 				float pounds = (costImported + standing - costExported) / 100;
 
+				float dailyCostAverage = pounds / countDays;
+
 				System.out.println(
-						"\nRecent electricity cost over " + countDays + " days: £" + String.format("%2.2f", pounds)
-								+ " including standing charge (£" + String.format("%2.2f", standing / 100) + ") "
+						"\nCost for " + String.format("%2d", countDays) + " days £" + String.format("%5.2f", pounds)
+								+ " including standing charge (£" + String.format("%5.2f", standing / 100) + ") "
 								+ (export
 										? " including " + exported + " units exported (£"
-												+ String.format("%2.2f", costExported / 100) + ")"
-										: ""));
+												+ String.format("%5.2f", costExported / 100) + ")"
+										: "")
+								+ "  Recent cost per day £" + String.format("%5.2f", dailyCostAverage) + " on average");
 			}
 
 			ArrayList<Long> bestExportTime = null;
