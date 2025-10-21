@@ -2,6 +2,8 @@ package uk.co.myzen.a_z;
 
 public class DayValues {
 
+	private Integer dayOfYear;
+
 	private Integer weekOfYear;
 
 	private String dayOfWeek;
@@ -92,5 +94,13 @@ public class DayValues {
 
 	public void setDailyExportPrice(Float dailyExportPrice) {
 		this.dailyExportPrice = dailyExportPrice;
+	}
+
+	public Integer getDayOfYear() {
+		return dayOfYear;
+	}
+
+	public void setDayOfYear(Integer dayOfYear) {
+		this.dayOfYear = dayOfYear;
 	}
 }

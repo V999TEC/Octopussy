@@ -53,6 +53,8 @@ public abstract class WatchSlotBaseThread extends WatchSlotTimerBaseThread {
 	Float chargeUnits = null;
 	Float dischargeUnits = null;
 
+	Float initialChargeUnits = null;
+
 	protected abstract String getSlotN(int zeroBasedIndex, boolean cancelled);
 
 	// returns second of day related to the timestamp
@@ -120,7 +122,7 @@ public abstract class WatchSlotBaseThread extends WatchSlotTimerBaseThread {
 
 		currentThread.setName((charging ? "Charge" : "Discharge") + "-" + Octopussy.slotNumber);
 
-		monitoringEvent("Monitor aft:" + delayStartMinutes + " min:" + socMinPercent + "% max:" + socMaxPercent
+		monitoringEvent("Monitor [+" + delayStartMinutes + "mins] min:" + socMinPercent + "% max:" + socMaxPercent
 				+ "% power:" + power + " watts end:" + expiryTimeHHMM);
 
 		if (charging) {
@@ -363,7 +365,31 @@ public abstract class WatchSlotBaseThread extends WatchSlotTimerBaseThread {
 
 		ChargeDischarge chargeAndDischargeUnits = i.execReadChargeDischarge();
 
+		boolean firstChargeProbe = false;
+
+		if (null == chargeUnits) {
+
+			// assume first charge probe (used for comparison later
+
+			firstChargeProbe = true;
+		}
+
 		chargeUnits = chargeAndDischargeUnits.getCharge();
+
+		if (firstChargeProbe) {
+
+			initialChargeUnits = chargeUnits;
+
+		} else {
+
+			if (chargeUnits == initialChargeUnits) {
+
+				monitoringEvent("Warning: possible failure to start charging. Cha:" + chargeUnits
+						+ " retrying power setting power:" + power);
+
+				i.batteryChargePower(power);
+			}
+		}
 
 		dischargeUnits = chargeAndDischargeUnits.getDischarge();
 	}
