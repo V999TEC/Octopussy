@@ -1006,7 +1006,7 @@ public class Octopussy implements IOctopus {
 
 			ZonedDateTime zuluBegin = timeRecent.withZoneSameInstant(ZoneId.of("UTC"));
 
-			Long recentEpochSecond = zuluBegin.toEpochSecond();
+			long recentEpochSecond = zuluBegin.toEpochSecond();
 
 			// In summer time expecting something like 2023-08-27T23:00Z
 
@@ -1247,7 +1247,7 @@ public class Octopussy implements IOctopus {
 				}
 
 				periodExportResults = instance.updateHistory(false, historyExport, beginRecentPeriod,
-						periodExportResults, howManyDaysHistory);
+						periodExportResults, howManyDaysHistory, recentEpochSecond);
 
 			}
 
@@ -1316,7 +1316,7 @@ public class Octopussy implements IOctopus {
 				}
 
 				periodImportResults = instance.updateHistory(true, historyImport, beginRecentPeriod,
-						periodImportResults, howManyDaysHistory);
+						periodImportResults, howManyDaysHistory, recentEpochSecond);
 			}
 
 			//
@@ -2984,14 +2984,21 @@ public class Octopussy implements IOctopus {
 
 		V1ElectricityConsumption result = null;
 
-		ZonedDateTime pollingWindowStart = ourTimeNow.withHour(13).withMinute(15).withSecond(0).withNano(0);
-		ZonedDateTime pollingWindowEnd = pollingWindowStart.plusHours(2);
+		// having observed the typical logged timestamps of "DIAG: Updated nn export
+		// records"
+		// we set a polling window from 2pm to 4:30pm
+
+//		ZonedDateTime pollingWindowStart = ourTimeNow.withHour(14).withMinute(00).withSecond(0).withNano(0);
+//		ZonedDateTime pollingWindowEnd = pollingWindowStart.plusHours(2).plusMinutes(30);
 
 		String prefix = "cache.export.consumption";
 
 		File cache = new File("./" + prefix + "." + epochSecond + "." + page + "." + pageSize + ".json");
 
-//		File flagLatestAvailable = new File("./" + prefix + "." + epochSecond + "." + 0 + "." + 0 + ".json");
+		// Existence of the flag file is use to force a read from cloud instead of using
+		// previously cached data
+
+		File flag = new File("./" + prefix + "." + epochSecond + "." + 0 + "." + 0 + ".json");
 
 		String mprn = properties.getProperty(KEY_ELECTRICITY_MPAN_EXPORT, DEFAULT_ELECTRICITY_MPAN_EXPORT_PROPERTY)
 				.trim();
@@ -3009,28 +3016,35 @@ public class Octopussy implements IOctopus {
 
 		String json = null;
 
-		boolean needtoCache = false;
+		boolean needToCache = false;
 
 		boolean cacheInUse = epochSecond > 0;
 
-		boolean forceWriteCache = epochSecond < 0;
-
-		if (!cacheInUse) {
+		if (!cacheInUse || flag.exists()) {
 
 			json = instance.getRequest(new URL(spec));
 
+			if (flag.exists()) {
+
+				needToCache = true;
+
+				flag.delete();
+
+				logErrTime("Deleted flag file " + flag.getName());
+			}
+
 		} else {
 
-			if (ourTimeNow.isBefore(pollingWindowStart) || ourTimeNow.isAfter(pollingWindowEnd)) {
+//			if (ourTimeNow.isBefore(pollingWindowStart) || ourTimeNow.isAfter(pollingWindowEnd)) {
 
-				json = getFromCache(prefix, epochSecond, cache, false); // null if no cache found
-			}
+			json = getFromCache(prefix, epochSecond, cache, false); // null if no cache found
+//			}
 
 			if (null == json) {
 
 				json = instance.getRequest(new URL(spec));
 
-				needtoCache = true;
+				needToCache = true;
 			}
 		}
 
@@ -3038,10 +3052,14 @@ public class Octopussy implements IOctopus {
 
 		int size = result.getPeriodResults().size();
 
-		logErrTime(result.getCount() + " " + size + " " + result.getPeriodResults().get(0).getIntervalStart() + " "
-				+ result.getPeriodResults().get(size - 1).getIntervalStart() + " Export Consumption");
+		if (needToCache) {
 
-		if (cacheInUse && (needtoCache || forceWriteCache)) {
+			logErrTime((needToCache ? "New" : "Existing") + " " + result.getCount() + " " + size + " "
+					+ result.getPeriodResults().get(0).getIntervalStart() + " "
+					+ result.getPeriodResults().get(size - 1).getIntervalStart() + " Export Consumption");
+		}
+
+		if (cacheInUse && needToCache) {
 
 			boolean created = cache.createNewFile();
 
@@ -3132,14 +3150,20 @@ public class Octopussy implements IOctopus {
 
 		V1ElectricityConsumption result = null;
 
-		ZonedDateTime pollingWindowStart = ourTimeNow.withHour(12).withMinute(0).withSecond(0).withNano(0);
-		ZonedDateTime pollingWindowEnd = pollingWindowStart.plusHours(2);
+		// having observed the typical logged time stamps of "DIAG: Updated nn import
+		// records" we set a polling window from noon to 2:30pm
+
+//		ZonedDateTime pollingWindowStart = ourTimeNow.withHour(12).withMinute(00).withSecond(0).withNano(0);
+//		ZonedDateTime pollingWindowEnd = pollingWindowStart.plusHours(2).plusMinutes(30);
 
 		String prefix = "cache.import.consumption";
 
 		File cache = new File("./" + prefix + "." + epochSecond + "." + page + "." + pageSize + ".json");
 
-//		File polling = new File("./" + prefix + "." + epochSecond + "." + 0 + "." + 0 + ".json");
+		// Existence of the flag file is use to force a read from cloud instead of using
+		// previously cached data
+
+		File flag = new File("./" + prefix + "." + epochSecond + "." + 0 + "." + 0 + ".json");
 
 		String mprn = properties.getProperty(KEY_ELECTRICITY_MPAN_IMPORT, DEFAULT_ELECTRICITY_MPAN_IMPORT_PROPERTY)
 				.trim();
@@ -3159,26 +3183,33 @@ public class Octopussy implements IOctopus {
 
 		boolean cacheInUse = epochSecond > 0;
 
-		boolean forceWriteCache = epochSecond < 0;
+		boolean needToCache = false;
 
-		boolean needtoCache = false;
-
-		if (!cacheInUse) {
+		if (!cacheInUse || flag.exists()) {
 
 			json = instance.getRequest(new URL(spec));
 
+			if (flag.exists()) {
+
+				needToCache = true;
+
+				flag.delete();
+
+				logErrTime("Deleted flag file " + flag.getName());
+			}
+
 		} else {
 
-			if (ourTimeNow.isBefore(pollingWindowStart) || ourTimeNow.isAfter(pollingWindowEnd)) {
+//			if (ourTimeNow.isBefore(pollingWindowStart) || ourTimeNow.isAfter(pollingWindowEnd)) {
 
-				json = getFromCache(prefix, epochSecond, cache, false); // null if no cache found
-			}
+			json = getFromCache(prefix, epochSecond, cache, false); // null if no cache found
+//			}
 
 			if (null == json) {
 
 				json = instance.getRequest(new URL(spec));
 
-				needtoCache = true;
+				needToCache = true;
 			}
 		}
 
@@ -3186,10 +3217,14 @@ public class Octopussy implements IOctopus {
 
 		int size = result.getPeriodResults().size();
 
-		logErrTime(result.getCount() + " " + size + " " + result.getPeriodResults().get(0).getIntervalStart() + " "
-				+ result.getPeriodResults().get(size - 1).getIntervalStart() + " Import Consumption");
+		if (needToCache) {
 
-		if (cacheInUse && (needtoCache || forceWriteCache)) {
+			logErrTime((needToCache ? "New" : "Existing") + " " + result.getCount() + " " + size + " "
+					+ result.getPeriodResults().get(0).getIntervalStart() + " "
+					+ result.getPeriodResults().get(size - 1).getIntervalStart() + " Import Consumption");
+		}
+
+		if (cacheInUse && needToCache) {
 
 			boolean created = cache.createNewFile();
 
@@ -3219,15 +3254,13 @@ public class Octopussy implements IOctopus {
 
 		File cache = new File("./" + prefix + "." + epochSecond + "." + page + "." + pageSize + ".json");
 
-		File flagTomorrowAvailable = new File("./" + prefix + "." + epochSecond + "." + 0 + "." + 0 + ".json");
+		File flagPollingFinished = new File("./" + prefix + "." + epochSecond + "." + 0 + "." + 0 + ".json");
 
 		String json = null;
 
-		boolean needtoCache = false;
+		boolean needToCache = false;
 
 		boolean cacheInUse = epochSecond > 0;
-
-		boolean forceWriteCache = epochSecond < 0;
 
 		String spec = properties.getProperty(KEY_IMPORT_TARIFF_URL, DEFAULT_TARIFF_URL_PROPERTY).trim()
 				+ "/standard-unit-rates/" + "?page_size=" + pageSize + (null == page ? "" : "&page=" + page)
@@ -3238,14 +3271,14 @@ public class Octopussy implements IOctopus {
 
 			int tries = 0;
 
-			while (!needtoCache) {
+			while (!needToCache) {
 
 				tries++;
 
 				try {
 					json = getRequest(new URL(spec), false);
 
-					needtoCache = true;
+					needToCache = true;
 
 				} catch (Exception e) {
 
@@ -3268,7 +3301,7 @@ public class Octopussy implements IOctopus {
 			// cache in use
 
 			if (ourTimeNow.isBefore(pollingWindowStart) || ourTimeNow.isAfter(pollingWindowEnd)
-					|| flagTomorrowAvailable.exists()) {
+					|| flagPollingFinished.exists()) {
 
 				json = getFromCache(prefix, epochSecond, cache, false); // null if no cache found
 			}
@@ -3277,14 +3310,14 @@ public class Octopussy implements IOctopus {
 
 				int tries = 0;
 
-				while (!needtoCache) {
+				while (!needToCache) {
 
 					tries++;
 
 					try {
 						json = getRequest(new URL(spec), false);
 
-						needtoCache = true;
+						needToCache = true;
 
 					} catch (Exception e) {
 
@@ -3308,27 +3341,40 @@ public class Octopussy implements IOctopus {
 
 		int size = result.getTariffResults().size();
 
-		LocalDate comparisonDate = LocalDate.parse(result.getTariffResults().get(0).getValidFrom().substring(0, 10)); // ISO-8601
+		String textLow = result.getTariffResults().get(size - 1).getValidTo(); // assume null if fixed rate
 
-		logErrTime(result.getCount() + " " + size + " " + result.getTariffResults().get(size - 1).getValidFrom() + " "
-				+ comparisonDate + " Import Tariff");
+		String textHigh = result.getTariffResults().get(0).getValidFrom().substring(0, 10);
 
-		if (flagTomorrowAvailable.exists()) {
+		LocalDate comparisonDate = LocalDate.parse(textHigh);
 
-			if (!comparisonDate.isAfter(ourTimeNow.toLocalDate())) { // i.e., before or equal
+		if (null != textLow) { // assume fixed rate unit - may as well enable import.electricity.unit=25.0
 
-				flagTomorrowAvailable.delete();
-			}
+			if (flagPollingFinished.exists()) {
 
-		} else {
+				if (ourTimeNow.toLocalDate().equals(comparisonDate)) {
 
-			if (comparisonDate.isAfter(ourTimeNow.toLocalDate())) {
+					flagPollingFinished.delete();
+				}
 
-				flagTomorrowAvailable.createNewFile();
+			} else {
+
+				if (!ourTimeNow.toLocalDate().equals(comparisonDate)) {
+
+					flagPollingFinished.createNewFile();
+				}
 			}
 		}
 
-		if (cacheInUse && (needtoCache || forceWriteCache)) {
+		// file flagPollingFinished exists whenever the comparison date is different to
+		// today
+		if (needToCache) {
+
+			logErrTime((needToCache ? "New" : "Existing") + " " + result.getCount() + " " + size + " "
+					+ result.getTariffResults().get(size - 1).getValidFrom() + " "
+					+ result.getTariffResults().get(0).getValidFrom() + " Import Tariff");
+		}
+
+		if (cacheInUse && needToCache) {
 
 			boolean created = cache.createNewFile();
 
@@ -3390,7 +3436,7 @@ public class Octopussy implements IOctopus {
 
 		File cache = new File("./" + prefix + "." + epochSecond + "." + page + "." + pageSize + ".json");
 
-//		File flagLatestAvailable = new File("./" + prefix + "." + epochSecond + "." + 0 + "." + 0 + ".json");
+		File flagPollingFinished = new File("./" + prefix + "." + epochSecond + "." + 0 + "." + 0 + ".json");
 
 		String spec = properties.getProperty(KEY_EXPORT_TARIFF_URL, DEFAULT_EXPORT_TARIFF_URL_PROPERTY).trim()
 				+ "/standard-unit-rates/" + "?page_size=" + pageSize + (null == page ? "" : "&page=" + page)
@@ -3399,24 +3445,22 @@ public class Octopussy implements IOctopus {
 
 		String json = null;
 
-		boolean needtoCache = false;
+		boolean needToCache = false;
 
 		boolean cacheInUse = epochSecond > 0;
-
-		boolean forceWriteCache = epochSecond < 0;
 
 		if (!cacheInUse) {
 
 			int tries = 0;
 
-			while (!needtoCache) {
+			while (!needToCache) {
 
 				tries++;
 
 				try {
 					json = getRequest(new URL(spec), false);
 
-					needtoCache = true;
+					needToCache = true;
 
 				} catch (Exception e) {
 
@@ -3438,7 +3482,8 @@ public class Octopussy implements IOctopus {
 
 			// cache in use
 
-			if (ourTimeNow.isBefore(pollingWindowStart) || ourTimeNow.isAfter(pollingWindowEnd)) {
+			if (ourTimeNow.isBefore(pollingWindowStart) || ourTimeNow.isAfter(pollingWindowEnd)
+					|| flagPollingFinished.exists()) {
 
 				json = getFromCache(prefix, epochSecond, cache, false); // null if no cache found
 			}
@@ -3447,14 +3492,14 @@ public class Octopussy implements IOctopus {
 
 				int tries = 0;
 
-				while (!needtoCache) {
+				while (!needToCache) {
 
 					tries++;
 
 					try {
 						json = getRequest(new URL(spec), false);
 
-						needtoCache = true;
+						needToCache = true;
 
 					} catch (Exception e) {
 
@@ -3478,10 +3523,40 @@ public class Octopussy implements IOctopus {
 
 		int size = result.getTariffResults().size();
 
-		logErrTime(result.getCount() + " " + size + " " + result.getTariffResults().get(size - 1).getValidFrom() + " "
-				+ result.getTariffResults().get(0).getValidFrom() + " Export Tariff");
+		String textLow = result.getTariffResults().get(size - 1).getValidTo(); // assume null if fixed rate
 
-		if (cacheInUse && (needtoCache || forceWriteCache)) {
+		String textHigh = result.getTariffResults().get(0).getValidFrom().substring(0, 10);
+
+		LocalDate comparisonDate = LocalDate.parse(textHigh);
+
+		if (null != textLow) { // assume fixed rate unit - may as well enable export.electricity.unit=15.0
+
+			if (flagPollingFinished.exists()) {
+
+				if (ourTimeNow.toLocalDate().equals(comparisonDate)) {
+
+					flagPollingFinished.delete();
+				}
+
+			} else {
+
+				if (!ourTimeNow.toLocalDate().equals(comparisonDate)) {
+
+					flagPollingFinished.createNewFile();
+				}
+			}
+		}
+
+		// file flagPollingFinished exists whenever the comparison date is different to
+		// today
+		if (needToCache) {
+
+			logErrTime((needToCache ? "New" : "Existing") + " " + result.getCount() + " " + size + " "
+					+ result.getTariffResults().get(size - 1).getValidFrom() + " "
+					+ result.getTariffResults().get(0).getValidFrom() + " Export Tariff");
+		}
+
+		if (cacheInUse && needToCache) {
 
 			boolean created = cache.createNewFile();
 
@@ -7910,7 +7985,8 @@ public class Octopussy implements IOctopus {
 	}
 
 	private ArrayList<V1PeriodConsumption> updateHistory(boolean isImport, Map<Long, ConsumptionHistory> historyMap,
-			String someDaysAgo, ArrayList<V1PeriodConsumption> periodResults, int howManyDaysHistory) {// , int count) {
+			String someDaysAgo, ArrayList<V1PeriodConsumption> periodResults, int howManyDaysHistory,
+			long recentEpochSecond) {// , int count) {
 
 		// Add history data for any non-null consumptions
 
@@ -8002,19 +8078,33 @@ public class Octopussy implements IOctopus {
 
 		if (0 != count) {
 
-			if (isImport) {
+			String prefix = null;
 
-				logErrTime("DIAG: Updated " + count + " import records");
+			if (isImport) {
 
 				forceImportAppendToFile = true;
 
+				prefix = "cache.import.consumption";
+
 			} else {
 
-				logErrTime("DIAG: Updated " + count + " export records");
-
 				forceExportAppendToFile = true;
+
+				prefix = "cache.export.consumption";
 			}
 
+			File flag = new File("./" + prefix + "." + recentEpochSecond + "." + 0 + "." + 0 + ".json");
+
+			logErrTime("DIAG: Updated " + count + " records - created flag file " + flag.getName());
+
+			try {
+
+				flag.createNewFile();
+
+			} catch (IOException e) {
+
+				e.printStackTrace();
+			}
 		}
 
 		return periodResults;
