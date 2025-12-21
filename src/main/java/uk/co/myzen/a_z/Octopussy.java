@@ -5205,9 +5205,41 @@ public class Octopussy implements IOctopus {
 
 			if (0 == comp) {
 
-				if (cha.containsKey(rangeEndTime)) {
+				// check if this is the last part of the day (typically 4)
+				// && price currently cheaper than the overnight part (1)
+				// if so, force a charge at maximum
 
-					logErrTime("ALERT: Manual charge! Overiding S" + (1 + s) + " start time & limit " + maxPercent
+				boolean currentlyCheaperThanOvernight = false;
+
+				if (parts.size() - 1 == p) { // last part of day
+
+					// what is the current unit price for this slot?
+
+					float currentPrice = schedulePrices[s];
+
+					// now look ahead and find the prices for tomorrow part 1
+
+					slots = findOptimalCostSlotToday(1, pricesPerSlotSinceMidnight, currentSlotIndex,
+							dayPartsEndBefore12hr[0]);
+
+					int futureSlotIndex = slots[0];
+
+					SlotCost scFuturePart = pricesPerSlotSinceMidnight.get(futureSlotIndex);
+
+					float bestFuturePrice = scFuturePart.getImportPrice();
+
+					logErrTime("DIAG: current price " + currentPrice + " for slot " + currentSlotIndex
+							+ " best Part 1 price " + bestFuturePrice + " in  slot " + futureSlotIndex);
+
+					if (currentPrice < bestFuturePrice) {
+
+						currentlyCheaperThanOvernight = true;
+					}
+				}
+
+				if (currentlyCheaperThanOvernight || cha.containsKey(rangeEndTime)) {
+
+					logErrTime("ALERT: Forced charge! Overiding S" + (1 + s) + " start time & limit " + maxPercent
 							+ "% / @ " + dayPartPowerDefault + "W with 100% / @ " + defaultChargeRate + " W");
 
 					minPercent = 100; // will trigger a expedite:true within the WatchSlotChargeHelperThread
