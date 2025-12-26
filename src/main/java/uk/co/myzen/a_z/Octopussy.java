@@ -4079,14 +4079,14 @@ public class Octopussy implements IOctopus {
 		return bestStartTime;
 	}
 
-	private int[] findOptimalCostSlotToday(final int howMany, List<SlotCost> pricesPerSlotSinceMidnight,
-			final int currentSlotIndex, String untilBefore12hr) {
+	private int[] findOptimalCostSlotForDay(final int howMany, List<SlotCost> pricesPerSlotSinceMidnight,
+			final int startAtSlotIndex, String untilBefore12hr) {
 
 		int[] result = new int[0];
 
 		if (howMany > 0) {
 
-			String simpleTimeStamp = pricesPerSlotSinceMidnight.get(0).getSimpleTimeStamp();
+			String simpleTimeStamp = pricesPerSlotSinceMidnight.get(startAtSlotIndex).getSimpleTimeStamp();
 
 			String[] elements = simpleTimeStamp.split(" ");
 
@@ -4096,7 +4096,7 @@ public class Octopussy implements IOctopus {
 
 			List<Float> prices = new ArrayList<Float>();
 
-			int index = currentSlotIndex;
+			int index = startAtSlotIndex;
 
 			do {
 
@@ -4138,16 +4138,16 @@ public class Octopussy implements IOctopus {
 
 				for (int i = 0; i < limit; i++) {
 
-					Float importPrice = pricesPerSlotSinceMidnight.get(i + currentSlotIndex).getImportPrice();
+					Float importPrice = pricesPerSlotSinceMidnight.get(i + startAtSlotIndex).getImportPrice();
 
 					if (importPrice == f) {
 
-						if (timeIndex.contains(i + currentSlotIndex)) {
+						if (timeIndex.contains(i + startAtSlotIndex)) {
 
 							continue; // iterate
 						}
 
-						timeIndex.add(Integer.valueOf(i + currentSlotIndex));
+						timeIndex.add(Integer.valueOf(i + startAtSlotIndex));
 					}
 				}
 			}
@@ -5003,7 +5003,7 @@ public class Octopussy implements IOctopus {
 
 		if (null != power && numberOfChargingSlotsInThisPartOfDay > 0) {
 
-			slots = findOptimalCostSlotToday(numberOfChargingSlotsInThisPartOfDay, pricesPerSlotSinceMidnight,
+			slots = findOptimalCostSlotForDay(numberOfChargingSlotsInThisPartOfDay, pricesPerSlotSinceMidnight,
 					currentSlotIndex, dayPartsEndBefore12hr[p]);
 
 			if (null != charge && 0 != "false".compareTo(charge)) {
@@ -5211,29 +5211,42 @@ public class Octopussy implements IOctopus {
 
 				boolean currentlyCheaperThanOvernight = false;
 
-				if (parts.size() - 1 == p) { // last part of day
+				if (parts.size() - 1 == p && pricesPerSlotSinceMidnight.size() > 48) { // last part of day and we have
+																						// prices for tomorrow
 
 					// what is the current unit price for this slot?
 
 					float currentPrice = schedulePrices[s];
 
 					// now look ahead and find the prices for tomorrow part 1
+					// starting at slot 48
 
-					slots = findOptimalCostSlotToday(1, pricesPerSlotSinceMidnight, currentSlotIndex,
-							dayPartsEndBefore12hr[0]);
+					slots = findOptimalCostSlotForDay(slotsPerDayPart[0], pricesPerSlotSinceMidnight,
+							48 /* implies start tomorrow */, dayPartsEndBefore12hr[0]);
 
-					int futureSlotIndex = slots[0];
+					if (slots.length < 1) {
 
-					SlotCost scFuturePart = pricesPerSlotSinceMidnight.get(futureSlotIndex);
+						logErrTime("DIAG: (" + pricesPerSlotSinceMidnight.size()
+								+ ") findOptimalCostSlotToday() returns empty list for index " + (1 + currentSlotIndex)
+								+ " up to " + dayPartsEndBefore12hr[0]);
 
-					float bestFuturePrice = scFuturePart.getImportPrice();
+					} else {
 
-					logErrTime("DIAG: current price " + currentPrice + " for slot " + currentSlotIndex
-							+ " best Part 1 price " + bestFuturePrice + " in  slot " + futureSlotIndex);
+						int futureSlotIndex = slots[slots.length - 1]; // most expensive of the selected slots in part 1
+																		// tomorrow
 
-					if (currentPrice < bestFuturePrice) {
+						SlotCost scFuturePart = pricesPerSlotSinceMidnight.get(futureSlotIndex);
 
-						currentlyCheaperThanOvernight = true;
+						float futurePriceToCompare = scFuturePart.getImportPrice();
+
+						logErrTime("DIAG: (" + pricesPerSlotSinceMidnight.size() + ") current price " + currentPrice
+								+ "p compared to Part 1 price " + futurePriceToCompare + "p in slot " + futureSlotIndex
+								+ " at " + scFuturePart.getSimpleTimeStamp());
+
+						if (currentPrice < futurePriceToCompare) {
+
+							currentlyCheaperThanOvernight = true;
+						}
 					}
 				}
 
