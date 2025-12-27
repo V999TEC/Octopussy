@@ -5205,6 +5205,8 @@ public class Octopussy implements IOctopus {
 
 			if (0 == comp) {
 
+				logErrTime("Time matches " + WatchSlotChargeHelperThread.SN(s) + "ending at " + rangeEndTime);
+
 				// check if this is the last part of the day (typically 4)
 				// && price currently cheaper than the overnight part (1)
 				// if so, force a charge at maximum
@@ -5232,16 +5234,19 @@ public class Octopussy implements IOctopus {
 
 					} else {
 
-						int futureSlotIndex = slots[slots.length - 1]; // most expensive of the selected slots in part 1
+						int comparisonSlot = slots.length - 1;
+
+						int futureSlotIndex = slots[comparisonSlot]; // most expensive of the selected slots in part 1
 																		// tomorrow
 
 						SlotCost scFuturePart = pricesPerSlotSinceMidnight.get(futureSlotIndex);
 
 						float futurePriceToCompare = scFuturePart.getImportPrice();
 
-						logErrTime("DIAG: (" + pricesPerSlotSinceMidnight.size() + ") current price " + currentPrice
-								+ "p compared to Part 1 price " + futurePriceToCompare + "p in slot " + futureSlotIndex
-								+ " at " + scFuturePart.getSimpleTimeStamp());
+						logErrTime("DIAG: (" + pricesPerSlotSinceMidnight.size() + ") Comparing price " + currentPrice
+								+ "p to Part 1" + WatchSlotChargeHelperThread.SN(comparisonSlot) + " price "
+								+ futurePriceToCompare + "p (slot " + futureSlotIndex + ") at "
+								+ scFuturePart.getSimpleTimeStamp());
 
 						if (currentPrice < futurePriceToCompare) {
 
@@ -5252,7 +5257,7 @@ public class Octopussy implements IOctopus {
 
 				if (currentlyCheaperThanOvernight || cha.containsKey(rangeEndTime)) {
 
-					logErrTime("ALERT: Forced charge! Overiding S" + (1 + s) + " start time & limit " + maxPercent
+					logErrTime("ALERT: Forcing charge! Overiding S" + (1 + s) + " start time & limit " + maxPercent
 							+ "% / @ " + dayPartPowerDefault + "W with 100% / @ " + defaultChargeRate + " W");
 
 					minPercent = 100; // will trigger a expedite:true within the WatchSlotChargeHelperThread
@@ -5316,8 +5321,6 @@ public class Octopussy implements IOctopus {
 					}
 
 					String dateYYYY_MM_DD = timestamp.substring(0, 10);
-
-					logErrTime("Time matches " + WatchSlotChargeHelperThread.SN(s) + "ending at " + rangeEndTime);
 
 					logErrTime("Configured default charging power is " + dayPartPowerDefault + " watts");
 
