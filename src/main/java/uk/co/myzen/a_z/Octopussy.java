@@ -5244,7 +5244,7 @@ public class Octopussy implements IOctopus {
 						float futurePriceToCompare = scFuturePart.getImportPrice();
 
 						logErrTime("DIAG: (" + pricesPerSlotSinceMidnight.size() + ") Comparing price " + currentPrice
-								+ "p to Part 1" + WatchSlotChargeHelperThread.SN(comparisonSlot) + " price "
+								+ "p to Part{1}[" + WatchSlotChargeHelperThread.SN(comparisonSlot) + "] price "
 								+ futurePriceToCompare + "p (slot " + futureSlotIndex + ") at "
 								+ scFuturePart.getSimpleTimeStamp());
 
@@ -5263,11 +5263,16 @@ public class Octopussy implements IOctopus {
 					minPercent = 100; // will trigger a expedite:true within the WatchSlotChargeHelperThread
 					maxPercent = 100;
 
-					String startTime = cha.get(rangeEndTime);
+					minsDelayStart = 0;
 
-					String mm = startTime.substring(3);
+					if (!currentlyCheaperThanOvernight) {
 
-					minsDelayStart = Integer.parseInt(mm);
+						String startTime = cha.get(rangeEndTime);
+
+						String mm = startTime.substring(3);
+
+						minsDelayStart = Integer.parseInt(mm);
+					}
 
 				} else if (schedulePrices[s] <= 0) {
 
@@ -7132,7 +7137,7 @@ public class Octopussy implements IOctopus {
 											+ String.format("%5.2f", exportCostInGBP) + "   "
 									: "\t")
 
-							+ surplusOrDeficit(exportCostInGBP - importCostInGBP) + "\t\t"
+							+ "  " + surplusOrDeficit(exportCostInGBP - importCostInGBP) + "\t"
 							+ String.format("%3d", dayValues.getDayOfYear()));
 				}
 
