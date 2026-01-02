@@ -154,7 +154,7 @@ A corresponding file for export history will also be generated.
 
 In the properties file the key values yearly, monthly, weekly can be set to true or false to produce an analysis over the respective period, for example:
 
-![EXAMPLE](/assets/Octopussy3.JPG?raw=true "Picture 3")
+![EXAMPLE](/assets/Example_End-of-Year.JPG?raw=true "Picture 3")
 
 Note the *Recent daily results* are always shown and the days=number in the properties file will guide the number of days to be included in what is considered recent.
 The recent data is used to calculate the running average (A) price which dictates where the 'A' is positioned within the asterisks of the horizontal graph
