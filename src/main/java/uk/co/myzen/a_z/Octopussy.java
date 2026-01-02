@@ -5243,9 +5243,9 @@ public class Octopussy implements IOctopus {
 
 						float futurePriceToCompare = scFuturePart.getImportPrice();
 
-						logErrTime("DIAG: (" + pricesPerSlotSinceMidnight.size() + ") Comparing price " + currentPrice
-								+ "p to Part{1}" + WatchSlotChargeHelperThread.SN(comparisonSlot) + futurePriceToCompare
-								+ "p at " + scFuturePart.getSimpleTimeStamp());
+						logErrTime("DIAG: (" + pricesPerSlotSinceMidnight.size() + ") Comparing price now ("
+								+ currentPrice + "p) to Part {1} " + WatchSlotChargeHelperThread.SN(comparisonSlot)
+								+ "(" + futurePriceToCompare + "p) for " + scFuturePart.getSimpleTimeStamp());
 
 						if (currentPrice < futurePriceToCompare) {
 
