@@ -3,10 +3,17 @@
 There is a wiki giving context about this project here https://github.com/V999TEC/Octopussy/wiki/The-Home-of-Icarus  
 
 Java CLI uses Octopus API to analyse Agile tariff electricity consumption.  
-The recent cost saving is shown compared to the flat rate tariff.  
-The day ahead unit pricing is shown, together with the best times to start an activity.
+The recent cost saving is shown and an indication of the cost so a far for import & export since installation.  
+The day ahead unit pricing is shown, together with the best times to start an activity to minimise cost.
 
-The jar is regularly tested (and works unchanged, such is the beauty of java) on Raspberry Pi OS and Windows 10.
+The jar is regularly tested (and works unchanged, such is the beauty of java) on Raspberry Pi OS and Windows 10/11.
+
+The author's system was installed 23/11/2023 but ran for around 6 months before export MPAN could be allocated.
+This accounts for the discrepency between days imported and days exported. 
+Despite that situation the electricity cost is around 28p / day average based on 770 days running up to the end of 2025.
+That average daily cost will likely improve, providing the equipment continues to run without failure or maintenance.
+
+![EXAMPLE](/assets/770_days_inclusive.jpg?raw=true "End of 2025")
 
 n.b.
 For Windows users running the jar in a console, ANSI colour support should be enabled if not already.
