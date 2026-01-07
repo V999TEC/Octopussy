@@ -8,10 +8,10 @@ The day ahead unit pricing is shown, together with the best times to start an ac
 
 The jar is regularly tested (and works unchanged, such is the beauty of java) on Raspberry Pi OS and Windows 10/11.
 
-The author's system was installed 23/11/2023 but ran for around 6 months before export MPAN could be allocated.
+The author's system was installed 23/11/2023 but ran for around 6 months before export MPAN could be allocated due in part to an over-voltage supply from the local substation (which was eventually stepped down).
 This accounts for the discrepency between days imported and days exported. 
-Despite that situation the electricity cost is around 28p / day average based on 770 days running up to the end of 2025.
-That average daily cost will likely improve, providing the equipment continues to run without failure or maintenance.
+Despite that situation the electricity cost is around 28p / day average, based on 770 days running up to the end of 2025.
+That average daily cost will likely improve further, providing the equipment continues to run without failure or maintenance and export pricing is not reduced in value.
 
 ![EXAMPLE](/assets/770_days_inclusive.jpg?raw=true "End of 2025")
 
