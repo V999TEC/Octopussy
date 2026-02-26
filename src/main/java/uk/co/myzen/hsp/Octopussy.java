@@ -814,6 +814,8 @@ public class Octopussy implements IOctopus {
 
 			String today = timestamp.substring(0, 10);
 
+			String tomorrow = ourTimeNow.plusDays(1L).toString().substring(0, 10);
+
 			//
 			// Standing charges for import & export
 			//
@@ -872,11 +874,18 @@ public class Octopussy implements IOctopus {
 					try {
 						V1Charges charges = getV1ElectricityStandingCharges(
 								properties.getProperty(KEY_EXPORT_PRODUCT_CODE),
-								properties.getProperty(KEY_EXPORT_TARIFF_CODE), 1, today, null);
+								properties.getProperty(KEY_EXPORT_TARIFF_CODE), 10, today, null);
 
 						List<Prices> prices = charges.getPriceResults();
 
-						exportStandingCharge = prices.get(0).getValueExcVAT();
+						int listSize = prices.size();
+
+						/*
+						 * this code makes the assuption that the last element will contain the correct
+						 * price for today
+						 */
+
+						exportStandingCharge = prices.get(listSize - 1).getValueExcVAT();
 
 					} catch (Exception e) {
 						// TODO Auto-generated catch block
@@ -897,11 +906,18 @@ public class Octopussy implements IOctopus {
 					try {
 						V1Charges charges = getV1ElectricityStandardUnitRates(
 								properties.getProperty(KEY_EXPORT_PRODUCT_CODE),
-								properties.getProperty(KEY_EXPORT_TARIFF_CODE), 1, today, null);
+								properties.getProperty(KEY_EXPORT_TARIFF_CODE), 10, today, null);
 
 						List<Prices> prices = charges.getPriceResults();
 
-						flatRateExport = prices.get(0).getValueExcVAT();
+						int listSize = prices.size();
+
+						/*
+						 * this code makes the assumption that the last element will contain the correct
+						 * price for today
+						 */
+
+						flatRateExport = prices.get(listSize - 1).getValueExcVAT();
 
 					} catch (Exception e) {
 						// TODO Auto-generated catch block
@@ -6933,74 +6949,29 @@ public class Octopussy implements IOctopus {
 
 			float importPriceExcVat = getExcVatPriceFromTariff(importTariffs, index, epochActualFrom);
 
-			ImportExportData importExportPrices = null;
+			Float exportPriceExcVat = null;
 
-			if (priceMap.containsKey(key)) {
+			if (export) {
 
-				importExportPrices = priceMap.get(key);
+				if (null == flatRateExport || flatRateExport < 0) {
 
-			} else {
-
-				importExportPrices = new ImportExportData();
-			}
-
-			importExportPrices.setImportPrice(importPriceExcVat);
-
-			if (null == importExportPrices.getExportPrice()) {
-
-				importExportPrices.setExportPrice(flatRateExport); // default may be null
-			}
-
-			priceMap.put(key, importExportPrices);
-		}
-
-		// deal with export tariffs
-
-		if (export) {
-
-			for (int index = 0; index < exportTariffs.size(); index++) {
-
-				Tariff tariff = exportTariffs.get(index);
-
-				String validFrom = tariff.getValidFrom(); // zulu time
-
-				OffsetDateTime odtFrom = OffsetDateTime.parse(validFrom, defaultDateTimeFormatter);
-
-				ZonedDateTime zdtFrom = odtFrom.atZoneSameInstant(ourZoneId); // this allows for GMT/BST daylight saving
-																				// adjustment
-
-				LocalDateTime ldt = zdtFrom.toLocalDateTime();
-
-				String key = ldt.toString().substring(0, 16); // this is the local timestamp without seconds
-
-				//
-				//
-				//
-
-				long epochActualFrom = odtFrom.toEpochSecond();
-
-				float exportPriceExcVat = getExcVatPriceFromTariff(exportTariffs, index, epochActualFrom);
-
-				ImportExportData importExportPrices = null;
-
-				if (priceMap.containsKey(key)) {
-
-					importExportPrices = priceMap.get(key);
+					exportPriceExcVat = getExcVatPriceFromTariff(exportTariffs, 0, epochActualFrom);
 
 				} else {
 
-					importExportPrices = new ImportExportData();
+					exportPriceExcVat = flatRateExport; // which must be positive
 				}
-
-				if (null == importExportPrices.getImportPrice()) {
-
-					importExportPrices.setImportPrice(flatRateImport);
-				}
-
-				importExportPrices.setExportPrice(exportPriceExcVat);
-
-				priceMap.put(key, importExportPrices);
 			}
+
+			ImportExportData importExportPrices = null;
+
+			importExportPrices = new ImportExportData();
+
+			importExportPrices.setImportPrice(importPriceExcVat);
+
+			importExportPrices.setExportPrice(exportPriceExcVat);
+
+			priceMap.put(key, importExportPrices);
 		}
 
 		return priceMap;
@@ -7351,9 +7322,12 @@ public class Octopussy implements IOctopus {
 
 			Float importValueIncVat = slotCost.getImportPrice();
 
-			if (importValueIncVat > maxWidth) {
+			if (null != importValueIncVat) {
 
-				maxWidth = importValueIncVat.intValue();
+				if (importValueIncVat > maxWidth) {
+
+					maxWidth = importValueIncVat.intValue();
+				}
 			}
 		}
 
@@ -7762,7 +7736,8 @@ public class Octopussy implements IOctopus {
 
 				ImportExportData importExportData = importExportPriceMap.get(key);
 
-				float importPriceValue = importExportData.getImportPrice();
+				Float importPriceValue = importExportData.getImportPrice(); // could be null if multiple export price
+																			// ranges exist
 
 				Float exportPriceValue = importExportData.getExportPrice(); // can be null if export=false
 
@@ -7773,8 +7748,6 @@ public class Octopussy implements IOctopus {
 
 				// the simpleTimeStamp should be in local time (i.e, BST in British Summer) and
 				// not Zulu
-
-//				ZonedDateTime zdt = zulu.atZoneSameInstant(ourZoneId);
 
 				ZonedDateTime zdt = ldt.atZone(ourZoneId);
 
