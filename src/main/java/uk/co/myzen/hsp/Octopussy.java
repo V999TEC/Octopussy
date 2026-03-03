@@ -1626,13 +1626,15 @@ public class Octopussy implements IOctopus {
 
 				averageUnitCost = Float.parseFloat(extendedAttributes.get("average"));
 
-				float costImported = Float.parseFloat(extendedAttributes.get("cost"));
+				float costImported = Float.parseFloat(extendedAttributes.get("costImported"));
 
 				float standing = Float.parseFloat(extendedAttributes.get("standing"));
 
+				float imported = Float.parseFloat(extendedAttributes.get("imported"));
+
 				float exported = Float.parseFloat(extendedAttributes.get("exported"));
 
-				float costExported = null == flatRateExport ? 0.0f : flatRateExport * exported;
+				float costExported = Float.parseFloat(extendedAttributes.get("costExported"));
 
 				float pounds = (costImported + standing - costExported) / 100;
 
@@ -1645,8 +1647,7 @@ public class Octopussy implements IOctopus {
 										? "   and exported:  " + String.format("%4.1f", exported) + "     (£"
 												+ String.format("%5.2f", costExported / 100) + ")"
 										: "")
-								+ "  Recent cost per day: £" + String.format("%5.2f", dailyCostAverage)
-								+ " on average");
+								+ "    Average: £" + String.format("%5.2f", dailyCostAverage) + " daily cost recently");
 			}
 
 			ArrayList<Long> bestExportTime = null;
@@ -7056,8 +7057,9 @@ public class Octopussy implements IOctopus {
 
 //			float accumulateDifference = 0;
 			float accumulateImportedUnits = 0;
-			float accumulateCost = 0;
+			float accumulateCostImported = 0;
 			float accumulateExportedUnits = 0;
+			float accumulateCostExported = 0;
 
 			SortedSet<String> setOfDays = new TreeSet<String>();
 
@@ -7097,15 +7099,13 @@ public class Octopussy implements IOctopus {
 
 				float importPrice = dayValues.getDailyImportPrice();
 
-//				float flatImportPrice = importedUnits * flatRateImport;
+				float exportPrice = dayValues.getDailyExportPrice();
 
 				float importCost = importPrice + importStandingCharge;
 
-//				float difference = (flatImportPrice + flatStandingCharge) - importCost;
-
 				float dailyAverageUnitPrice = importPrice / importedUnits;
 
-				float exportedUnits = 0;
+				float exportedUnits = dayValues.getDailyExport();
 
 				String values = null;
 
@@ -7126,7 +7126,7 @@ public class Octopussy implements IOctopus {
 
 				float importCostInGBP = importCost / 100;
 
-				float exportCostInGBP = (exportedUnits * 15f) / 100;
+				float exportCostInGBP = exportPrice / 100;
 
 				boolean quidsIn = exportCostInGBP > importCostInGBP;
 
@@ -7145,24 +7145,18 @@ public class Octopussy implements IOctopus {
 							+ String.format("%3d", dayValues.getDayOfYear()));
 				}
 
-//				accumulateDifference += difference;
-
 				accumulateImportedUnits += importedUnits;
 
-				accumulateCost += importPrice;
+				accumulateCostImported += importPrice;
 
 				accumulateExportedUnits += exportedUnits;
+
+				accumulateCostExported += exportPrice;
 			}
 
-			unitCostAverage = accumulateCost / accumulateImportedUnits;
+			unitCostAverage = accumulateCostImported / accumulateImportedUnits;
 
 			float accumulateStanding = tallyDays * importStandingCharge;
-
-//			if (showSavings) {
-//
-//				renderSummaryB(importStandingCharge, flatStandingCharge, flatRateImport, flatRateExport, tallyDays,
-//						unitCostAverage, accumulateImportedUnits, accumulateDifference, accumulateExportedUnits);
-//			}
 
 			ps.flush();
 			ps.close();
@@ -7186,14 +7180,14 @@ public class Octopussy implements IOctopus {
 
 			bb = ByteBuffer.wrap(ba);
 
-			view.write("power", bb);
+			view.write("imported", bb);
 
 			//
-			ba = String.valueOf(accumulateCost).getBytes();
+			ba = String.valueOf(accumulateCostImported).getBytes();
 
 			bb = ByteBuffer.wrap(ba);
 
-			view.write("cost", bb);
+			view.write("costImported", bb);
 
 			//
 			ba = String.valueOf(accumulateStanding).getBytes();
@@ -7209,15 +7203,22 @@ public class Octopussy implements IOctopus {
 			view.write("exported", bb);
 
 			//
+			ba = String.valueOf(accumulateCostExported).getBytes();
+
+			bb = ByteBuffer.wrap(ba);
+
+			view.write("costExported", bb);
+
+			//
 
 			String sUnitCostAverage = String.format("%6.2f", unitCostAverage);
 			String sAccumulateImportedUnits = String.format("%6.2f", accumulateImportedUnits);
-			String sAccumulateCost = String.format("%6.2f", accumulateCost);
+			String sAccumulateCostImported = String.format("%6.2f", accumulateCostImported);
 			String sAccumulateStanding = String.format("%6.2f", accumulateStanding);
 			String sAccumulateExportedUnits = String.format("%6.2f", accumulateExportedUnits);
 
 			logErrTime("With forceUpdate:" + forceUpdate + " [days:" + tallyDays + ",average:" + sUnitCostAverage
-					+ ",power:" + sAccumulateImportedUnits + ",cost:" + sAccumulateCost + ",standing:"
+					+ ",imported:" + sAccumulateImportedUnits + ",cost:" + sAccumulateCostImported + ",standing:"
 					+ sAccumulateStanding + ",exported:" + sAccumulateExportedUnits + "] "
 					+ (newFile ? "new" : "existing") + " " + cacheRecent.getName());
 		}
