@@ -7,9 +7,9 @@ import org.junit.BeforeClass;
 import org.junit.Ignore;
 import org.junit.Test;
 
-import uk.co.myzen.hsp.Octopussy;
-import uk.co.myzen.hsp.WatchSlotChargeHelperThread;
-import uk.co.myzen.hsp.WatchSlotDischargeHelperThread;
+//import uk.co.myzen.hsp.Octopussy;
+//import uk.co.myzen.hsp.WatchSlotChargeHelperThread;
+//import uk.co.myzen.hsp.WatchSlotDischargeHelperThread;
 
 public class TestOctopussyTwo {
 

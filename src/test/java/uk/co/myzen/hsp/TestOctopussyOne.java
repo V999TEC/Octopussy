@@ -5,7 +5,7 @@ import static org.junit.Assert.assertEquals;
 import org.junit.BeforeClass;
 import org.junit.Test;
 
-import uk.co.myzen.hsp.Octopussy;
+//import uk.co.myzen.hsp.Octopussy;
 
 public class TestOctopussyOne {
 
