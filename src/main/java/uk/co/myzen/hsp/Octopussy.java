@@ -814,7 +814,7 @@ public class Octopussy implements IOctopus {
 
 			String today = timestamp.substring(0, 10);
 
-			String tomorrow = ourTimeNow.plusDays(1L).toString().substring(0, 10);
+//			String tomorrow = ourTimeNow.plusDays(1L).toString().substring(0, 10);
 
 			//
 			// Standing charges for import & export
@@ -1566,11 +1566,18 @@ public class Octopussy implements IOctopus {
 
 					long recentEpochDay = recentEpochSecond / 86400;
 
+					long days = (recentEpochDay - oldestEpochDay);
+
+					float netCostPence = (costImportTotal - costExportTotal);
+
+					float longTermAverageDaily = netCostPence / days;
+
 					ps.println("\nNet running total electricity cost: " + (ansi ? ANSI_COLOUR_LO : "") + " £"
-							+ String.format("%6.2f", (costImportTotal - costExportTotal) / 100)
-							+ (ansi ? ANSI_RESET : "") + " for " + (recentEpochDay - oldestEpochDay) + " days from "
-							+ oldestDate.toString() + " to " + zuluBegin.minusDays(1).toLocalDate().toString()
-							+ " inclusive\n");
+							+ String.format("%6.2f", netCostPence / 100) + (ansi ? ANSI_RESET : "") + " for " + days
+							+ " days from " + oldestDate.toString() + " to "
+							+ zuluBegin.minusDays(1).toLocalDate().toString() + " inclusive.  Daily: "
+							+ (ansi ? ANSI_SCORE : "") + "£" + String.format("%4.2f", longTermAverageDaily / 100)
+							+ (ansi ? ANSI_RESET : "") + " average long term\n");
 
 					ps.flush();
 					ps.close();
@@ -1630,7 +1637,7 @@ public class Octopussy implements IOctopus {
 
 				float standing = Float.parseFloat(extendedAttributes.get("standing"));
 
-				float imported = Float.parseFloat(extendedAttributes.get("imported"));
+//				float imported = Float.parseFloat(extendedAttributes.get("imported"));
 
 				float exported = Float.parseFloat(extendedAttributes.get("exported"));
 
@@ -7349,9 +7356,24 @@ public class Octopussy implements IOctopus {
 
 			sb.append("Import prices current & future:");
 
-			for (int n = (export ? -3 : -10); n < maxWidth; n++) {
+			for (int n = (export ? 1 : -6); n < maxWidth; n++) {
 
-				sb.append(' ');
+				if (target == n - 1) {
+
+					if (ansi) {
+						sb.append(ANSI_COLOR_HI);
+					}
+					sb.append("F=");
+					sb.append(String.format("%02d", target));
+					sb.append('p');
+
+					if (ansi) {
+						sb.append(ANSI_RESET);
+					}
+				} else {
+
+					sb.append(' ');
+				}
 			}
 
 			sb.append('|');
