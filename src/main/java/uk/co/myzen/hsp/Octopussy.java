@@ -7344,6 +7344,8 @@ public class Octopussy implements IOctopus {
 			maxWidth = width;
 		}
 
+		int roundedRecentAveragePrice = Float.valueOf(0.5f + averageUnitCost).intValue();
+
 		{
 			StringBuffer sb = new StringBuffer();
 
@@ -7358,7 +7360,7 @@ public class Octopussy implements IOctopus {
 
 			for (int n = (export ? 1 : -6); n < maxWidth; n++) {
 
-				if (target == n - 1) {
+				if ((n - 1) == target) {
 
 					if (ansi) {
 						sb.append(ANSI_COLOR_HI);
@@ -7370,6 +7372,11 @@ public class Octopussy implements IOctopus {
 					if (ansi) {
 						sb.append(ANSI_RESET);
 					}
+
+				} else if ((n - 3) == roundedRecentAveragePrice) {
+
+					sb.append('A');
+
 				} else {
 
 					sb.append(' ');
@@ -7465,7 +7472,7 @@ public class Octopussy implements IOctopus {
 
 						sb1.append('F');
 
-					} else if (averageUnitCost == n) {
+					} else if (roundedRecentAveragePrice == n) {
 
 						sb1.append('A');
 
@@ -7496,7 +7503,22 @@ public class Octopussy implements IOctopus {
 
 			for (; n < maxWidth + 1; n++) {
 
-				sb2.append(' ');
+				if (target == n) {
+
+					if (ansi) {
+						sb2.append(ANSI_COLOR_HI);
+					}
+
+					sb2.append('|');
+
+					if (ansi) {
+						sb2.append(ANSI_RESET);
+					}
+
+				} else {
+
+					sb2.append(' ');
+				}
 			}
 
 			sb2.append('|');
