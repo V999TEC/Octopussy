@@ -5002,11 +5002,12 @@ public class Octopussy implements IOctopus {
 								+ "  Export" + (ansi ? ANSI_RESET : "")
 						: ""));
 
-		System.out.println(String.format("%2d", countDays) + " day (A)verage price:  "
-				+ String.format("%6.3f", averageUnitCost) + "p        Current import price: " + penceImport + "p "
-				+ "       Current export price: " + penceExport + "p    " + (ansi ? ANSI_COLOUR_LO : "")
-				+ "Sun forecast: " + String.format("%5d", solarForecastWhr) + (ansi ? ANSI_RESET : "") + "  "
-				+ (ansi ? ANSI_SUNSHINE : "") + gridExportUnits + (ansi ? ANSI_RESET : ""));
+		System.out.println(String.format("%2d", countDays) + " day (" + (ansi ? ANSI_COLOUR_LO : "") + "A"
+				+ (ansi ? ANSI_RESET : "") + ")verage price:  " + String.format("%6.3f", averageUnitCost)
+				+ "p        Current import price: " + penceImport + "p " + "       Current export price: " + penceExport
+				+ "p    " + (ansi ? ANSI_COLOUR_LO : "") + "Sun forecast: " + String.format("%5d", solarForecastWhr)
+				+ (ansi ? ANSI_RESET : "") + "  " + (ansi ? ANSI_SUNSHINE : "") + gridExportUnits
+				+ (ansi ? ANSI_RESET : ""));
 
 		System.out.println("Plunge price is set to:  " + String.format("%2d", plunge)
 				+ "p (System schedules e(X)port slots prior to price plunge slots <= " + plunge + "p) "
@@ -7375,7 +7376,15 @@ public class Octopussy implements IOctopus {
 
 				} else if ((n - 3) == roundedRecentAveragePrice) {
 
+					if (ansi) {
+						sb.append(ANSI_COLOUR_LO);
+					}
+
 					sb.append('A');
+
+					if (ansi) {
+						sb.append(ANSI_RESET);
+					}
 
 				} else {
 
@@ -7474,7 +7483,15 @@ public class Octopussy implements IOctopus {
 
 					} else if (roundedRecentAveragePrice == n) {
 
+						if (ansi) {
+							sb1.append(ANSI_COLOUR_LO);
+						}
+
 						sb1.append('A');
+
+						if (ansi) {
+							sb1.append(ANSI_RESET);
+						}
 
 					} else if (maxWidth == n) {
 
