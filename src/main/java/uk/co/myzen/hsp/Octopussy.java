@@ -5002,9 +5002,12 @@ public class Octopussy implements IOctopus {
 								+ "  Export" + (ansi ? ANSI_RESET : "")
 						: ""));
 
+		String roundedAverageWholePence = String.format("%2d", Float.valueOf(0.5f + averageUnitCost).intValue());
+
 		System.out.println(String.format("%2d", countDays) + " day (" + (ansi ? ANSI_COLOUR_LO : "") + "A"
-				+ (ansi ? ANSI_RESET : "") + ")verage price:  " + String.format("%6.3f", averageUnitCost)
-				+ "p        Current import price: " + penceImport + "p " + "       Current export price: " + penceExport
+				+ (ansi ? ANSI_RESET : "") + ")verage price:  " + String.format("%6.3f", averageUnitCost) + "p ("
+				+ (ansi ? ANSI_COLOUR_LO : "") + roundedAverageWholePence + "p" + (ansi ? ANSI_RESET : "")
+				+ ")  Current import price: " + penceImport + "p " + "       Current export price: " + penceExport
 				+ "p    " + (ansi ? ANSI_COLOUR_LO : "") + "Sun forecast: " + String.format("%5d", solarForecastWhr)
 				+ (ansi ? ANSI_RESET : "") + "  " + (ansi ? ANSI_SUNSHINE : "") + gridExportUnits
 				+ (ansi ? ANSI_RESET : ""));
