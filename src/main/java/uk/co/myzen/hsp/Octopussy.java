@@ -1643,18 +1643,23 @@ public class Octopussy implements IOctopus {
 
 				float costExported = Float.parseFloat(extendedAttributes.get("costExported"));
 
-				float pounds = (costImported + standing - costExported) / 100;
+				float totalCostImportPlusStanding = costImported + standing;
 
-				float dailyCostAverage = pounds / countDays;
+				float totalPounds = totalCostImportPlusStanding / 100;
 
-				System.out.println(
-						"\n" + String.format("%4d", countDays) + " day total: £" + String.format("%6.2f", pounds)
-								+ " including standing charge (£" + String.format("%5.2f", standing / 100) + ")"
-								+ (export
-										? "   and exported:  " + String.format("%4.1f", exported) + "     (£"
-												+ String.format("%5.2f", costExported / 100) + ")"
-										: "")
-								+ "    Average: £" + String.format("%5.2f", dailyCostAverage) + " daily cost recently");
+				float poundsNet = (totalCostImportPlusStanding - costExported) / 100;
+
+				float dailyCostAverage = poundsNet / countDays;
+
+				System.out.println("\n" + String.format("%4d", countDays) + " day total: £"
+						+ String.format("%6.2f", totalPounds) + " including standing charge (£"
+						+ String.format("%5.2f", standing / 100) + ")"
+						+ (export
+								? "   and exported:  " + String.format("%4.1f", exported) + "     (£"
+										+ String.format("%5.2f", costExported / 100) + ")"
+								: "")
+						+ "    " + (ansi ? ANSI_SCORE : "") + "Average: £" + String.format("%5.2f", dailyCostAverage)
+						+ " daily cost recently" + (ansi ? ANSI_RESET : ""));
 			}
 
 			ArrayList<Long> bestExportTime = null;
