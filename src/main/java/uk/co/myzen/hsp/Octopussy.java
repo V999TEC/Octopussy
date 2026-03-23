@@ -7123,22 +7123,22 @@ public class Octopussy implements IOctopus {
 
 				float exportedUnits = dayValues.getDailyExport();
 
-				String values = null;
-
-				values = map.get(key);
-
-				if (null == values) {
-					// fallback
-
-					values = map.get(key + "_23:30");
-				}
-
-				if (null != values) {
-
-					String cols[] = values.split(",");
-
-					exportedUnits = Float.valueOf(cols[10]);
-				}
+//				String values = null;
+//
+//				values = map.get(key);
+//
+//				if (null == values) {
+//					// fallback
+//
+//					values = map.get(key + "_23:30");
+//				}
+//
+//				if (null != values) {
+//
+//					String cols[] = values.split(",");
+//
+//					exportedUnits = Float.valueOf(cols[10]);
+//				}
 
 				float importCostInGBP = importCost / 100;
 
