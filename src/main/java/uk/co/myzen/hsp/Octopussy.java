@@ -191,6 +191,8 @@ public class Octopussy implements IOctopus {
 
 	private final static String KEY_PAUSE_THRESHOLD = "pause.threshold";
 
+	private final static String KEY_PAD = "pad";
+
 	private final static String KEY_REFERRAL = "referral";
 	private final static String KEY_VERSION = "version";
 
@@ -206,7 +208,7 @@ public class Octopussy implements IOctopus {
 			KEY_SHOW_RECENT, /* KEY_SHOW_SAVINGS, */
 			KEY_SHOW_CONFIG, KEY_LIMIT, "#", KEY_SETTING, KEY_MACRO, KEY_SOLAR, KEY_PERCENT, KEY_GRID, KEY_CONSUMPTION,
 			KEY_TEMPERATURE, KEY_BATTERY, KEY_SUN, KEY_FORECAST, "#", KEY_FILE_SOLAR, KEY_MAX_SOLAR, KEY_MAX_RATE, "#",
-			KEY_INTERRUPT, KEY_PAUSE_THRESHOLD, "#", KEY_REFERRAL, "#", KEY_VERSION };
+			KEY_INTERRUPT, KEY_PAUSE_THRESHOLD, KEY_PAD, "#", KEY_REFERRAL, "#", KEY_VERSION };
 
 //	private final static String DEFAULT_API_SOLCAST_PROPERTY = "blahblahblah";
 	private final static String DEFAULT_API_OCTOPUS_PROPERTY = "blah_BLAH2pMoreBlahPIXOIO72aIO1blah:";
@@ -281,6 +283,8 @@ public class Octopussy implements IOctopus {
 	private final static String DEFAULT_INTERRUPT_PROPERTY = "15";
 
 	private final static String DEFAULT_PAUSE_THRESHOLD_PROPERTY = "90";
+
+	private final static String DEFAULT_PAD_PROPERTY = "";
 
 	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd pph:mm a");
 
@@ -361,6 +365,8 @@ public class Octopussy implements IOctopus {
 	static String interrupt = DEFAULT_INTERRUPT_PROPERTY; // overridden by interrupt=value in properties
 
 	static String pauseThreshold = DEFAULT_PAUSE_THRESHOLD_PROPERTY;
+
+	static String pad = DEFAULT_PAD_PROPERTY;
 
 	static String propertyFileName = DEFAULT_PROPERTY_FILENAME;
 
@@ -2964,6 +2970,8 @@ public class Octopussy implements IOctopus {
 		interrupt = properties.getProperty(KEY_INTERRUPT, DEFAULT_INTERRUPT_PROPERTY).trim();
 
 		pauseThreshold = properties.getProperty(KEY_PAUSE_THRESHOLD, DEFAULT_PAUSE_THRESHOLD_PROPERTY).trim();
+
+		pad = properties.getProperty(KEY_PAD, DEFAULT_PAD_PROPERTY).trim();
 
 		sun = properties.getProperty(KEY_SUN, DEFAULT_SUN_PROPERTY).trim();
 
@@ -7146,9 +7154,12 @@ public class Octopussy implements IOctopus {
 
 				boolean quidsIn = exportCostInGBP > importCostInGBP;
 
+				String indicator = ansi ? ((quidsIn ? ANSI_COLOUR_LO + " * " : ANSI_COLOR_HI + " - ") + ANSI_RESET)
+						: (quidsIn ? " * " : " - ");
+
 				if (showRecent) {
 
-					ps.println(dayValues.getDayOfWeek() + (quidsIn ? " * " : "   ") + key + " £"
+					ps.println(dayValues.getDayOfWeek() + indicator + key + " £"
 							+ String.format("%5.2f", importCostInGBP) + String.format("%7.3f", importedUnits)
 							+ " kWhr @ " + String.format("%5.2f", dailyAverageUnitPrice) + "p" + " = "
 							+ String.format("%8.4f", importPrice) + "p +" + importStandingCharge + "p"
@@ -7367,7 +7378,18 @@ public class Octopussy implements IOctopus {
 
 			sb.append("Import prices current & future:");
 
-			for (int n = (export ? 1 : -6); n < maxWidth; n++) {
+			int begin = 0;
+
+			if ("".equals(pad)) {
+
+				begin = export ? 1 : -10;
+
+			} else {
+
+				begin = Integer.parseInt(pad);
+			}
+
+			for (int n = begin; n < maxWidth; n++) {
 
 				if ((n - 1) == target) {
 
@@ -7382,7 +7404,7 @@ public class Octopussy implements IOctopus {
 						sb.append(ANSI_RESET);
 					}
 
-				} else if ((n - 3) == roundedRecentAveragePrice) {
+				} else if ((n - 2) == roundedRecentAveragePrice) {
 
 					if (ansi) {
 						sb.append(ANSI_COLOUR_LO);
@@ -7489,7 +7511,7 @@ public class Octopussy implements IOctopus {
 
 						sb1.append('F');
 
-					} else if (roundedRecentAveragePrice == n) {
+					} else if ((roundedRecentAveragePrice - 1) == n) {
 
 						if (ansi) {
 							sb1.append(ANSI_COLOUR_LO);
