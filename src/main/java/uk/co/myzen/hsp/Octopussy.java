@@ -191,7 +191,7 @@ public class Octopussy implements IOctopus {
 
 	private final static String KEY_PAUSE_THRESHOLD = "pause.threshold";
 
-	private final static String KEY_PAD = "pad";
+//	private final static String KEY_PAD = "pad";
 
 	private final static String KEY_REFERRAL = "referral";
 	private final static String KEY_VERSION = "version";
@@ -208,7 +208,7 @@ public class Octopussy implements IOctopus {
 			KEY_SHOW_RECENT, /* KEY_SHOW_SAVINGS, */
 			KEY_SHOW_CONFIG, KEY_LIMIT, "#", KEY_SETTING, KEY_MACRO, KEY_SOLAR, KEY_PERCENT, KEY_GRID, KEY_CONSUMPTION,
 			KEY_TEMPERATURE, KEY_BATTERY, KEY_SUN, KEY_FORECAST, "#", KEY_FILE_SOLAR, KEY_MAX_SOLAR, KEY_MAX_RATE, "#",
-			KEY_INTERRUPT, KEY_PAUSE_THRESHOLD, KEY_PAD, "#", KEY_REFERRAL, "#", KEY_VERSION };
+			KEY_INTERRUPT, KEY_PAUSE_THRESHOLD, /* KEY_PAD, */ "#", KEY_REFERRAL, "#", KEY_VERSION };
 
 //	private final static String DEFAULT_API_SOLCAST_PROPERTY = "blahblahblah";
 	private final static String DEFAULT_API_OCTOPUS_PROPERTY = "blah_BLAH2pMoreBlahPIXOIO72aIO1blah:";
@@ -284,7 +284,7 @@ public class Octopussy implements IOctopus {
 
 	private final static String DEFAULT_PAUSE_THRESHOLD_PROPERTY = "90";
 
-	private final static String DEFAULT_PAD_PROPERTY = "";
+//	private final static String DEFAULT_PAD_PROPERTY = "1";
 
 	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd pph:mm a");
 
@@ -366,7 +366,7 @@ public class Octopussy implements IOctopus {
 
 	static String pauseThreshold = DEFAULT_PAUSE_THRESHOLD_PROPERTY;
 
-	static String pad = DEFAULT_PAD_PROPERTY;
+//	static String pad = DEFAULT_PAD_PROPERTY;
 
 	static String propertyFileName = DEFAULT_PROPERTY_FILENAME;
 
@@ -2971,7 +2971,7 @@ public class Octopussy implements IOctopus {
 
 		pauseThreshold = properties.getProperty(KEY_PAUSE_THRESHOLD, DEFAULT_PAUSE_THRESHOLD_PROPERTY).trim();
 
-		pad = properties.getProperty(KEY_PAD, DEFAULT_PAD_PROPERTY).trim();
+//		pad = properties.getProperty(KEY_PAD, DEFAULT_PAD_PROPERTY).trim();
 
 		sun = properties.getProperty(KEY_SUN, DEFAULT_SUN_PROPERTY).trim();
 
@@ -7378,16 +7378,14 @@ public class Octopussy implements IOctopus {
 
 			sb.append("Import prices current & future:");
 
-			int begin = 0;
+			int begin = 1;// Integer.parseInt(pad);
 
-			if ("".equals(pad)) {
+			if (!export) {
 
-				begin = export ? 1 : -10;
-
-			} else {
-
-				begin = Integer.parseInt(pad);
+				begin -= 11;
 			}
+
+			boolean targetDisplayed = false;
 
 			for (int n = begin; n < maxWidth; n++) {
 
@@ -7403,6 +7401,8 @@ public class Octopussy implements IOctopus {
 					if (ansi) {
 						sb.append(ANSI_RESET);
 					}
+
+					targetDisplayed = true;
 
 				} else if ((n - 2) == roundedRecentAveragePrice) {
 
@@ -7420,6 +7420,11 @@ public class Octopussy implements IOctopus {
 
 					sb.append(' ');
 				}
+			}
+
+			if (!targetDisplayed) {
+
+				sb.append("    "); // instead of F=27p
 			}
 
 			sb.append('|');
