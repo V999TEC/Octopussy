@@ -7427,13 +7427,13 @@ public class Octopussy implements IOctopus {
 				sb.append("    "); // instead of F=27p
 			}
 
-			sb.append('|');
+			sb.append(" |");
 
 			if (extended > 0) {
 
-				String heads[] = { " 1hr |", " 1.5 |", " 2hr |", " 2.5 |", " 3hr |", " 3.5 |", " 4hr |", " 4.5 |",
-						" 5hr |", " 5.5 |", " 6hr |", " 6.5 |", " 7hr |", " 7.5 |", " 8hr |", " 8.5 |", " 9hr |",
-						" 9.5 |" };
+				String heads[] = { "  1hr |", "  1.5 |", "  2hr |", "  2.5 |", "  3hr |", "  3.5 |", "  4hr |",
+						"  4.5 |", "  5hr |", "  5.5 |", "  6hr |", "  6.5 |", "  7hr |", "  7.5 |", "  8hr |",
+						"  8.5 |", "  9hr |", "  9.5 |" };
 
 				for (int e = 0; e < extended; e++) {
 
@@ -7618,7 +7618,7 @@ public class Octopussy implements IOctopus {
 
 					if (count < (1 + i)) {
 
-						sb3.append("     ");
+						sb3.append("      ");
 
 					} else {
 
@@ -7657,7 +7657,7 @@ public class Octopussy implements IOctopus {
 							}
 						}
 
-						sb3.append(String.format("%5.2f",
+						sb3.append(String.format("%6.2f",
 								(Boolean.FALSE.equals(flagTimeGoodForImportOrExport) ? accExport / count
 										: accImport / count)));
 
@@ -7778,7 +7778,7 @@ public class Octopussy implements IOctopus {
 							? (cheapestImport ? "!" : " ") + (lessThanAverage ? "!" : " ") + " "
 							: chargeOrDischargeSlot)
 
-					+ " " + (ansi && lessThanBatteryCost ? ANSI_SCORE : "") + String.format("%5.2f", importPrice) + "p"
+					+ " " + (ansi && lessThanBatteryCost ? ANSI_SCORE : "") + String.format("%6.2f", importPrice) + "p"
 					+ (ansi && lessThanBatteryCost ? ANSI_RESET : "") + "  "
 
 					+ (ansi && cheapestImport ? ANSI_COLOUR_LO : "") + asterisks
