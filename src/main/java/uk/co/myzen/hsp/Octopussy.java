@@ -5006,7 +5006,8 @@ public class Octopussy implements IOctopus {
 		avUnitPriceToday = 0.0f == kWhrGridImport ? importStandingCharge
 				: (costsSoFarToday[0] - importStandingCharge) / (float) kWhrGridImport;
 
-		System.out.println("\nToday's import cost: " + (ansi ? ANSI_COLOR_HI : "") + "£"
+		System.out.println("\nToday's import cost: "
+				+ (ansi ? (importCostSoFarToday <= 0 ? ANSI_COLOUR_LO : ANSI_COLOR_HI) : "") + "£"
 				+ String.format("%5.2f", importCostSoFarToday) + (ansi ? ANSI_RESET : "") + "  (so far...) based on "
 				+ gridImportUnits + " kWhr @ " + (ansi ? ANSI_SCORE : "") + String.format("%5.2f", avUnitPriceToday)
 				+ "p" + (ansi ? ANSI_RESET : "") + " / kWhr up to " + timestamp.substring(11, 19)
@@ -7389,7 +7390,7 @@ public class Octopussy implements IOctopus {
 
 			for (int n = begin; n < maxWidth; n++) {
 
-				if ((n - 1) == target) {
+				if ((n - 2) == target) {
 
 					if (ansi) {
 						sb.append(ANSI_COLOR_HI);
@@ -7404,7 +7405,7 @@ public class Octopussy implements IOctopus {
 
 					targetDisplayed = true;
 
-				} else if ((n - 2) == roundedRecentAveragePrice) {
+				} else if ((n - 3) == roundedRecentAveragePrice) {
 
 					if (ansi) {
 						sb.append(ANSI_COLOUR_LO);
@@ -7443,7 +7444,7 @@ public class Octopussy implements IOctopus {
 
 			if (extended > 0) {
 
-				sb.append("HH:MM");
+				sb.append(" HH:MM");
 			}
 
 			System.out.println(sb.toString());
@@ -7782,7 +7783,7 @@ public class Octopussy implements IOctopus {
 					+ (ansi && lessThanBatteryCost ? ANSI_RESET : "") + "  "
 
 					+ (ansi && cheapestImport ? ANSI_COLOUR_LO : "") + asterisks
-					+ (ansi && cheapestImport ? ANSI_RESET : "") + padding + prices + clockHHMM);
+					+ (ansi && cheapestImport ? ANSI_RESET : "") + padding + prices + " " + clockHHMM);
 
 		}
 
