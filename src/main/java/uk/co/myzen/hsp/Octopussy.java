@@ -7165,7 +7165,7 @@ public class Octopussy implements IOctopus {
 							+ " kWhr @ " + String.format("%5.2f", dailyAverageUnitPrice) + "p" + " = "
 							+ String.format("%8.4f", importPrice) + "p +" + importStandingCharge + "p"
 							+ (export
-									? " + Export:" + String.format("%4.1f", exportedUnits) + " kWhr £"
+									? " - Export:" + String.format("%4.1f", exportedUnits) + " kWhr £"
 											+ String.format("%5.2f", exportCostInGBP) + "   "
 									: "\t")
 
@@ -7776,7 +7776,7 @@ public class Octopussy implements IOctopus {
 
 			System.out.println(optionalExport + slotCost.getSimpleTimeStamp() + "  "
 					+ (null == chargeOrDischargeSlot
-							? (cheapestImport ? "!" : " ") + (lessThanAverage ? "!" : " ") + " "
+							? (cheapestImport ? "*" : " ") + (lessThanAverage ? "+" : " ") + " "
 							: chargeOrDischargeSlot)
 
 					+ " " + (ansi && lessThanBatteryCost ? ANSI_SCORE : "") + String.format("%6.2f", importPrice) + "p"
