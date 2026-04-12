@@ -1661,7 +1661,7 @@ public class Octopussy implements IOctopus {
 						+ String.format("%6.2f", totalPounds) + " including standing charge (£"
 						+ String.format("%5.2f", standing / 100) + ")"
 						+ (export
-								? "   and exported:  " + String.format("%4.1f", exported) + "     (£"
+								? "   and exported: " + String.format("%5.1f", exported) + "     (£"
 										+ String.format("%5.2f", costExported / 100) + ")"
 								: "")
 						+ "    " + (ansi ? ANSI_SCORE : "") + "Average: £" + String.format("%5.2f", dailyCostAverage)
@@ -7498,7 +7498,7 @@ public class Octopussy implements IOctopus {
 
 			if (importPrice <= plunge) {
 
-				sb1.append("<--- PLUNGE <= " + plunge + "p");
+				sb1.append("<- PLUNGE <= " + plunge + "p");
 				n = sb1.length();
 
 			} else {
