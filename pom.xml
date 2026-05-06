@@ -2,7 +2,9 @@
   <modelVersion>4.0.0</modelVersion>
   <groupId>Octopussy</groupId>
   <artifactId>Octopussy</artifactId>
+
   <version>1.2.1-SNAPSHOT</version>
+
   <name>name</name>
   <description>desc</description>
   
@@ -123,7 +125,9 @@
   		<dependency>
   			<groupId>uk.co.myzen.a_z</groupId>
   			<artifactId>givenergy.smart.icarus</artifactId>
+
   			<version>1.2.1-SNAPSHOT</version>
+
   			<scope>runtime</scope>
   		</dependency>
   	</dependencies>
