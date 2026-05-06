@@ -191,6 +191,8 @@ public class Octopussy implements IOctopus {
 
 	private final static String KEY_PAUSE_THRESHOLD = "pause.threshold";
 
+//	private final static String KEY_PAD = "pad";
+
 	private final static String KEY_REFERRAL = "referral";
 	private final static String KEY_VERSION = "version";
 
@@ -206,7 +208,7 @@ public class Octopussy implements IOctopus {
 			KEY_SHOW_RECENT, /* KEY_SHOW_SAVINGS, */
 			KEY_SHOW_CONFIG, KEY_LIMIT, "#", KEY_SETTING, KEY_MACRO, KEY_SOLAR, KEY_PERCENT, KEY_GRID, KEY_CONSUMPTION,
 			KEY_TEMPERATURE, KEY_BATTERY, KEY_SUN, KEY_FORECAST, "#", KEY_FILE_SOLAR, KEY_MAX_SOLAR, KEY_MAX_RATE, "#",
-			KEY_INTERRUPT, KEY_PAUSE_THRESHOLD, "#", KEY_REFERRAL, "#", KEY_VERSION };
+			KEY_INTERRUPT, KEY_PAUSE_THRESHOLD, /* KEY_PAD, */ "#", KEY_REFERRAL, "#", KEY_VERSION };
 
 //	private final static String DEFAULT_API_SOLCAST_PROPERTY = "blahblahblah";
 	private final static String DEFAULT_API_OCTOPUS_PROPERTY = "blah_BLAH2pMoreBlahPIXOIO72aIO1blah:";
@@ -281,6 +283,8 @@ public class Octopussy implements IOctopus {
 	private final static String DEFAULT_INTERRUPT_PROPERTY = "15";
 
 	private final static String DEFAULT_PAUSE_THRESHOLD_PROPERTY = "90";
+
+//	private final static String DEFAULT_PAD_PROPERTY = "1";
 
 	private final static DateTimeFormatter simpleTime = DateTimeFormatter.ofPattern("E MMM dd pph:mm a");
 
@@ -361,6 +365,8 @@ public class Octopussy implements IOctopus {
 	static String interrupt = DEFAULT_INTERRUPT_PROPERTY; // overridden by interrupt=value in properties
 
 	static String pauseThreshold = DEFAULT_PAUSE_THRESHOLD_PROPERTY;
+
+//	static String pad = DEFAULT_PAD_PROPERTY;
 
 	static String propertyFileName = DEFAULT_PROPERTY_FILENAME;
 
@@ -814,7 +820,7 @@ public class Octopussy implements IOctopus {
 
 			String today = timestamp.substring(0, 10);
 
-			String tomorrow = ourTimeNow.plusDays(1L).toString().substring(0, 10);
+//			String tomorrow = ourTimeNow.plusDays(1L).toString().substring(0, 10);
 
 			//
 			// Standing charges for import & export
@@ -1566,11 +1572,18 @@ public class Octopussy implements IOctopus {
 
 					long recentEpochDay = recentEpochSecond / 86400;
 
+					long days = (recentEpochDay - oldestEpochDay);
+
+					float netCostPence = (costImportTotal - costExportTotal);
+
+					float longTermAverageDaily = netCostPence / days;
+
 					ps.println("\nNet running total electricity cost: " + (ansi ? ANSI_COLOUR_LO : "") + " £"
-							+ String.format("%6.2f", (costImportTotal - costExportTotal) / 100)
-							+ (ansi ? ANSI_RESET : "") + " for " + (recentEpochDay - oldestEpochDay) + " days from "
-							+ oldestDate.toString() + " to " + zuluBegin.minusDays(1).toLocalDate().toString()
-							+ " inclusive\n");
+							+ String.format("%6.2f", netCostPence / 100) + (ansi ? ANSI_RESET : "") + " for " + days
+							+ " days from " + oldestDate.toString() + " to "
+							+ zuluBegin.minusDays(1).toLocalDate().toString() + " inclusive.  Daily: "
+							+ (ansi ? ANSI_SCORE : "") + "£" + String.format("%4.2f", longTermAverageDaily / 100)
+							+ (ansi ? ANSI_RESET : "") + " average long term\n");
 
 					ps.flush();
 					ps.close();
@@ -1626,27 +1639,33 @@ public class Octopussy implements IOctopus {
 
 				averageUnitCost = Float.parseFloat(extendedAttributes.get("average"));
 
-				float costImported = Float.parseFloat(extendedAttributes.get("cost"));
+				float costImported = Float.parseFloat(extendedAttributes.get("costImported"));
 
 				float standing = Float.parseFloat(extendedAttributes.get("standing"));
 
+//				float imported = Float.parseFloat(extendedAttributes.get("imported"));
+
 				float exported = Float.parseFloat(extendedAttributes.get("exported"));
 
-				float costExported = null == flatRateExport ? 0.0f : flatRateExport * exported;
+				float costExported = Float.parseFloat(extendedAttributes.get("costExported"));
 
-				float pounds = (costImported + standing - costExported) / 100;
+				float totalCostImportPlusStanding = costImported + standing;
 
-				float dailyCostAverage = pounds / countDays;
+				float totalPounds = totalCostImportPlusStanding / 100;
 
-				System.out.println(
-						"\n" + String.format("%4d", countDays) + " day total: £" + String.format("%6.2f", pounds)
-								+ " including standing charge (£" + String.format("%5.2f", standing / 100) + ")"
-								+ (export
-										? "   and exported:  " + String.format("%4.1f", exported) + "     (£"
-												+ String.format("%5.2f", costExported / 100) + ")"
-										: "")
-								+ "  Recent cost per day: £" + String.format("%5.2f", dailyCostAverage)
-								+ " on average");
+				float poundsNet = (totalCostImportPlusStanding - costExported) / 100;
+
+				float dailyCostAverage = poundsNet / countDays;
+
+				System.out.println("\n" + String.format("%4d", countDays) + " day total: £"
+						+ String.format("%6.2f", totalPounds) + " including standing charge (£"
+						+ String.format("%5.2f", standing / 100) + ")"
+						+ (export
+								? "   and exported: " + String.format("%5.1f", exported) + "     (£"
+										+ String.format("%5.2f", costExported / 100) + ")"
+								: "")
+						+ "    " + (ansi ? ANSI_SCORE : "") + "Average: £" + String.format("%5.2f", dailyCostAverage)
+						+ " daily cost recently" + (ansi ? ANSI_RESET : ""));
 			}
 
 			ArrayList<Long> bestExportTime = null;
@@ -2951,6 +2970,8 @@ public class Octopussy implements IOctopus {
 		interrupt = properties.getProperty(KEY_INTERRUPT, DEFAULT_INTERRUPT_PROPERTY).trim();
 
 		pauseThreshold = properties.getProperty(KEY_PAUSE_THRESHOLD, DEFAULT_PAUSE_THRESHOLD_PROPERTY).trim();
+
+//		pad = properties.getProperty(KEY_PAD, DEFAULT_PAD_PROPERTY).trim();
 
 		sun = properties.getProperty(KEY_SUN, DEFAULT_SUN_PROPERTY).trim();
 
@@ -4838,7 +4859,7 @@ public class Octopussy implements IOctopus {
 
 		if (solarForecastWhr > Integer.parseInt(maxSolar)) {
 
-			System.out.println("INFORMATION: Latest solar forcast " + solarForecastWhr + " exceeds value in property "
+			System.out.println("NOTICE: Latest solar forcast " + solarForecastWhr + " exceeds value in property "
 					+ KEY_MAX_SOLAR + "=" + maxSolar + " Advisable to update property file " + propertyFileName);
 		}
 
@@ -4985,7 +5006,8 @@ public class Octopussy implements IOctopus {
 		avUnitPriceToday = 0.0f == kWhrGridImport ? importStandingCharge
 				: (costsSoFarToday[0] - importStandingCharge) / (float) kWhrGridImport;
 
-		System.out.println("\nToday's import cost: " + (ansi ? ANSI_COLOR_HI : "") + "£"
+		System.out.println("\nToday's import cost: "
+				+ (ansi ? (importCostSoFarToday <= 0 ? ANSI_COLOUR_LO : ANSI_COLOR_HI) : "") + "£"
 				+ String.format("%5.2f", importCostSoFarToday) + (ansi ? ANSI_RESET : "") + "  (so far...) based on "
 				+ gridImportUnits + " kWhr @ " + (ansi ? ANSI_SCORE : "") + String.format("%5.2f", avUnitPriceToday)
 				+ "p" + (ansi ? ANSI_RESET : "") + " / kWhr up to " + timestamp.substring(11, 19)
@@ -4994,11 +5016,15 @@ public class Octopussy implements IOctopus {
 								+ "  Export" + (ansi ? ANSI_RESET : "")
 						: ""));
 
-		System.out.println(String.format("%2d", countDays) + " day (A)verage price:  "
-				+ String.format("%6.3f", averageUnitCost) + "p        Current import price: " + penceImport + "p "
-				+ "       Current export price: " + penceExport + "p    " + (ansi ? ANSI_COLOUR_LO : "")
-				+ "Sun forecast: " + String.format("%5d", solarForecastWhr) + (ansi ? ANSI_RESET : "") + "  "
-				+ (ansi ? ANSI_SUNSHINE : "") + gridExportUnits + (ansi ? ANSI_RESET : ""));
+		String roundedAverageWholePence = String.format("%2d", Float.valueOf(0.5f + averageUnitCost).intValue());
+
+		System.out.println(String.format("%2d", countDays) + " day (" + (ansi ? ANSI_COLOUR_LO : "") + "A"
+				+ (ansi ? ANSI_RESET : "") + ")verage price:  " + String.format("%6.3f", averageUnitCost) + "p ("
+				+ (ansi ? ANSI_COLOUR_LO : "") + roundedAverageWholePence + "p" + (ansi ? ANSI_RESET : "")
+				+ ")  Current import price: " + penceImport + "p " + "       Current export price: " + penceExport
+				+ "p    " + (ansi ? ANSI_COLOUR_LO : "") + "Sun forecast: " + String.format("%5d", solarForecastWhr)
+				+ (ansi ? ANSI_RESET : "") + "  " + (ansi ? ANSI_SUNSHINE : "") + gridExportUnits
+				+ (ansi ? ANSI_RESET : ""));
 
 		System.out.println("Plunge price is set to:  " + String.format("%2d", plunge)
 				+ "p (System schedules e(X)port slots prior to price plunge slots <= " + plunge + "p) "
@@ -5817,10 +5843,10 @@ public class Octopussy implements IOctopus {
 		return result;
 	}
 
-	private static Map<String, String> getSolarDataFromFile(Set<Integer> weekNumbers) {
-
-		return getSolarDataFromFile(null, weekNumbers, null, null);
-	}
+//	private static Map<String, String> getSolarDataFromFile(Set<Integer> weekNumbers) {
+//
+//		return getSolarDataFromFile(null, weekNumbers, null, null);
+//	}
 
 //	private static Map<String, String> getSolarDataFromFile(String dateYYYY_MM_DD) {
 //
@@ -6777,6 +6803,24 @@ public class Octopussy implements IOctopus {
 
 		String result = null;
 
+		StringBuffer sb = new StringBuffer();
+
+		boolean first = true;
+
+		for (String param : cmdarray) {
+
+			if (first) {
+
+				first = false;
+
+			} else {
+
+				sb.append(',');
+			}
+
+			sb.append(param);
+		}
+
 		if (execute) {
 
 			Process process;
@@ -6821,11 +6865,16 @@ public class Octopussy implements IOctopus {
 
 					String err = sbError.toString();
 
-					if (0 != err.length() && !err.startsWith("Picked up JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF8")) {
+					if (0 != err.length() && !err.startsWith("Picked up JAVA_TOOL_OPTIONS: -Dfile.encoding=UTF8")
+							&& !err.contains("containing JWT token for")) {
 
 						if (err.contains("EXCEPTION:")) {
 
-							instance.logErrTime("ERROR: " + err);
+							instance.logErrTime("ERROR:\n" + err);
+
+						} else {
+
+							instance.logErrTime("DIAG:\t" + sb.toString() + "\n" + err);
 						}
 					}
 
@@ -6856,6 +6905,8 @@ public class Octopussy implements IOctopus {
 
 				e.printStackTrace();
 			}
+
+//			instance.logErrTime("EXEC: " + sb.toString() + "\t\"" + result + "\"");
 		}
 
 		return result;
@@ -7018,7 +7069,7 @@ public class Octopussy implements IOctopus {
 				}
 			}
 
-			Map<String, String> map = getSolarDataFromFile(weekNumbers);
+//			Map<String, String> map = getSolarDataFromFile(weekNumbers);
 
 			// key is made up of date+"_"+part (where part is 1 ... 4)
 			// part 1 will give the totals for the previous day as it is logged at midnight
@@ -7056,8 +7107,9 @@ public class Octopussy implements IOctopus {
 
 //			float accumulateDifference = 0;
 			float accumulateImportedUnits = 0;
-			float accumulateCost = 0;
+			float accumulateCostImported = 0;
 			float accumulateExportedUnits = 0;
+			float accumulateCostExported = 0;
 
 			SortedSet<String> setOfDays = new TreeSet<String>();
 
@@ -7097,47 +7149,48 @@ public class Octopussy implements IOctopus {
 
 				float importPrice = dayValues.getDailyImportPrice();
 
-//				float flatImportPrice = importedUnits * flatRateImport;
+				float exportPrice = dayValues.getDailyExportPrice();
 
 				float importCost = importPrice + importStandingCharge;
 
-//				float difference = (flatImportPrice + flatStandingCharge) - importCost;
-
 				float dailyAverageUnitPrice = importPrice / importedUnits;
 
-				float exportedUnits = 0;
+				float exportedUnits = dayValues.getDailyExport();
 
-				String values = null;
-
-				values = map.get(key);
-
-				if (null == values) {
-					// fallback
-
-					values = map.get(key + "_23:30");
-				}
-
-				if (null != values) {
-
-					String cols[] = values.split(",");
-
-					exportedUnits = Float.valueOf(cols[10]);
-				}
+//				String values = null;
+//
+//				values = map.get(key);
+//
+//				if (null == values) {
+//					// fallback
+//
+//					values = map.get(key + "_23:30");
+//				}
+//
+//				if (null != values) {
+//
+//					String cols[] = values.split(",");
+//
+//					exportedUnits = Float.valueOf(cols[10]);
+//				}
 
 				float importCostInGBP = importCost / 100;
 
-				float exportCostInGBP = (exportedUnits * 15f) / 100;
+				float exportCostInGBP = exportPrice / 100;
 
 				boolean quidsIn = exportCostInGBP > importCostInGBP;
 
+				String indicator = ansi ? ((quidsIn ? ANSI_COLOUR_LO + " * " : ANSI_COLOR_HI + " - ") + ANSI_RESET)
+						: (quidsIn ? " * " : " - ");
+
 				if (showRecent) {
 
-					ps.println(dayValues.getDayOfWeek() + (quidsIn ? " * " : "   ") + key + " £"
+					ps.println(dayValues.getDayOfWeek() + indicator + key + " £"
 							+ String.format("%5.2f", importCostInGBP) + String.format("%7.3f", importedUnits)
 							+ " kWhr @ " + String.format("%5.2f", dailyAverageUnitPrice) + "p" + " = "
 							+ String.format("%8.4f", importPrice) + "p +" + importStandingCharge + "p"
 							+ (export
-									? " + Export:" + String.format("%4.1f", exportedUnits) + " kWhr £"
+									? " - Export:" + String.format("%4.1f", exportedUnits) + " kWhr £"
 											+ String.format("%5.2f", exportCostInGBP) + "   "
 									: "\t")
 
@@ -7145,24 +7198,18 @@ public class Octopussy implements IOctopus {
 							+ String.format("%3d", dayValues.getDayOfYear()));
 				}
 
-//				accumulateDifference += difference;
-
 				accumulateImportedUnits += importedUnits;
 
-				accumulateCost += importPrice;
+				accumulateCostImported += importPrice;
 
 				accumulateExportedUnits += exportedUnits;
+
+				accumulateCostExported += exportPrice;
 			}
 
-			unitCostAverage = accumulateCost / accumulateImportedUnits;
+			unitCostAverage = accumulateCostImported / accumulateImportedUnits;
 
 			float accumulateStanding = tallyDays * importStandingCharge;
-
-//			if (showSavings) {
-//
-//				renderSummaryB(importStandingCharge, flatStandingCharge, flatRateImport, flatRateExport, tallyDays,
-//						unitCostAverage, accumulateImportedUnits, accumulateDifference, accumulateExportedUnits);
-//			}
 
 			ps.flush();
 			ps.close();
@@ -7186,14 +7233,14 @@ public class Octopussy implements IOctopus {
 
 			bb = ByteBuffer.wrap(ba);
 
-			view.write("power", bb);
+			view.write("imported", bb);
 
 			//
-			ba = String.valueOf(accumulateCost).getBytes();
+			ba = String.valueOf(accumulateCostImported).getBytes();
 
 			bb = ByteBuffer.wrap(ba);
 
-			view.write("cost", bb);
+			view.write("costImported", bb);
 
 			//
 			ba = String.valueOf(accumulateStanding).getBytes();
@@ -7209,15 +7256,22 @@ public class Octopussy implements IOctopus {
 			view.write("exported", bb);
 
 			//
+			ba = String.valueOf(accumulateCostExported).getBytes();
+
+			bb = ByteBuffer.wrap(ba);
+
+			view.write("costExported", bb);
+
+			//
 
 			String sUnitCostAverage = String.format("%6.2f", unitCostAverage);
 			String sAccumulateImportedUnits = String.format("%6.2f", accumulateImportedUnits);
-			String sAccumulateCost = String.format("%6.2f", accumulateCost);
+			String sAccumulateCostImported = String.format("%6.2f", accumulateCostImported);
 			String sAccumulateStanding = String.format("%6.2f", accumulateStanding);
 			String sAccumulateExportedUnits = String.format("%6.2f", accumulateExportedUnits);
 
 			logErrTime("With forceUpdate:" + forceUpdate + " [days:" + tallyDays + ",average:" + sUnitCostAverage
-					+ ",power:" + sAccumulateImportedUnits + ",cost:" + sAccumulateCost + ",standing:"
+					+ ",imported:" + sAccumulateImportedUnits + ",cost:" + sAccumulateCostImported + ",standing:"
 					+ sAccumulateStanding + ",exported:" + sAccumulateExportedUnits + "] "
 					+ (newFile ? "new" : "existing") + " " + cacheRecent.getName());
 		}
@@ -7336,6 +7390,8 @@ public class Octopussy implements IOctopus {
 			maxWidth = width;
 		}
 
+		int roundedRecentAveragePrice = Float.valueOf(0.5f + averageUnitCost).intValue();
+
 		{
 			StringBuffer sb = new StringBuffer();
 
@@ -7348,18 +7404,62 @@ public class Octopussy implements IOctopus {
 
 			sb.append("Import prices current & future:");
 
-			for (int n = (export ? -3 : -10); n < maxWidth; n++) {
+			int begin = 1;// Integer.parseInt(pad);
 
-				sb.append(' ');
+			if (!export) {
+
+				begin -= 11;
 			}
 
-			sb.append('|');
+			boolean targetDisplayed = false;
+
+			for (int n = begin; n < maxWidth; n++) {
+
+				if ((n - 2) == target) {
+
+					if (ansi) {
+						sb.append(ANSI_COLOR_HI);
+					}
+					sb.append("F=");
+					sb.append(String.format("%02d", target));
+					sb.append('p');
+
+					if (ansi) {
+						sb.append(ANSI_RESET);
+					}
+
+					targetDisplayed = true;
+
+				} else if ((n - 3) == roundedRecentAveragePrice) {
+
+					if (ansi) {
+						sb.append(ANSI_COLOUR_LO);
+					}
+
+					sb.append('A');
+
+					if (ansi) {
+						sb.append(ANSI_RESET);
+					}
+
+				} else {
+
+					sb.append(' ');
+				}
+			}
+
+			if (!targetDisplayed) {
+
+				sb.append("    "); // instead of F=27p
+			}
+
+			sb.append(" |");
 
 			if (extended > 0) {
 
-				String heads[] = { " 1hr |", " 1.5 |", " 2hr |", " 2.5 |", " 3hr |", " 3.5 |", " 4hr |", " 4.5 |",
-						" 5hr |", " 5.5 |", " 6hr |", " 6.5 |", " 7hr |", " 7.5 |", " 8hr |", " 8.5 |", " 9hr |",
-						" 9.5 |" };
+				String heads[] = { "  1hr |", "  1.5 |", "  2hr |", "  2.5 |", "  3hr |", "  3.5 |", "  4hr |",
+						"  4.5 |", "  5hr |", "  5.5 |", "  6hr |", "  6.5 |", "  7hr |", "  7.5 |", "  8hr |",
+						"  8.5 |", "  9hr |", "  9.5 |" };
 
 				for (int e = 0; e < extended; e++) {
 
@@ -7369,7 +7469,7 @@ public class Octopussy implements IOctopus {
 
 			if (extended > 0) {
 
-				sb.append("HH:MM");
+				sb.append(" HH:MM");
 			}
 
 			System.out.println(sb.toString());
@@ -7423,7 +7523,7 @@ public class Octopussy implements IOctopus {
 
 			if (importPrice <= plunge) {
 
-				sb1.append("<--- PLUNGE <= " + plunge + "p");
+				sb1.append("<- PLUNGE <= " + plunge + "p");
 				n = sb1.length();
 
 			} else {
@@ -7442,9 +7542,17 @@ public class Octopussy implements IOctopus {
 
 						sb1.append('F');
 
-					} else if (averageUnitCost == n) {
+					} else if ((roundedRecentAveragePrice - 1) == n) {
+
+						if (ansi) {
+							sb1.append(ANSI_COLOUR_LO);
+						}
 
 						sb1.append('A');
+
+						if (ansi) {
+							sb1.append(ANSI_RESET);
+						}
 
 					} else if (maxWidth == n) {
 
@@ -7473,7 +7581,22 @@ public class Octopussy implements IOctopus {
 
 			for (; n < maxWidth + 1; n++) {
 
-				sb2.append(' ');
+				if (target == n) {
+
+					if (ansi) {
+						sb2.append(ANSI_COLOR_HI);
+					}
+
+					sb2.append('|');
+
+					if (ansi) {
+						sb2.append(ANSI_RESET);
+					}
+
+				} else {
+
+					sb2.append(' ');
+				}
 			}
 
 			sb2.append('|');
@@ -7521,7 +7644,7 @@ public class Octopussy implements IOctopus {
 
 					if (count < (1 + i)) {
 
-						sb3.append("     ");
+						sb3.append("      ");
 
 					} else {
 
@@ -7560,7 +7683,7 @@ public class Octopussy implements IOctopus {
 							}
 						}
 
-						sb3.append(String.format("%5.2f",
+						sb3.append(String.format("%6.2f",
 								(Boolean.FALSE.equals(flagTimeGoodForImportOrExport) ? accExport / count
 										: accImport / count)));
 
@@ -7678,14 +7801,14 @@ public class Octopussy implements IOctopus {
 
 			System.out.println(optionalExport + slotCost.getSimpleTimeStamp() + "  "
 					+ (null == chargeOrDischargeSlot
-							? (cheapestImport ? "!" : " ") + (lessThanAverage ? "!" : " ") + " "
+							? (cheapestImport ? "*" : " ") + (lessThanAverage ? "+" : " ") + " "
 							: chargeOrDischargeSlot)
 
-					+ " " + (ansi && lessThanBatteryCost ? ANSI_SCORE : "") + String.format("%5.2f", importPrice) + "p"
+					+ " " + (ansi && lessThanBatteryCost ? ANSI_SCORE : "") + String.format("%6.2f", importPrice) + "p"
 					+ (ansi && lessThanBatteryCost ? ANSI_RESET : "") + "  "
 
 					+ (ansi && cheapestImport ? ANSI_COLOUR_LO : "") + asterisks
-					+ (ansi && cheapestImport ? ANSI_RESET : "") + padding + prices + clockHHMM);
+					+ (ansi && cheapestImport ? ANSI_RESET : "") + padding + prices + " " + clockHHMM);
 
 		}
 
