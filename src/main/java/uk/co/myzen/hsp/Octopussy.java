@@ -7098,7 +7098,7 @@ public class Octopussy implements IOctopus {
 					}
 				}
 
-				sb.append("):");
+				sb.append(") including daily standing charges:");
 
 				ps.println(sb.toString());
 			}
