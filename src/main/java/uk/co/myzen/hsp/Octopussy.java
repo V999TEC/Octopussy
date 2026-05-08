@@ -1643,7 +1643,7 @@ public class Octopussy implements IOctopus {
 
 				float standing = Float.parseFloat(extendedAttributes.get("standing"));
 
-//				float imported = Float.parseFloat(extendedAttributes.get("imported"));
+				float imported = Float.parseFloat(extendedAttributes.get("imported"));
 
 				float exported = Float.parseFloat(extendedAttributes.get("exported"));
 
@@ -1657,14 +1657,14 @@ public class Octopussy implements IOctopus {
 
 				float dailyCostAverage = poundsNet / countDays;
 
-				System.out.println("\n" + String.format("%4d", countDays) + " day total: £"
-						+ String.format("%6.2f", totalPounds) + " including standing charge (£"
-						+ String.format("%5.2f", standing / 100) + ")"
+				System.out.println("\nRecent import:  £"
+						+ String.format("%6.2f", totalPounds)  + String.format("%6.2f", imported)+ " units  Standing charge: £"
+						+ String.format("%5.2f", standing / 100) 
 						+ (export
-								? "   and exported: " + String.format("%5.1f", exported) + "     (£"
-										+ String.format("%5.2f", costExported / 100) + ")"
+								? "     Exported: " + String.format("%5.1f", exported) + " kWhr £"
+										+ String.format("%5.2f", costExported / 100) 
 								: "")
-						+ "    " + (ansi ? ANSI_SCORE : "") + "Average: £" + String.format("%5.2f", dailyCostAverage)
+						+ "    " + (ansi ? ANSI_SCORE : "") + " Average: £" + String.format("%5.2f", dailyCostAverage)
 						+ " daily cost recently" + (ansi ? ANSI_RESET : ""));
 			}
 
@@ -4477,7 +4477,7 @@ public class Octopussy implements IOctopus {
 					+ (ansi ? ANSI_RESET : "") + " :Deficit";
 		} else {
 
-			result = "Surplus: " + (ansi ? ANSI_SCORE : "") + "£" + String.format("%+5.2f", value)
+			result = "Surplus: " + (ansi ? ANSI_COLOUR_LO : "") + "£" + String.format("%+5.2f", value)
 					+ (ansi ? ANSI_RESET : "") + "         ";
 		}
 
