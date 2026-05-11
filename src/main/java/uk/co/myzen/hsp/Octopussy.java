@@ -1657,11 +1657,11 @@ public class Octopussy implements IOctopus {
 
 				float dailyCostAverage = poundsNet / countDays;
 
-				System.out.println("\nRecent import:  £"
-						+ String.format("%6.2f", totalPounds)  + String.format("%6.2f", imported)+ " units  Standing charge: £"
+				System.out.println("\nRecent import   £"
+						+ String.format("%6.2f", totalPounds)  + String.format("%7.3f", imported)+ " kWhr (Standing charge  £"
 						+ String.format("%5.2f", standing / 100) 
 						+ (export
-								? "     Exported: " + String.format("%5.1f", exported) + " kWhr £"
+								? ") Recent Export" + String.format("%5.1f", exported) + " kWhr £"
 										+ String.format("%5.2f", costExported / 100) 
 								: "")
 						+ "    " + (ansi ? ANSI_SCORE : "") + " Average: £" + String.format("%5.2f", dailyCostAverage)
