@@ -1661,7 +1661,7 @@ public class Octopussy implements IOctopus {
 						+ String.format("%6.2f", totalPounds)  + String.format("%7.3f", imported)+ " kWhr (Standing charge  £"
 						+ String.format("%5.2f", standing / 100) 
 						+ (export
-								? ") Recent Export" + String.format("%5.1f", exported) + " kWhr £"
+								? ") Recent Export:" + String.format("%5.1f", exported) + " kWhr £"
 										+ String.format("%5.2f", costExported / 100) 
 								: "")
 						+ "    " + (ansi ? ANSI_SCORE : "") + " Average: £" + String.format("%5.2f", dailyCostAverage)
@@ -7190,7 +7190,7 @@ public class Octopussy implements IOctopus {
 							+ " kWhr @ " + String.format("%5.2f", dailyAverageUnitPrice) + "p" + " = "
 							+ String.format("%8.4f", importPrice) + "p +" + importStandingCharge + "p"
 							+ (export
-									? " - Export:" + String.format("%4.1f", exportedUnits) + " kWhr £"
+									? " - Export:" + String.format("%5.1f", exportedUnits) + " kWhr £"
 											+ String.format("%5.2f", exportCostInGBP) + "   "
 									: "\t")
 
