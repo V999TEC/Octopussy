@@ -7099,7 +7099,16 @@ public class Octopussy implements IOctopus {
 				}
 
 				sb.append(") including daily standing charges:");
-
+								
+				int length = sb.length();
+				
+				for( int l = length; l< 128; l++) {
+					
+					sb.append(' ');
+				}
+				
+				sb.append("Day");
+				
 				ps.println(sb.toString());
 			}
 
