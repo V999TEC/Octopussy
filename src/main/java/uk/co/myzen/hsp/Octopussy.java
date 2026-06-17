@@ -5027,8 +5027,8 @@ public class Octopussy implements IOctopus {
 				+ (ansi ? ANSI_RESET : ""));
 
 		System.out.println("Plunge price is set to:  " + String.format("%2d", plunge)
-				+ "p (System schedules e(X)port slots prior to price plunge slots <= " + plunge + "p) "
-				+ surplusOrDeficit(netCostSoFarToday) + " " + (ansi ? ANSI_COLOUR_LO : "")
+				+ "p (System schedules e(X)port slots prior to price plunge slots <= " + plunge + "p)  "
+				+ surplusOrDeficit(netCostSoFarToday)  + (ansi ? ANSI_COLOUR_LO : "")
 				+ String.format("%5.0f", 1000 * kWhrSolar) + (ansi ? ANSI_RESET : "") + (ansi ? ANSI_SUNSHINE : "")
 				+ " £" + String.format("%5.2f", exportCostSoFarToday) + (ansi ? ANSI_RESET : ""));
 
