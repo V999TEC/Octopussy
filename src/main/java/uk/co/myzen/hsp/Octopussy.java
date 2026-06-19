@@ -5011,7 +5011,7 @@ public class Octopussy implements IOctopus {
 				+ String.format("%5.2f", importCostSoFarToday) + (ansi ? ANSI_RESET : "") + "  (so far...) based on "
 				+ gridImportUnits + " kWhr @ " + (ansi ? ANSI_SCORE : "") + String.format("%5.2f", avUnitPriceToday)
 				+ "p" + (ansi ? ANSI_RESET : "") + " / kWhr up to " + timestamp.substring(11, 19)
-				+ " (incl. standing charge " + String.format("%5.2f", importStandingCharge) + "p)   " + (aio
+				+ " (incl. standing charge " + String.format("%5.2f", importStandingCharge) + "p)    " + (aio
 						? (ansi ? ANSI_COLOUR_LO : "") + "Wh" + (ansi ? ANSI_RESET : "") + (ansi ? ANSI_SUNSHINE : "")
 								+ "  Export" + (ansi ? ANSI_RESET : "")
 						: ""));
@@ -5022,14 +5022,14 @@ public class Octopussy implements IOctopus {
 				+ (ansi ? ANSI_RESET : "") + ")verage price:  " + String.format("%6.3f", averageUnitCost) + "p ("
 				+ (ansi ? ANSI_COLOUR_LO : "") + roundedAverageWholePence + "p" + (ansi ? ANSI_RESET : "")
 				+ ")  Current import price: " + penceImport + "p " + "       Current export price: " + penceExport
-				+ "p    " + (ansi ? ANSI_COLOUR_LO : "") + "Sun forecast: " + String.format("%5d", solarForecastWhr)
+				+ "p    " + (ansi ? ANSI_COLOUR_LO : "") + " Sun forecast: " + String.format("%5d", solarForecastWhr)
 				+ (ansi ? ANSI_RESET : "") + "  " + (ansi ? ANSI_SUNSHINE : "") + gridExportUnits
 				+ (ansi ? ANSI_RESET : ""));
 
 		System.out.println("Plunge price is set to:  " + String.format("%2d", plunge)
 				+ "p (System schedules e(X)port slots prior to price plunge slots <= " + plunge + "p)  "
 				+ surplusOrDeficit(netCostSoFarToday)  + (ansi ? ANSI_COLOUR_LO : "")
-				+ String.format("%5.0f", 1000 * kWhrSolar) + (ansi ? ANSI_RESET : "") + (ansi ? ANSI_SUNSHINE : "")
+				+ String.format("%6.0f", 1000 * kWhrSolar) + (ansi ? ANSI_RESET : "") + (ansi ? ANSI_SUNSHINE : "")
 				+ " £" + String.format("%5.2f", exportCostSoFarToday) + (ansi ? ANSI_RESET : ""));
 
 		int[] slots = null;
