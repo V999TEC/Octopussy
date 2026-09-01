@@ -1572,16 +1572,16 @@ public class Octopussy implements IOctopus {
 
 					long recentEpochDay = recentEpochSecond / 86400;
 
-					long days = (recentEpochDay - oldestEpochDay);
+					long days = (recentEpochDay - oldestEpochDay)+1;
 
 					float netCostPence = (costImportTotal - costExportTotal);
 
 					float longTermAverageDaily = netCostPence / days;
 
 					ps.println("\nNet running total electricity cost: " + (ansi ? ANSI_COLOUR_LO : "") + " £"
-							+ String.format("%6.2f", netCostPence / 100) + (ansi ? ANSI_RESET : "") + " for " + days
+							+ String.format("%6.2f", netCostPence / 100) + (ansi ? ANSI_RESET : "") + " for " + (days)
 							+ " days from " + oldestDate.toString() + " to "
-							+ zuluBegin.minusDays(1).toLocalDate().toString() + " inclusive.  Daily: "
+							+ zuluBegin.minusDays(0).toLocalDate().toString() + " inclusive.  Daily: "
 							+ (ansi ? ANSI_SCORE : "") + "£" + String.format("%4.2f", longTermAverageDaily / 100)
 							+ (ansi ? ANSI_RESET : "") + " average long term\n");
 
