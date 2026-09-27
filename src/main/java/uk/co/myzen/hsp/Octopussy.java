@@ -4389,8 +4389,11 @@ public class Octopussy implements IOctopus {
 				result[r] = sc.getSlotEndTime24hr();
 
 				if (0 == currentSlotEndTime.compareTo(result[r])) {
+					
+					// EXPERIMENTAL: BELOW: Don't cancel export slot if price < 0p
 
-					if (sc.getImportPrice() > 0) {
+//					if (sc.getImportPrice() > 0)
+					{
 
 						batteryDischargePower(Integer.valueOf(maxRate));
 
@@ -4412,42 +4415,46 @@ public class Octopussy implements IOctopus {
 						acChargeEnable(false);
 						enableDcDischarge(true);
 
-					} else {
-
-						String xn = WatchSlotDischargeHelperThread.XN(r, true);
-
-						logErrTime("WARNING: export slot " + xn
-								+ " is cancelled because import price indicates free or better");
-
-						currentTimeSlotIsCancelled = true; // this is mainly for the showAnalysis() display
-
-						// dynamically add an extra charge slot
-
-						{
-							// only if battery level < pause.threshold
-							// otherwise we may kick off a concurrent thread that pauses battery
-
-							int batteryPercent = instance.execReadBatteryPercent();
-
-							if (batteryPercent < Integer.parseInt(pauseThreshold)) {
-
-								int scheduleIndex = appendToChargeSchedule(currentSlotEndTime);
-
-								String startTime = sc.getSlotStartTime24hr();
-
-								resetChargingSlot(scheduleIndex, startTime, currentSlotEndTime, 100);
-
-								chargeMonitorThread = new WatchSlotChargeHelperThread(this, chargeSchedule,
-										scheduleIndex, 20, 100, -1, 0);
-								//
-
-								chargeMonitorThread.start(); // this spawned thread will run no longer than HH:MM in
-																// schedule[s]
-								// the slot will be reset when task complete
-							}
-						}
-
 					}
+//					else {
+//
+//						String xn = WatchSlotDischargeHelperThread.XN(r, true);
+//
+//						logErrTime("WARNING: export slot " + xn
+//								+ " is cancelled because import price indicates free or better");
+//
+//						currentTimeSlotIsCancelled = true; // this is mainly for the showAnalysis() display
+//
+//						// dynamically add an extra charge slot
+//
+//						{
+//							// only if battery level < pause.threshold
+//							// otherwise we may kick off a concurrent thread that pauses battery
+//
+//							int batteryPercent = instance.execReadBatteryPercent();
+//
+//							if (batteryPercent < Integer.parseInt(pauseThreshold)) {
+//
+//								int scheduleIndex = appendToChargeSchedule(currentSlotEndTime);
+//
+//								String startTime = sc.getSlotStartTime24hr();
+//
+//								resetChargingSlot(scheduleIndex, startTime, currentSlotEndTime, 100);
+//
+//								chargeMonitorThread = new WatchSlotChargeHelperThread(this, chargeSchedule,
+//										scheduleIndex, 20, 100, -1, 0);
+//								//
+//
+//								chargeMonitorThread.start(); // this spawned thread will run no longer than HH:MM in
+//																// schedule[s]
+//								// the slot will be reset when task complete
+//							}
+//						}
+//
+//					}
+					
+					// EXPERIMENTAL: ABOVE: Don't cancel export slot if price < 0p
+									
 				}
 			}
 		}
