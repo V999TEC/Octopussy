@@ -1578,7 +1578,7 @@ public class Octopussy implements IOctopus {
 
 					float longTermAverageDaily = netCostPence / days;
 
-					ps.println("\nNet running total electricity cost: " + (ansi ? ANSI_COLOUR_LO : "") + " £"
+					ps.println("Net running total electricity cost: " + (ansi ? ANSI_COLOUR_LO : "") + " £"
 							+ String.format("%6.2f", netCostPence / 100) + (ansi ? ANSI_RESET : "") + " for " + (days)
 							+ " days from " + oldestDate.toString() + " to "
 							+ zuluBegin.minusDays(0).toLocalDate().toString() + " inclusive.  Daily: "
