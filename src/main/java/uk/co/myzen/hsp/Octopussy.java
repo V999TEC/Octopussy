@@ -7429,7 +7429,7 @@ public class Octopussy implements IOctopus {
 
 			boolean targetDisplayed = false;
 
-			for (int n = begin; n < maxWidth; n++) {
+			for (int n = begin; n < maxWidth-1; n++) {
 
 				if ((n - 2) == target) {
 
@@ -7469,8 +7469,25 @@ public class Octopussy implements IOctopus {
 				sb.append("    "); // instead of F=27p
 			}
 
-			sb.append(" |");
+			String mw = String.valueOf(maxWidth);
+			
+			sb.append (ansi ? ANSI_SCORE : "");
+			
+			if(1 == mw.length()) {
+			
+				sb.append(" "+mw+"|");
+			
+			} else if(2 == mw.length()) {
 
+				sb.append(mw+"|");
+				
+			} else {
+				
+				sb.append("  |");
+			}
+			
+			sb.append (ansi ? ANSI_RESET : "");
+			
 			if (extended > 0) {
 
 				String heads[] = { "  1hr |", "  1.5 |", "  2hr |", "  2.5 |", "  3hr |", "  3.5 |", "  4hr |",
