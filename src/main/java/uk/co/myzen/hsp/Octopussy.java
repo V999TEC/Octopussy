@@ -7386,17 +7386,37 @@ public class Octopussy implements IOctopus {
 			ArrayList<Long> bestExportTime) {// , String[] chargeSchedule) {
 
 		int maxWidth = 0;
+		int minWidth = 100;
 
+		int counter =0;
+		
+		int lim = Integer.valueOf(limit).intValue();
+		
 		for (SlotCost slotCost : pricesPerSlot) {
+			
+			counter++;
+			
+			if( counter>lim) {
+				
+				break;
+			}
+			
 			// find highest price which determines width of asterisks
 
 			Float importValueIncVat = slotCost.getImportPrice();
 
 			if (null != importValueIncVat) {
+				
+				int valueInVat = importValueIncVat.intValue();
 
-				if (importValueIncVat > maxWidth) {
+				if (valueInVat > maxWidth) {
 
-					maxWidth = importValueIncVat.intValue();
+					maxWidth = valueInVat;
+				}
+				
+				if (valueInVat < minWidth) {
+
+					minWidth = valueInVat;
 				}
 			}
 		}
@@ -7427,6 +7447,16 @@ public class Octopussy implements IOctopus {
 				begin -= 11;
 			}
 
+			String minW = "  |"+String.valueOf(minWidth);
+			
+			sb.append (ansi ? ANSI_SCORE : "");
+			
+			sb.append(minW);
+						
+			begin += minW.length();;
+			
+			sb.append (ansi ? ANSI_RESET : "");
+			
 			boolean targetDisplayed = false;
 
 			for (int n = begin; n < maxWidth-1; n++) {
@@ -7469,17 +7499,17 @@ public class Octopussy implements IOctopus {
 				sb.append("    "); // instead of F=27p
 			}
 
-			String mw = String.valueOf(maxWidth);
+			String maxW = String.valueOf(maxWidth);
 			
 			sb.append (ansi ? ANSI_SCORE : "");
 			
-			if(1 == mw.length()) {
+			if(1 == maxW.length()) {
 			
-				sb.append(" "+mw+"|");
+				sb.append(" "+maxW+"|");
 			
-			} else if(2 == mw.length()) {
+			} else if(2 == maxW.length()) {
 
-				sb.append(mw+"|");
+				sb.append(maxW+"|");
 				
 			} else {
 				
