@@ -7203,8 +7203,8 @@ public class Octopussy implements IOctopus {
 
 					ps.println(dayValues.getDayOfWeek() + indicator + key + " £"
 							+ String.format("%5.2f", importCostInGBP) + String.format("%7.3f", importedUnits)
-							+ " kWhr @ " + String.format("%5.2f", dailyAverageUnitPrice) + "p" + " = "
-							+ String.format("%8.4f", importPrice) + "p +" + importStandingCharge + "p"
+							+ " kWhr @" + String.format("%6.2f", dailyAverageUnitPrice) + "p" + " ="
+							+ String.format("%9.4f", importPrice) + "p +" + importStandingCharge + "p"
 							+ (export
 									? " - Export:" + String.format("%5.1f", exportedUnits) + " kWhr £"
 											+ String.format("%5.2f", exportCostInGBP) + "   "
