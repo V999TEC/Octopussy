@@ -7619,7 +7619,7 @@ public class Octopussy implements IOctopus {
 
 					} else if (maxWidth == n) {
 
-						sb1.append('>');
+						sb1.append('+');
 						n++;
 						break;
 
