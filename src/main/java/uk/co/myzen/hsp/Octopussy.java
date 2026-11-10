@@ -5024,11 +5024,11 @@ public class Octopussy implements IOctopus {
 						: ""));
 
 		String roundedAverageWholePence = String.format("%2d", Float.valueOf(0.5f + averageUnitCost).intValue());
-
+		
 		System.out.println(String.format("%2d", countDays) + " day (" + (ansi ? ANSI_COLOUR_LO : "") + "A"
 				+ (ansi ? ANSI_RESET : "") + ")verage price:  " + String.format("%6.3f", averageUnitCost) + "p ("
 				+ (ansi ? ANSI_COLOUR_LO : "") + roundedAverageWholePence + "p" + (ansi ? ANSI_RESET : "")
-				+ ")  Current import price: " + penceImport + "p " + "       Current export price: " + penceExport
+				+ ")  Current import price: " + penceImport + "p " + (ansi? ANSI_COLOR_HI : "") + "F="+String.format("%02d", target)+ "p"+ (ansi ? ANSI_RESET : "") +"  Current export price: " + penceExport
 				+ "p    " + (ansi ? ANSI_COLOUR_LO : "") + " Sun forecast: " + String.format("%5d", solarForecastWhr)
 				+ (ansi ? ANSI_RESET : "") + "  " + (ansi ? ANSI_SUNSHINE : "") + gridExportUnits
 				+ (ansi ? ANSI_RESET : ""));
@@ -7457,72 +7457,35 @@ public class Octopussy implements IOctopus {
 			
 			sb.append (ansi ? ANSI_RESET : "");
 			
-			boolean targetDisplayed = false;
+			for (int n = begin; n < maxWidth+3; n++) {
 
-			for (int n = begin; n < maxWidth-1; n++) {
-
-				if ((n - 2) == target) {
+				if ((n -4) == target) {
 
 					if (ansi) {
 						sb.append(ANSI_COLOR_HI);
 					}
-					sb.append("F=");
-					sb.append(String.format("%02d", target));
-					sb.append('p');
+					sb.append("F");
 
 					if (ansi) {
 						sb.append(ANSI_RESET);
 					}
 
-					targetDisplayed = true;
+				} else if ((n -3) == roundedRecentAveragePrice) {
 
-				} else if ((n - 3) == roundedRecentAveragePrice) {
-
-					if(targetDisplayed ) {
-						
-						sb.append(' ');
-					
-					} else {
-						
-						if (ansi) {
-							sb.append(ANSI_COLOUR_LO);
-						}
-	
-						sb.append('A');
-	
-						if (ansi) {
-							sb.append(ANSI_RESET);
-						}						
+					if (ansi) {
+						sb.append(ANSI_COLOUR_LO);
 					}
-					
-				} else if ((n+1) == roundedRecentAveragePrice) {
-						
-					if(targetDisplayed ) {
-						
-						if (ansi) {
-							sb.append(ANSI_COLOUR_LO);
-						}
-	
-						sb.append('A');
-	
-						if (ansi) {
-							sb.append(ANSI_RESET);
-						}
-						
-					} else {
-						
-						sb.append(' ');
+
+					sb.append('A');
+
+					if (ansi) {
+						sb.append(ANSI_RESET);
 					}	
 					
 				} else {
 
 					sb.append(' ');
 				}
-			}
-
-			if (!targetDisplayed) {
-
-				sb.append("    "); // instead of F=27p
 			}
 
 			String maxW = String.valueOf(maxWidth);
