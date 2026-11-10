@@ -4480,11 +4480,11 @@ public class Octopussy implements IOctopus {
 
 		if (value < 0) {
 
-			result = "         " + (ansi ? ANSI_COLOR_HI : "") + "£" + String.format("%-5.2f", value)
+			result = "        " + (ansi ? ANSI_COLOR_HI : "")  + String.format("£% 6.2f", value)
 					+ (ansi ? ANSI_RESET : "") + " :Deficit";
 		} else {
 
-			result = "Surplus: " + (ansi ? ANSI_COLOUR_LO : "") + "£" + String.format("%+5.2f", value)
+			result = "Surplus:" + (ansi ? ANSI_COLOUR_LO : "") + String.format("£%+6.2f", value)
 					+ (ansi ? ANSI_RESET : "") + "         ";
 		}
 
@@ -7478,16 +7478,42 @@ public class Octopussy implements IOctopus {
 
 				} else if ((n - 3) == roundedRecentAveragePrice) {
 
-					if (ansi) {
-						sb.append(ANSI_COLOUR_LO);
+					if(targetDisplayed ) {
+						
+						sb.append(' ');
+					
+					} else {
+						
+						if (ansi) {
+							sb.append(ANSI_COLOUR_LO);
+						}
+	
+						sb.append('A');
+	
+						if (ansi) {
+							sb.append(ANSI_RESET);
+						}						
 					}
-
-					sb.append('A');
-
-					if (ansi) {
-						sb.append(ANSI_RESET);
-					}
-
+					
+				} else if ((n+1) == roundedRecentAveragePrice) {
+						
+					if(targetDisplayed ) {
+						
+						if (ansi) {
+							sb.append(ANSI_COLOUR_LO);
+						}
+	
+						sb.append('A');
+	
+						if (ansi) {
+							sb.append(ANSI_RESET);
+						}
+						
+					} else {
+						
+						sb.append(' ');
+					}	
+					
 				} else {
 
 					sb.append(' ');
