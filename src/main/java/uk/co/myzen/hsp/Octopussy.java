@@ -7568,6 +7568,8 @@ public class Octopussy implements IOctopus {
 			boolean lessThanAverage = importPrice < averageUnitCost;
 
 			boolean lessThanBatteryCost = importPrice < avUnitPriceToday;
+			
+			boolean overMaxWidth = false;
 
 			sb1 = new StringBuffer();
 
@@ -7603,13 +7605,24 @@ public class Octopussy implements IOctopus {
 						sb1.append('A');
 
 						if (ansi) {
-							sb1.append(ANSI_RESET);
+						
+							if (aboveTarget) {
+						
+								sb1.append(ANSI_COLOR_HI);
+							
+							} else {
+						
+								sb1.append(ANSI_RESET);
+							}
 						}
-
+						
 					} else if (maxWidth == n) {
 
 						sb1.append('+');
 						n++;
+						
+						overMaxWidth = true;
+						
 						break;
 
 					} else {
@@ -7621,6 +7634,7 @@ public class Octopussy implements IOctopus {
 				if (aboveTarget) {
 
 					if (ansi) {
+						
 						sb1.append(ANSI_RESET);
 					}
 				}
@@ -7853,12 +7867,12 @@ public class Octopussy implements IOctopus {
 
 			System.out.println(optionalExport + slotCost.getSimpleTimeStamp() + "  "
 					+ (null == chargeOrDischargeSlot
-							? (cheapestImport ? "*" : " ") + (lessThanAverage ? "+" : " ") + " "
+							? (cheapestImport ? "+" : " ") + (lessThanAverage ? "+" : " ") + " "
 							: chargeOrDischargeSlot)
 
-					+ " " + (ansi && lessThanBatteryCost ? ANSI_SCORE : "") + String.format("%6.2f", importPrice) + "p"
-					+ (ansi && lessThanBatteryCost ? ANSI_RESET : "") + "  "
-
+					+ " " +  (ansi && cheapestImport ? ANSI_COLOUR_LO :  ((ansi && lessThanBatteryCost ? ANSI_SCORE :( ansi && overMaxWidth ? ANSI_COLOR_HI  : "")))) 
+					+ String.format("%6.2f", importPrice) + "p"
+					+ (ansi && (lessThanBatteryCost|| overMaxWidth)  ? ANSI_RESET : "") + "  "
 					+ (ansi && cheapestImport ? ANSI_COLOUR_LO : "") + asterisks
 					+ (ansi && cheapestImport ? ANSI_RESET : "") + padding + prices + " " + clockHHMM);
 
