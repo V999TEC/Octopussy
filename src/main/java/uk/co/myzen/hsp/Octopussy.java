@@ -1658,10 +1658,10 @@ public class Octopussy implements IOctopus {
 				float dailyCostAverage = poundsNet / countDays;
 
 				System.out.println("\nRecent import   "+(ansi ? ANSI_SCORE : "") +"£"
-						+ String.format("%6.2f", totalPounds) + (ansi ? ANSI_RESET : "") + String.format("%7.3f", imported)+ " kWhr (Standing charge  £"
+						+ String.format("%6.2f", totalPounds) + (ansi ? ANSI_RESET : "") + String.format("%8.3f", imported)+ " kWhr (Standing charge £"
 						+ String.format("%5.2f", standing / 100) 
 						+ (export
-								? ") Recent Export:" + String.format("%5.1f", exported) + " kWhr £"
+								? ")  Recent Export:" + String.format("%5.1f", exported) + " kWhr £"
 										+ String.format("%5.2f", costExported / 100) 
 								: "")
 						+ "    " + (ansi ? ANSI_SCORE : "") + " Average: £" + String.format("%5.2f", dailyCostAverage)
@@ -7202,7 +7202,7 @@ public class Octopussy implements IOctopus {
 				if (showRecent) {
 
 					ps.println(dayValues.getDayOfWeek() + indicator + key + " £"
-							+ String.format("%5.2f", importCostInGBP) + String.format("%7.3f", importedUnits)
+							+ String.format("%5.2f", importCostInGBP) + String.format("%8.3f", importedUnits)
 							+ " kWhr @" + String.format("%6.2f", dailyAverageUnitPrice) + "p" + " ="
 							+ String.format("%9.4f", importPrice) + "p +" + importStandingCharge + "p"
 							+ (export
@@ -7210,7 +7210,7 @@ public class Octopussy implements IOctopus {
 											+ String.format("%5.2f", exportCostInGBP) + "   "
 									: "\t")
 
-							+ "  " + surplusOrDeficit(exportCostInGBP - importCostInGBP) + "\t"
+							+ " " + surplusOrDeficit(exportCostInGBP - importCostInGBP) + "\t"
 							+ String.format("%3d", dayValues.getDayOfYear()));
 				}
 
