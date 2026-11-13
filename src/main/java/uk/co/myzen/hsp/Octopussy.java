@@ -1664,7 +1664,7 @@ public class Octopussy implements IOctopus {
 								? ")  Recent Export:" + String.format("%5.1f", exported) + " kWhr £"
 										+ String.format("%5.2f", costExported / 100) 
 								: "")
-						+ "   " + (ansi ? ANSI_SCORE : "") + " Average: £" + String.format("%5.2f", dailyCostAverage)
+						+ "  " + (ansi ? ANSI_SCORE : "") + " Average: £" + String.format("%6.2f", dailyCostAverage)
 						+ " daily cost recently" + (ansi ? ANSI_RESET : ""));
 			}
 
