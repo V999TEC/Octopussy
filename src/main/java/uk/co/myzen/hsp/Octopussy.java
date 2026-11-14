@@ -6076,7 +6076,7 @@ public class Octopussy implements IOctopus {
 		String hms = ltNow.format(formatterHourMinuteSecond);
 
 		bannerMessage = "\n" + hms + " " + DayOfWeek.of(ldt.get(ChronoField.DAY_OF_WEEK)).toString().substring(0, 3)
-				+ " " + today + "\tSun up for " + hours + " hours " + minutes + " mins " + seconds + " secs. Sunrise "
+				+ " " + today + "\tSun up for " + hours + " hours " + minutes + " mins " + seconds + " secs Sunrise "
 				+ (ltNow.compareTo(ltSunrise) > 0 ? "was" : "is") + " at " + sunEvents[0] + " Solar Noon "
 				+ (ltNow.compareTo(ltCulmination) > 0 ? "was" : "is") + " at " + sunEvents[1] + " Sunset "
 				+ (ltNow.compareTo(ltSunset) > 0 ? "was" : "is") + " at " + sunEvents[2] + "\n";
@@ -7470,7 +7470,7 @@ public class Octopussy implements IOctopus {
 						sb.append(ANSI_RESET);
 					}
 
-				} else if ((n -3) == roundedRecentAveragePrice) {
+				} else if ((n -4) == roundedRecentAveragePrice) {
 
 					if (ansi) {
 						sb.append(ANSI_COLOUR_LO);
@@ -7596,7 +7596,7 @@ public class Octopussy implements IOctopus {
 
 						sb1.append('F');
 
-					} else if ((roundedRecentAveragePrice - 1) == n) {
+					} else if (roundedRecentAveragePrice  == n) {
 
 						if (ansi) {
 							sb1.append(ANSI_COLOUR_LO);
