@@ -5340,11 +5340,12 @@ public class Octopussy implements IOctopus {
 				if (currentlyCheaperThanOvernight || cha.containsKey(rangeEndTime)) {
 
 					logErrTime("ALERT: Overiding S" + (1 + s) + " start time & limit " + maxPercent + "% / @ "
-							+ dayPartPowerDefault + "W with 100% / @ " + defaultChargeRate + " W");
+							+ dayPartPowerDefault + "W with 100% / @ " + maxRate + " W");
 
 					minPercent = 100; // will trigger a expedite:true within the WatchSlotChargeHelperThread
 					maxPercent = 100;
 
+					chargingSlotPower = -1;
 					minsDelayStart = 0;
 
 					if (!currentlyCheaperThanOvernight) {
